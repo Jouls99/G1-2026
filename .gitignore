@@ -141,3 +141,11 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Archivos temporales de Windows
+Thumbs.db
+desktop.ini
+
+# Archivos y respaldos de bases de datos de XAMPP
+*.sql
+
