@@ -1,0 +1,125 @@
+[
+    {
+        "id": "1783463461869",
+        "productos": [
+            {
+                "id": 1783463457838,
+                "nombre": "luz uv",
+                "codigo": "666666",
+                "cantidad": 3,
+                "precio": 25000
+            }
+        ],
+        "total": 75000,
+        "totalInventario": 2597000,
+        "fecha": "2026-07-07T22:31:01.866Z"
+    },
+    {
+        "id": "1783463485613",
+        "totalInventario": 234000,
+        "productos": [
+            {
+                "nombre": "Base Matte",
+                "codigo": "MQL-001",
+                "cantidad": 1,
+                "precio": 18000
+            }
+        ],
+        "total": 18000,
+        "fecha": "2026-07-07T22:31:25.4683879Z"
+    },
+    {
+        "id": "1783465246268",
+        "productos": [
+            {
+                "id": 1783465244079,
+                "nombre": "Base Matte",
+                "codigo": "MQL-001",
+                "cantidad": 1,
+                "precio": 18000
+            }
+        ],
+        "total": 18000,
+        "totalInventario": 80979000,
+        "fecha": "2026-07-07T23:00:46.264Z"
+    },
+    {
+        "id": "1783548291063",
+        "productos": [
+            {
+                "nombre": "Base Matte",
+                "codigo": "MQL-001",
+                "cantidad": 1,
+                "precio": 18000
+            }
+        ],
+        "total": 18000,
+        "dinero": 18000,
+        "fecha": "2026-07-08T22:04:50.997Z"
+    },
+    {
+        "id": "1783549168110",
+        "productos": [
+            {
+                "id": 1783549156843,
+                "nombre": "Base Matte",
+                "codigo": "MQL-001",
+                "cantidad": 2,
+                "precio": 18000
+            }
+        ],
+        "total": 36000,
+        "dinero": 36000,
+        "totalInventario": 2543000,
+        "fecha": "2026-07-08T22:19:28.041Z"
+    },
+    {
+        "id": "1788221762357",
+        "productos": [
+            {
+                "id": 1788221729797,
+                "nombre": "Extraxtor de puntos negros",
+                "codigo": "324882377",
+                "cantidad": 1,
+                "precio": 60000,
+                "categoria": "aparatologia"
+            },
+            {
+                "id": 1788221737346,
+                "nombre": "Masajeador Facial Gama",
+                "codigo": "2347828",
+                "cantidad": 1,
+                "precio": 70000,
+                "categoria": "aparatologia"
+            },
+            {
+                "id": 1788221745900,
+                "nombre": "Victoria Secret Red Velvet",
+                "codigo": "234723847",
+                "cantidad": 2,
+                "precio": 40000,
+                "categoria": "Fragancias"
+            },
+            {
+                "id": 1788221750731,
+                "nombre": "Ampolla Vitamina C",
+                "codigo": "TRT-001",
+                "cantidad": 1,
+                "precio": 9000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 1788221757393,
+                "nombre": "Sombras Compactas",
+                "codigo": "OJ-001",
+                "cantidad": 1,
+                "precio": 12000,
+                "categoria": "Maquillaje"
+            }
+        ],
+        "total": 231000,
+        "dinero": 231000,
+        "totalInventario": 2902000,
+        "fecha": "2026-09-01T00:16:02.346Z"
+    }
+]

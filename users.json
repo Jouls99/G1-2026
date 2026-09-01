@@ -1,0 +1,20 @@
+[
+    {
+        "usuario": "admin",
+        "password": "$2y$10$mVOaTZ9oNbIgZ0\/qS0tEs.Ihjtb\/9hBjzSN6dXwMTd6\/D\/upCg6Ye",
+        "role": "administrador",
+        "creado_en": "2026-08-26T03:26:18+02:00"
+    },
+    {
+        "usuario": "vendedor",
+        "password": "$2y$10$25jyoxAszee0FZJxe39m1eejRfgGorkTN3zhRRMbUkOqaRWKcR5My",
+        "role": "vendedor",
+        "creado_en": "2026-08-26T03:26:18+02:00"
+    },
+    {
+        "usuario": "vendedora_maria",
+        "password": "$2y$10$8S9LQPECD58KYJwblanVq.FJ0oHzwDPJ6JaczzOYRXjF\/ahVocCCm",
+        "role": "vendedora",
+        "creado_en": "2026-08-26T03:26:18+02:00"
+    }
+]

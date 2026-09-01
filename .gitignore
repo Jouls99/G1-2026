@@ -146,6 +146,7 @@ vite.config.ts.timestamp-*
 Thumbs.db
 desktop.ini
 
-# Archivos y respaldos de bases de datos de XAMPP
-*.sql
+# Archivos temporales
+*.zip
+
 

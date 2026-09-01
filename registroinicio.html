@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <link rel="stylesheet" href="css/login.css" type="text/css">
+    <title>Login</title>
+</head>
+<body>
+    <header>
+        <h1>Hola, Bienvenido de nuevo <i id="nombreUsuario"></i></h1>
+        
+    </header>
+    <main>
+        <section class="loginss">
+            <h2>inisie sessión </h2>
+            <section class="ingreso">
+                <form action="" class="form-ingreso" id="Form_Ingreso">
+                    <span>ingrese su nombre de usuario y su contraseña creada</span>
+                    <br>
+                    <input type="text" name="usernameIngreso" id="usernameIngreso" placeholder="nombre de usuario">
+                    <br>
+                    <input type="password" name="password" id="passwordIngreso" placeholder="contraseña">
+                    <br>
+                    <input type="submit" value="submit" id="submit:ingreso">
+                </form>
+            </section>
+            <h3 id="title_ingreso" tabindex="0" role="button">Registrate si no tenés usuario</h3>
+            <section class="registro" id="registroFormContainer">
+                <form action="" class="form_registro" id="FormRegistro">
+                    <span>Creá tu nombre de usuario</span>
+                    <br>
+                    <div>
+                        <input type="text" name="username" id="username" placeholder="nombre de usuario">
+                    </div>
+                    <br>
+                    <span>Creá tu contraseña y luego confirmala</span>
+                    <br>
+                    <div>
+                        <input type="password" name="password" id="passwordRegistro" placeholder="contraseña">
+                    </div>
+                    <br>
+                    <div>
+                        <input type="password" name="confirmpassword" id="confirmpassword" placeholder="confirmá tu contraseña">
+                    </div>
+                    <br>
+                    <input type="submit" value="submit" id="submit">
+                </form>
+            </section>
+        </section>
+    </main>
+
+    <script src="scrits/login.js">
+    </script>
+</body>
+</html>
