@@ -1,0 +1,18 @@
+[
+    {
+        "id": 1,
+        "usuario": "gomez11",
+        "password": "santu99",
+        "role": "administrador",
+        "createdAt": "2026-09-01T01:56:05+02:00",
+        "lastLogin": "2026-09-14T14:35:00+02:00"
+    },
+    {
+        "id": 2,
+        "usuario": "vendedor_demo",
+        "password": "1234",
+        "role": "vendedor",
+        "createdAt": "2026-09-02T10:00:00+02:00",
+        "lastLogin": "2026-09-14T12:15:00+02:00"
+    }
+]

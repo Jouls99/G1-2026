@@ -1,0 +1,27 @@
+RewriteEngine On
+
+# 1. Proteger archivos de datos JSON confidenciales del acceso web directo
+<FilesMatch "\.(json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 2. Redireccionar accesos heredados .html hacia las nuevas vistas .php
+RewriteRule ^registroinicio\.html$ registroinicio.php [R=301,L]
+RewriteRule ^prueba2\.html$ prueba2.php [R=301,L]
+RewriteRule ^ControlStock\.html$ ControlStock.php [R=301,L]
+RewriteRule ^informe\.html$ informe.php [R=301,L]
+
+# 3. Rutas de API REST
+RewriteRule ^api/users/?$ api/users.php [L,QSA]
+RewriteRule ^api/inventario/?$ api/inventario.php [L,QSA]
+RewriteRule ^api/ventas/?$ api/ventas.php [L,QSA]
+RewriteRule ^api/auth/?$ api/auth.php [L,QSA]
+
+# 4. Índice predeterminado
+DirectoryIndex index.php
