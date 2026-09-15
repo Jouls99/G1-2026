@@ -18,23 +18,52 @@ $errorDB = null;
 
 try {
     $db = getDBConnection();
-    $stmt = $db->query("
-        SELECT 
-            p.ID_stock,
-            p.nombre,
-            COALESCE(p.codigo, CONCAT('COD-', p.ID_stock)) AS codigo,
-            COALESCE(p.cantTotal, 0) AS cantidad,
-            COALESCE(p.cantVendida, 0) AS cantVendida,
-            CAST(COALESCE(p.precio, 0) AS DECIMAL(10,2)) AS precio,
-            COALESCE(c.nombre, 'General') AS categoria
-        FROM `producto` p
-        LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
-        ORDER BY p.nombre ASC
-    ");
-    $productosDB = $stmt->fetchAll();
-    $dbConectada = true;
+    if ($db !== null) {
+        $stmt = $db->query("
+            SELECT 
+                p.ID_stock,
+                p.nombre,
+                COALESCE(p.codigo, CONCAT('COD-', p.ID_stock)) AS codigo,
+                COALESCE(p.cantTotal, 0) AS cantidad,
+                COALESCE(p.cantVendida, 0) AS cantVendida,
+                CAST(COALESCE(p.precio, 0) AS DECIMAL(10,2)) AS precio,
+                COALESCE(c.nombre, 'General') AS categoria
+            FROM `producto` p
+            LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
+            ORDER BY p.nombre ASC
+        ");
+
+        if (method_exists($stmt, 'fetchAll')) {
+            $productosDB = $stmt->fetchAll();
+        } elseif (method_exists($stmt, 'fetch_assoc')) {
+            $productosDB = [];
+            while ($row = $stmt->fetch_assoc()) {
+                $productosDB[] = $row;
+            }
+        }
+        $dbConectada = true;
+    } else {
+        throw new RuntimeException('MySQL no está en ejecución. Modo sin conexión activo.');
+    }
 } catch (Exception $e) {
     $errorDB = $e->getMessage();
+    $jsonPath = __DIR__ . '/inventario.json';
+    if (file_exists($jsonPath)) {
+        $json = json_decode(file_get_contents($jsonPath) ?: '[]', true);
+        if (is_array($json)) {
+            $productosDB = array_map(function($item) {
+                return [
+                    'ID_stock'    => $item['id'] ?? $item['ID_stock'] ?? 0,
+                    'nombre'      => $item['nombre'] ?? '',
+                    'codigo'      => $item['codigo'] ?? '',
+                    'cantidad'    => $item['cantidad'] ?? $item['stock'] ?? 0,
+                    'cantVendida' => $item['cantVendida'] ?? 0,
+                    'precio'      => $item['precio'] ?? 0,
+                    'categoria'   => $item['categoria'] ?? 'General'
+                ];
+            }, $json);
+        }
+    }
 }
 
 require_once __DIR__ . '/includes/header.php';

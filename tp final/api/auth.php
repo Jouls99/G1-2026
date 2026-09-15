@@ -30,65 +30,107 @@ if ($action === 'login' && $method === 'POST') {
         sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Completá usuario y contraseña.'], 400);
     }
 
-    try {
-        // Consultar base de datos MySQL
-        $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `contraseña`, `rol` FROM `usuario` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
-        $stmt->execute([':nombre' => $usuario]);
-        $found = $stmt->fetch();
+    $found = null;
 
-        if (!$found || (string)($found['contraseña'] ?? '') !== $password) {
-            sendJson(['ok' => false, 'error' => 'invalid_credentials', 'message' => 'Usuario o contraseña incorrectos.'], 401);
+    // 1. Consultar base de datos MySQL si está disponible
+    if ($db !== null) {
+        try {
+            $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `contraseña`, `rol` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
+            $stmt->execute([':nombre' => $usuario]);
+            $found = $stmt->fetch();
+        } catch (Exception $e) {
+            $found = null;
+        }
+    }
+
+    // 2. Si no se encontró en DB o falló, buscar en users.json
+    if (!$found || (string)($found['contraseña'] ?? '') !== $password) {
+        $usersJson = readJsonFile($file);
+        $foundJson = null;
+        foreach ($usersJson as $u) {
+            if (strcasecmp(trim((string)($u['usuario'] ?? '')), $usuario) === 0 && (string)($u['password'] ?? '') === $password) {
+                $foundJson = $u;
+                break;
+            }
         }
 
-        // Iniciar sesión en PHP
-        $_SESSION['user'] = [
-            'id'      => (int)$found['id_usuario'],
-            'usuario' => $found['nombre'],
-            'role'    => $found['rol'] ?? 'vendedor',
-            'loginAt' => date('c')
-        ];
+        if ($foundJson) {
+            $found = [
+                'id_usuario' => (int)($foundJson['id'] ?? 1),
+                'nombre'     => (string)$foundJson['usuario'],
+                'contraseña' => (string)$foundJson['password'],
+                'rol'        => (string)($foundJson['role'] ?? 'vendedor')
+            ];
 
-        // Actualizar último acceso en MySQL
+            // Si la DB está disponible, sincronizar el usuario en MySQL
+            if ($db !== null) {
+                try {
+                    $ins = $db->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
+                    $ins->execute([
+                        ':nombre' => $found['nombre'],
+                        ':pass'   => $found['contraseña'],
+                        ':rol'    => $found['rol']
+                    ]);
+                    $found['id_usuario'] = (int)$db->lastInsertId();
+                } catch (Exception $e) {
+                    // Ignorar si ya existía
+                }
+            }
+        }
+    }
+
+    if (!$found || (string)($found['contraseña'] ?? '') !== $password) {
+        sendJson(['ok' => false, 'error' => 'invalid_credentials', 'message' => 'Usuario o contraseña incorrectos.'], 401);
+    }
+
+    // Iniciar sesión en PHP
+    $_SESSION['user'] = [
+        'id'      => (int)$found['id_usuario'],
+        'usuario' => $found['nombre'],
+        'role'    => $found['rol'] ?? 'vendedor',
+        'loginAt' => date('c')
+    ];
+
+    // Actualizar último acceso en MySQL
+    if ($db !== null) {
         try {
             $updStmt = $db->prepare("UPDATE `usuario` SET `ultimo_acceso` = NOW() WHERE `id_usuario` = :id");
             $updStmt->execute([':id' => (int)$found['id_usuario']]);
         } catch (Exception $e) {
             // Ignorar
         }
-
-        // Sincronizar último acceso en users.json
-        try {
-            $users = readJsonFile($file);
-            foreach ($users as &$u) {
-                if (strcasecmp((string)($u['usuario'] ?? ''), $usuario) === 0) {
-                    $u['lastLogin'] = date('c');
-                }
-            }
-            writeJsonFile($file, $users);
-        } catch (Exception $e) {
-            // Ignorar
-        }
-
-        // Registrar interacción de inicio de sesión
-        logActivity(
-            $found['nombre'],
-            'login_exitoso',
-            "Inicio de sesión exitoso del usuario '{$found['nombre']}' (Rol: {$found['rol']})",
-            ['ip' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'],
-            (int)$found['id_usuario']
-        );
-
-        sendJson([
-            'ok' => true,
-            'message' => 'Inicio de sesión exitoso.',
-            'user' => $_SESSION['user']
-        ]);
-    } catch (Exception $e) {
-        sendJson(['ok' => false, 'error' => 'db_error', 'message' => 'Error al conectar con la base de datos: ' . $e->getMessage()], 500);
     }
+
+    // Sincronizar último acceso en users.json
+    try {
+        $users = readJsonFile($file);
+        foreach ($users as &$u) {
+            if (strcasecmp(trim((string)($u['usuario'] ?? '')), $usuario) === 0) {
+                $u['lastLogin'] = date('c');
+            }
+        }
+        writeJsonFile($file, $users);
+    } catch (Exception $e) {
+        // Ignorar
+    }
+
+    // Registrar interacción de inicio de sesión
+    logActivity(
+        $found['nombre'],
+        'login_exitoso',
+        "Inicio de sesión exitoso del usuario '{$found['nombre']}' (Rol: {$found['rol']})",
+        ['ip' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'],
+        (int)$found['id_usuario']
+    );
+
+    sendJson([
+        'ok' => true,
+        'message' => 'Inicio de sesión exitoso.',
+        'user' => $_SESSION['user']
+    ]);
 }
 
-// 3. Registrar nuevo usuario en MySQL
+// 3. Registrar nuevo usuario en MySQL y JSON
 if ($action === 'register' && $method === 'POST') {
     $body = getJsonBody();
     $usuario = trim((string) ($body['usuario'] ?? ''));
@@ -102,59 +144,70 @@ if ($action === 'register' && $method === 'POST') {
         sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Completá todos los campos.'], 400);
     }
 
-    try {
-        // Comprobar si ya existe en MySQL
-        $checkStmt = $db->prepare("SELECT `id_usuario` FROM `usuario` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
-        $checkStmt->execute([':nombre' => $usuario]);
-        if ($checkStmt->fetch()) {
+    $newUserId = time();
+
+    // 1. Comprobar si ya existe en MySQL
+    if ($db !== null) {
+        try {
+            $checkStmt = $db->prepare("SELECT `id_usuario` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
+            $checkStmt->execute([':nombre' => $usuario]);
+            if ($checkStmt->fetch()) {
+                sendJson(['ok' => false, 'error' => 'user_exists', 'message' => 'Ese usuario ya existe.'], 409);
+            }
+
+            $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`, `ultimo_acceso`) VALUES (:nombre, :pass, :rol, NOW(), NOW())");
+            $insertStmt->execute([
+                ':nombre' => $usuario,
+                ':pass'   => $password,
+                ':rol'    => $role
+            ]);
+            $newUserId = (int)$db->lastInsertId();
+        } catch (Exception $e) {
+            // Continuar con JSON
+        }
+    }
+
+    // 2. Comprobar en users.json
+    $users = readJsonFile($file);
+    foreach ($users as $u) {
+        if (strcasecmp(trim((string)($u['usuario'] ?? '')), $usuario) === 0) {
             sendJson(['ok' => false, 'error' => 'user_exists', 'message' => 'Ese usuario ya existe.'], 409);
         }
-
-        $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `ultimo_acceso`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW(), NOW())");
-        $insertStmt->execute([
-            ':nombre' => $usuario,
-            ':pass'   => $password,
-            ':rol'    => $role
-        ]);
-        $newUserId = (int)$db->lastInsertId();
-
-        // Iniciar sesión automáticamente tras registro
-        $_SESSION['user'] = [
-            'id'      => $newUserId,
-            'usuario' => $usuario,
-            'role'    => $role,
-            'loginAt' => date('c')
-        ];
-
-        // Sincronizar archivo JSON como respaldo
-        $users = readJsonFile($file);
-        $users[] = [
-            'id'        => $newUserId,
-            'usuario'   => $usuario,
-            'password'  => $password,
-            'role'      => $role,
-            'createdAt' => date('c'),
-            'lastLogin' => date('c')
-        ];
-        writeJsonFile($file, $users);
-
-        // Registrar interacción de registro
-        logActivity(
-            $usuario,
-            'registro_usuario',
-            "Nuevo usuario registrado en la plataforma: '{$usuario}' con rol {$role}",
-            ['rol' => $role],
-            $newUserId
-        );
-
-        sendJson([
-            'ok' => true,
-            'message' => 'Usuario registrado exitosamente.',
-            'user' => $_SESSION['user']
-        ]);
-    } catch (Exception $e) {
-        sendJson(['ok' => false, 'error' => 'db_error', 'message' => 'Error al registrar usuario en la base de datos: ' . $e->getMessage()], 500);
     }
+
+    // Iniciar sesión automáticamente tras registro
+    $_SESSION['user'] = [
+        'id'      => $newUserId,
+        'usuario' => $usuario,
+        'role'    => $role,
+        'loginAt' => date('c')
+    ];
+
+    // Sincronizar archivo JSON como respaldo
+    $users[] = [
+        'id'        => $newUserId,
+        'usuario'   => $usuario,
+        'password'  => $password,
+        'role'      => $role,
+        'createdAt' => date('c'),
+        'lastLogin' => date('c')
+    ];
+    writeJsonFile($file, $users);
+
+    // Registrar interacción de registro
+    logActivity(
+        $usuario,
+        'registro_usuario',
+        "Nuevo usuario registrado en la plataforma: '{$usuario}' con rol {$role}",
+        ['rol' => $role],
+        $newUserId
+    );
+
+    sendJson([
+        'ok' => true,
+        'message' => 'Usuario registrado exitosamente.',
+        'user' => $_SESSION['user']
+    ]);
 }
 
 // 4. Cerrar sesión

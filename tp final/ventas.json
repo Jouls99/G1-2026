@@ -206,5 +206,89 @@
         "dinero": 192000,
         "fecha": "2026-09-08T12:50:31.950Z",
         "totalInventario": 3334000
+    },
+    {
+        "id": "1789489574",
+        "factura_ids": [],
+        "usuario": "GOMEZ ADMIN",
+        "productos": [
+            {
+                "id": 1,
+                "ID_stock": 1,
+                "nombre": "base matte",
+                "codigo": "MQL-001",
+                "cantidad": 5,
+                "precio": 18000,
+                "categoria": "Maquillaje"
+            }
+        ],
+        "total": 90000,
+        "dinero": 90000,
+        "fecha": "2026-09-15T18:26:14+02:00"
+    },
+    {
+        "id": "1789489810",
+        "factura_ids": [],
+        "usuario": "GOMEZ ADMIN",
+        "productos": [
+            {
+                "id": 17,
+                "ID_stock": 17,
+                "nombre": "serum vitalicie",
+                "codigo": "sxi-vn67",
+                "cantidad": 15,
+                "precio": 6000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 1,
+                "ID_stock": 1,
+                "nombre": "base matte",
+                "codigo": "MQL-001",
+                "cantidad": 5,
+                "precio": 18000,
+                "categoria": "Maquillaje"
+            },
+            {
+                "id": 6,
+                "ID_stock": 6,
+                "nombre": "cherimoya rose",
+                "codigo": "893745-sub",
+                "cantidad": 3,
+                "precio": 15000,
+                "categoria": "Maquillaje"
+            }
+        ],
+        "total": 225000,
+        "dinero": 225000,
+        "fecha": "2026-09-15T18:30:10+02:00"
+    },
+    {
+        "id": "1789491395",
+        "factura_ids": [],
+        "usuario": "GOMEZ ADMIN",
+        "productos": [
+            {
+                "id": 1,
+                "ID_stock": 1,
+                "nombre": "base matte",
+                "codigo": "MQL-001",
+                "cantidad": 25,
+                "precio": 18000,
+                "categoria": "Maquillaje"
+            },
+            {
+                "id": 6,
+                "ID_stock": 6,
+                "nombre": "cherimoya rose",
+                "codigo": "893745-sub",
+                "cantidad": 10,
+                "precio": 15000,
+                "categoria": "Maquillaje"
+            }
+        ],
+        "total": 600000,
+        "dinero": 600000,
+        "fecha": "2026-09-15T18:56:35+02:00"
     }
 ]

@@ -471,8 +471,119 @@ function renderDetailPanel() {
             <button class="btn" style="background:#fee2e2; color:#b91c1c; font-weight:bold; border:1px solid #fca5a5; text-align:center;" onclick="deleteProduct('${productoSeleccionado.codigo}', '${categoria?.id}', '${productoSeleccionado.nombre}')">
                 🗑 Eliminar este producto
             </button>
+            <button class="btn" style="background:#dbeafe; color:#1d4ed8; font-weight:bold; border:1px solid #93c5fd; text-align:center;" onclick="mostrarFormularioEdicion()">
+                ✏️ Editar producto
+            </button>
         </div>
     `;
+}
+
+function mostrarFormularioEdicion() {
+    if (!productoSeleccionado) return;
+
+    const panel = document.getElementById('detailPanel');
+    if (!panel || document.getElementById('editProductForm')) return;
+
+    const form = document.createElement('form');
+    form.id = 'editProductForm';
+    form.className = 'product-form edit-product-form';
+    form.innerHTML = `
+        <h4>Editar datos del producto</h4>
+        <div class="form-grid">
+            <div>
+                <label for="editProdName">Nombre</label>
+                <input id="editProdName" required>
+            </div>
+            <div>
+                <label for="editProdCode">Código</label>
+                <input id="editProdCode" readonly>
+            </div>
+            <div>
+                <label for="editProdPrice">Precio</label>
+                <input id="editProdPrice" type="number" min="0" step="0.01" required>
+            </div>
+            <div>
+                <label for="editProdStock">Stock</label>
+                <input id="editProdStock" type="number" min="0" required>
+            </div>
+            <div>
+                <label for="editProdSub">Subcategoría</label>
+                <input id="editProdSub" placeholder="Ej: Labios">
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="btn btn-success" type="submit" style="margin:0;">Guardar cambios</button>
+            <button class="btn" type="button" style="margin:0; text-align:center;" onclick="cancelarEdicionProducto()">Cancelar</button>
+        </div>
+    `;
+
+    panel.appendChild(form);
+    document.getElementById('editProdName').value = productoSeleccionado.nombre;
+    document.getElementById('editProdCode').value = productoSeleccionado.codigo;
+    document.getElementById('editProdPrice').value = productoSeleccionado.precio;
+    document.getElementById('editProdStock').value = productoSeleccionado.stock;
+    document.getElementById('editProdSub').value = productoSeleccionado.subcategoria || '';
+    form.addEventListener('submit', guardarEdicionProducto);
+}
+
+function cancelarEdicionProducto() {
+    document.getElementById('editProductForm')?.remove();
+}
+
+async function guardarEdicionProducto(event) {
+    event.preventDefault();
+    if (!productoSeleccionado) return;
+
+    const nombre = document.getElementById('editProdName').value.trim();
+    const precio = parseFloat(document.getElementById('editProdPrice').value);
+    const stock = parseInt(document.getElementById('editProdStock').value, 10);
+    const subcategoria = document.getElementById('editProdSub').value.trim();
+
+    if (!nombre || Number.isNaN(precio) || Number.isNaN(stock) || precio < 0 || stock < 0) {
+        alert('Completá correctamente el nombre, el precio y el stock.');
+        return;
+    }
+
+    const productoAnterior = { ...productoSeleccionado };
+    try {
+        const res = await fetch('api/inventario.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: productoSeleccionado.ID_stock || productoSeleccionado.id,
+                ID_stock: productoSeleccionado.ID_stock || productoSeleccionado.id,
+                codigo: productoSeleccionado.codigo,
+                nombre,
+                precio,
+                cantidad: stock
+            })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            throw new Error(data.message || 'No se pudo actualizar el producto.');
+        }
+    } catch (error) {
+        alert(error.message);
+        return;
+    }
+
+    productoSeleccionado.nombre = nombre;
+    productoSeleccionado.precio = precio;
+    productoSeleccionado.stock = stock;
+    productoSeleccionado.subcategoria = subcategoria || undefined;
+
+    inventario.forEach(cat => {
+        cat.productos = (cat.productos || []).map(producto =>
+            String(producto.codigo).toLowerCase() === String(productoAnterior.codigo).toLowerCase()
+                ? productoSeleccionado
+                : producto
+        );
+    });
+
+    await guardarInventario();
+    renderTable(categoriaSeleccionada);
+    renderDetailPanel();
+    alert(`✅ El producto "${nombre}" fue actualizado correctamente.`);
 }
 
 async function addProduct() {
