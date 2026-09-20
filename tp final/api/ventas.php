@@ -10,6 +10,8 @@ $inventarioFile = dataPath('inventario.json');
 $method = requestMethod();
 $db = getDBConnection();
 
+requireApiAuth();
+
 // GET: Listar ventas desde la base de datos MySQL (tabla `facturacion` y `producto`) o fallback a ventas.json
 if ($method === 'GET') {
     $ventas = [];
@@ -82,6 +84,22 @@ if ($method === 'POST') {
         || count($payload['productos']) === 0
     ) {
         sendJson(['error' => 'invalid_payload', 'message' => 'La venta debe contener al menos un producto.'], 400);
+    }
+
+    foreach ($payload['productos'] as $prod) {
+        if (!is_array($prod)) {
+            continue;
+        }
+
+        $cantidad = (int)($prod['cantidad'] ?? 1);
+        $precio = (float)($prod['precio'] ?? 0);
+
+        if ($cantidad < 0 || $precio < 0) {
+            sendJson([
+                'error' => 'invalid_payload',
+                'message' => 'Cantidad y precio no pueden ser negativos. La ganancia puede salir negativa solo como pérdida.',
+            ], 400);
+        }
     }
 
     $usuarioVendedor = $_SESSION['user']['usuario'] ?? 'gomez11';

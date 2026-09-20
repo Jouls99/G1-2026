@@ -166,5 +166,494 @@
             ]
         },
         "fecha": "2026-09-15T18:56:35+02:00"
+    },
+    {
+        "id": "1789509840434",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:00+02:00"
+    },
+    {
+        "id": "1789509844969",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:04+02:00"
+    },
+    {
+        "id": "1789509848627",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:08+02:00"
+    },
+    {
+        "id": "1789509852843",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:12+02:00"
+    },
+    {
+        "id": "1789509857149",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:17+02:00"
+    },
+    {
+        "id": "1789509861769",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:21+02:00"
+    },
+    {
+        "id": "1789509865896",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:25+02:00"
+    },
+    {
+        "id": "1789509873692",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:33+02:00"
+    },
+    {
+        "id": "1789509881294",
+        "id_usuario": 1789488209,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "127.0.0.1"
+        },
+        "fecha": "2026-09-16T00:04:41+02:00"
+    },
+    {
+        "id": "1789516339787",
+        "id_usuario": 3,
+        "usuario": "GOMEZ ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'GOMEZ ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "::1"
+        },
+        "fecha": "2026-09-16T01:52:19+02:00"
+    },
+    {
+        "id": "1789517409977",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'SANTIAGO ADMIN' (Rol: vendedor)",
+        "detalles": {
+            "ip": "::1"
+        },
+        "fecha": "2026-09-16T02:10:09+02:00"
+    },
+    {
+        "id": "1789517464619",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_modificar",
+        "descripcion": "Stock modificado para producto 'cherimoya rose' (Cód: 893745-sub) a cantidad 35, precio $15000",
+        "detalles": {
+            "codigo": "893745-sub",
+            "cantidad": 35,
+            "precio": 15000
+        },
+        "fecha": "2026-09-16T02:11:04+02:00"
+    },
+    {
+        "id": "1789517479922",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_modificar",
+        "descripcion": "Stock modificado para producto 'Crema Hidratante' (Cód: SKN-002) a cantidad 40, precio $15000",
+        "detalles": {
+            "codigo": "SKN-002",
+            "cantidad": 40,
+            "precio": 15000
+        },
+        "fecha": "2026-09-16T02:11:19+02:00"
+    },
+    {
+        "id": "1789517560546",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_crear",
+        "descripcion": "Nuevo producto 'rastrillo' (Cód: 202048) agregado con stock 80 y precio $36000",
+        "detalles": {
+            "id": 18,
+            "ID_stock": 18,
+            "categoria": "aparatologia",
+            "ID_categoria": 4,
+            "nombre": "rastrillo",
+            "codigo": "202048",
+            "precio": 36000,
+            "cantidad": 80,
+            "cantVendida": 0,
+            "total": 2880000,
+            "subcategoria": "perfilador"
+        },
+        "fecha": "2026-09-16T02:12:40+02:00"
+    },
+    {
+        "id": "1789517712203",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_crear",
+        "descripcion": "Nuevo producto 'rastrillo femenino' (Cód: 4529470) agregado con stock 45 y precio $75000",
+        "detalles": {
+            "id": 19,
+            "ID_stock": 19,
+            "categoria": "aparatologia",
+            "ID_categoria": 4,
+            "nombre": "rastrillo femenino",
+            "codigo": "4529470",
+            "precio": 75000,
+            "cantidad": 45,
+            "cantVendida": 0,
+            "total": 3375000,
+            "subcategoria": "gillette"
+        },
+        "fecha": "2026-09-16T02:15:12+02:00"
+    },
+    {
+        "id": "1789517778988",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_crear",
+        "descripcion": "Nuevo producto 'rastrillo hombre' (Cód: 948576290) agregado con stock 46 y precio $24000",
+        "detalles": {
+            "id": 20,
+            "ID_stock": 20,
+            "categoria": "aparatologia",
+            "ID_categoria": 4,
+            "nombre": "rastrillo hombre",
+            "codigo": "948576290",
+            "precio": 24000,
+            "cantidad": 46,
+            "cantVendida": 0,
+            "total": 1104000,
+            "subcategoria": "hombre"
+        },
+        "fecha": "2026-09-16T02:16:18+02:00"
+    },
+    {
+        "id": "1789517846682",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_crear",
+        "descripcion": "Nuevo producto 'tinta labial' (Cód: 203956) agregado con stock 6 y precio $6000",
+        "detalles": {
+            "id": 21,
+            "ID_stock": 21,
+            "categoria": "Maquillaje",
+            "ID_categoria": 1,
+            "nombre": "tinta labial",
+            "codigo": "203956",
+            "precio": 6000,
+            "cantidad": 6,
+            "cantVendida": 0,
+            "total": 36000,
+            "subcategoria": "mujer"
+        },
+        "fecha": "2026-09-16T02:17:26+02:00"
+    },
+    {
+        "id": "1789517865954",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_modificar",
+        "descripcion": "Stock modificado para producto 'tinta labial' (Cód: 203956) a cantidad 24, precio $6000",
+        "detalles": {
+            "codigo": "203956",
+            "cantidad": 24,
+            "precio": 6000
+        },
+        "fecha": "2026-09-16T02:17:45+02:00"
+    },
+    {
+        "id": "1789517950116",
+        "id_usuario": 2,
+        "usuario": "SANTIAGO ADMIN",
+        "tipo_accion": "stock_crear",
+        "descripcion": "Nuevo producto 'mascarilla con niacinamida' (Cód: 9012345) agregado con stock 18 y precio $5000",
+        "detalles": {
+            "id": 22,
+            "ID_stock": 22,
+            "categoria": "Skincare",
+            "ID_categoria": 2,
+            "nombre": "mascarilla con niacinamida",
+            "codigo": "9012345",
+            "precio": 5000,
+            "cantidad": 18,
+            "cantVendida": 0,
+            "total": 90000,
+            "subcategoria": "facial"
+        },
+        "fecha": "2026-09-16T02:19:10+02:00"
+    },
+    {
+        "id": "1789519190655",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: vendedor)",
+        "detalles": {
+            "ip": "::1"
+        },
+        "fecha": "2026-09-16T02:39:50+02:00"
+    },
+    {
+        "id": "1789519459471",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: administrador)",
+        "detalles": {
+            "ip": "::1"
+        },
+        "fecha": "2026-09-16T02:44:19+02:00"
+    },
+    {
+        "id": "1789519671696",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "usuario_eliminado",
+        "descripcion": "Usuario 'SANTIAGO ADMIN' eliminado del sistema por el Administrador gomez11",
+        "detalles": {
+            "id_usuario": 2,
+            "usuario": "SANTIAGO ADMIN"
+        },
+        "fecha": "2026-09-16T02:47:51+02:00"
+    },
+    {
+        "id": "1789650467343",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: administrador)",
+        "detalles": {
+            "ip": "::1"
+        },
+        "fecha": "2026-09-17T15:07:47+02:00"
+    },
+    {
+        "id": "1789652027329",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $450000 (28 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 450000,
+            "articulos": 28,
+            "productos": [
+                "Crema Hidratante (x25)",
+                "luz uv (x3)"
+            ]
+        },
+        "fecha": "2026-09-17T15:33:47+02:00"
+    },
+    {
+        "id": "1789659934863",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $108000 (18 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 108000,
+            "articulos": 18,
+            "productos": [
+                "serum vitalicie (x18)"
+            ]
+        },
+        "fecha": "2026-09-17T17:45:34+02:00"
+    },
+    {
+        "id": "1789659980991",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $1407000 (122 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 1407000,
+            "articulos": 122,
+            "productos": [
+                "Crema Hidratante (x35)",
+                "Ampolla Vitamina C (x16)",
+                "base matte (x35)",
+                "mascarilla Ácido ialurónico (x36)"
+            ]
+        },
+        "fecha": "2026-09-17T17:46:20+02:00"
+    },
+    {
+        "id": "1789678333776",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: administrador)",
+        "detalles": {
+            "ip": "::1"
+        },
+        "fecha": "2026-09-17T22:52:13+02:00"
+    },
+    {
+        "id": "1789678376266",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $18000 (1 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 18000,
+            "articulos": 1,
+            "productos": [
+                "base matte (x1)"
+            ]
+        },
+        "fecha": "2026-09-17T22:52:56+02:00"
+    },
+    {
+        "id": "1789854175219",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: administrador)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "administrador",
+            "timestamp": "2026-09-19 23:42:55"
+        },
+        "fecha": "2026-09-19T23:42:55+02:00"
+    },
+    {
+        "id": "1789854693999",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: superadmin)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "superadmin",
+            "timestamp": "2026-09-19 23:51:33"
+        },
+        "fecha": "2026-09-19T23:51:33+02:00"
+    },
+    {
+        "id": "1789854867431",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "ventas_actualizadas",
+        "descripcion": "Historial de ventas actualizado en el sistema por gomez11",
+        "detalles": {
+            "total_ventas": 18
+        },
+        "fecha": "2026-09-19T23:54:27+02:00"
+    },
+    {
+        "id": "1789855441276",
+        "id_usuario": null,
+        "usuario": "santi_vendedor",
+        "tipo_accion": "login_fallido",
+        "descripcion": "Intento de inicio de sesión fallido para el usuario 'santi_vendedor'",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "motivo": "Credenciales incorrectas"
+        },
+        "fecha": "2026-09-20T00:04:01+02:00"
+    },
+    {
+        "id": "1789855454585",
+        "id_usuario": 6,
+        "usuario": "santi_vendedor",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'santi_vendedor' (Rol: vendedor)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "vendedor",
+            "timestamp": "2026-09-20 00:04:14"
+        },
+        "fecha": "2026-09-20T00:04:14+02:00"
+    },
+    {
+        "id": "1789855709345",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: superadmin)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "superadmin",
+            "timestamp": "2026-09-20 00:08:29"
+        },
+        "fecha": "2026-09-20T00:08:29+02:00"
+    },
+    {
+        "id": "1789856054439",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $1568000 (112 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 1568000,
+            "articulos": 112,
+            "productos": [
+                "base matte (x36)",
+                "Crema Hidratante (x35)",
+                "Ampolla Vitamina C (x18)",
+                "serum vitalicie (x18)",
+                "luz uv (x5)"
+            ]
+        },
+        "fecha": "2026-09-20T00:14:14+02:00"
     }
 ]

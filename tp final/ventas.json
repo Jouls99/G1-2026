@@ -290,5 +290,169 @@
         "total": 600000,
         "dinero": 600000,
         "fecha": "2026-09-15T18:56:35+02:00"
+    },
+    {
+        "id": "1789652027",
+        "factura_ids": [],
+        "usuario": "gomez11",
+        "productos": [
+            {
+                "id": 8,
+                "ID_stock": 8,
+                "nombre": "Crema Hidratante",
+                "codigo": "SKN-002",
+                "cantidad": 25,
+                "precio": 15000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 15,
+                "ID_stock": 15,
+                "nombre": "luz uv",
+                "codigo": "666666",
+                "cantidad": 3,
+                "precio": 25000,
+                "categoria": "aparatologia"
+            }
+        ],
+        "total": 450000,
+        "dinero": 450000,
+        "fecha": "2026-09-17T15:33:47+02:00"
+    },
+    {
+        "id": "1789659934",
+        "factura_ids": [],
+        "usuario": "gomez11",
+        "productos": [
+            {
+                "id": 17,
+                "ID_stock": 17,
+                "nombre": "serum vitalicie",
+                "codigo": "sxi-vn67",
+                "cantidad": 18,
+                "precio": 6000,
+                "categoria": "Skincare"
+            }
+        ],
+        "total": 108000,
+        "dinero": 108000,
+        "fecha": "2026-09-17T17:45:34+02:00"
+    },
+    {
+        "id": "1789659980",
+        "factura_ids": [],
+        "usuario": "gomez11",
+        "productos": [
+            {
+                "id": 8,
+                "ID_stock": 8,
+                "nombre": "Crema Hidratante",
+                "codigo": "SKN-002",
+                "cantidad": 35,
+                "precio": 15000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 9,
+                "ID_stock": 9,
+                "nombre": "Ampolla Vitamina C",
+                "codigo": "TRT-001",
+                "cantidad": 16,
+                "precio": 9000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 1,
+                "ID_stock": 1,
+                "nombre": "base matte",
+                "codigo": "MQL-001",
+                "cantidad": 35,
+                "precio": 18000,
+                "categoria": "Maquillaje"
+            },
+            {
+                "id": 11,
+                "ID_stock": 11,
+                "nombre": "mascarilla Ácido ialurónico",
+                "codigo": "mko-74859182-sub",
+                "cantidad": 36,
+                "precio": 3000,
+                "categoria": "Skincare"
+            }
+        ],
+        "total": 1407000,
+        "dinero": 1407000,
+        "fecha": "2026-09-17T17:46:20+02:00"
+    },
+    {
+        "id": "1789678376",
+        "factura_ids": [],
+        "usuario": "gomez11",
+        "productos": [
+            {
+                "nombre": "base matte",
+                "codigo": "MQL-001",
+                "cantidad": 10,
+                "precio": 18000
+            }
+        ],
+        "total": 180000,
+        "dinero": 180000,
+        "fecha": "2026-09-17T22:52:56+02:00"
+    },
+    {
+        "id": "1789856054",
+        "factura_ids": [],
+        "usuario": "gomez11",
+        "productos": [
+            {
+                "id": 1,
+                "ID_stock": 1,
+                "nombre": "base matte",
+                "codigo": "MQL-001",
+                "cantidad": 36,
+                "precio": 18000,
+                "categoria": "Maquillaje"
+            },
+            {
+                "id": 8,
+                "ID_stock": 8,
+                "nombre": "Crema Hidratante",
+                "codigo": "SKN-002",
+                "cantidad": 35,
+                "precio": 15000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 9,
+                "ID_stock": 9,
+                "nombre": "Ampolla Vitamina C",
+                "codigo": "TRT-001",
+                "cantidad": 18,
+                "precio": 9000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 17,
+                "ID_stock": 17,
+                "nombre": "serum vitalicie",
+                "codigo": "sxi-vn67",
+                "cantidad": 18,
+                "precio": 6000,
+                "categoria": "Skincare"
+            },
+            {
+                "id": 15,
+                "ID_stock": 15,
+                "nombre": "luz uv",
+                "codigo": "666666",
+                "cantidad": 5,
+                "precio": 25000,
+                "categoria": "aparatologia"
+            }
+        ],
+        "total": 1568000,
+        "dinero": 1568000,
+        "fecha": "2026-09-20T00:14:14+02:00"
     }
 ]

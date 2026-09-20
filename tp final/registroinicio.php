@@ -30,6 +30,7 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </section>
 
+        <?php if (!isLoggedIn()): ?>
         <h3 id="title_ingreso" tabindex="0" role="button">¿No tenés cuenta? Registrate aquí</h3>
 
         <section class="registro" id="registroFormContainer">
@@ -53,6 +54,7 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="submit" value="Crear Cuenta" id="submit">
             </form>
         </section>
+        <?php endif; ?>
     </section>
 </main>
 

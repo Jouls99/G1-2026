@@ -10,6 +10,55 @@ h1 {
     margin-bottom: 10px;
 }
 
+.stock-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.stock-page-header h1 {
+    margin: 0 0 6px;
+}
+
+.stock-page-subtitle {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.stock-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.stock-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 9px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+    background: #fff;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+}
+
+.stock-nav-btn:hover {
+    background: #f9fafb;
+    color: #111827;
+}
+
+.stock-nav-btn-admin {
+    background: #f5e8ff;
+    border-color: #7c3aed;
+    color: #6d28d9;
+}
+
 .dashboard {
     display: grid;
     grid-template-columns: 250px 1.6fr 300px;
@@ -210,4 +259,318 @@ th {
     .detail-panel {
         order: 3;
     }
+}
+
+/* ==========================================================================
+   Controles de Fase y Filtros de Inventario
+   ========================================================================== */
+.stock-controls-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.stock-controls-bar .search-box {
+    flex: 1;
+    min-width: 250px;
+    margin-bottom: 0;
+}
+
+.fase-filter-group {
+    display: inline-flex;
+    background: #ffffff;
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid #d8b4fe;
+    gap: 4px;
+}
+
+.btn-fase-filter {
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-fase-filter:hover {
+    background: #f3e8ff;
+    color: #7c2d92;
+}
+
+.btn-fase-filter.active {
+    background: #7c2d92;
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Badges de Estado / Fase
+   ========================================================================== */
+.badge-fase {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.badge-fase-habilitado {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.badge-fase-deshabilitado {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.row-deshabilitado {
+    background-color: #fbfbfc !important;
+    opacity: 0.75;
+}
+
+.row-deshabilitado td:first-child {
+    text-decoration: line-through;
+    color: #6b7280;
+}
+
+.stock-entry-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 18px 0;
+}
+
+.stock-load-form {
+    margin: 18px 0;
+}
+
+.stock-load-form h2 {
+    margin-top: 0;
+}
+
+.stock-empty-state {
+    min-height: 260px;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 8px;
+    padding: 32px;
+    background: #ffffff;
+    border: 1px dashed #c4b5fd;
+    border-radius: 12px;
+    text-align: center;
+    color: #4b5563;
+}
+
+.stock-empty-state h2,
+.stock-empty-state p {
+    margin: 0;
+}
+
+.audit-panel {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #f59e0b;
+    border-radius: 12px;
+}
+
+.audit-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.audit-panel-header h2,
+.audit-panel-header p {
+    margin: 0;
+}
+
+.audit-panel-header p {
+    margin-top: 6px;
+    color: #6b7280;
+}
+
+.audit-table-wrap {
+    overflow-x: auto;
+}
+
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.audit-table th,
+.audit-table td {
+    padding: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+.audit-empty,
+.audit-error {
+    padding: 20px;
+    margin: 0;
+    color: #6b7280;
+}
+
+.audit-error {
+    color: #b91c1c;
+}
+
+/* ==========================================================================
+   Modal de Confirmación de Deshabilitación
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-box {
+    background: #ffffff;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 14px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid #e2e8f0;
+}
+
+.modal-overlay.active .modal-box {
+    transform: scale(1) translateY(0);
+}
+
+.modal-header-danger {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    padding: 18px 20px;
+    border-bottom: 1px solid #fecaca;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-icon-warn {
+    font-size: 1.8rem;
+}
+
+.modal-header-danger h3 {
+    margin: 0;
+    color: #991b1b;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.modal-body-content {
+    padding: 20px;
+}
+
+.product-to-delete-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #ef4444;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 12px 0;
+}
+
+.prod-delete-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1e1b4b;
+    margin-bottom: 4px;
+}
+
+.prod-delete-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.soft-delete-notice {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.modal-actions-bar {
+    padding: 14px 20px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-cancel {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-cancel:hover {
+    background: #f1f5f9;
+}
+
+.btn-danger-confirm {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border: none;
+    color: #ffffff;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+    transition: all 0.2s;
+}
+
+.btn-danger-confirm:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(220, 38, 38, 0.4);
 }

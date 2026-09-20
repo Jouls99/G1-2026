@@ -51,7 +51,64 @@ function getDBConnection(): ?PDO
         }
     }
 
+    syncDefaultUsers($pdo);
+
     return $pdo;
+}
+
+/**
+ * Asegura que las cuentas iniciales existan y conserven sus roles correctos.
+ */
+function syncDefaultUsers(PDO $pdo): void
+{
+    try {
+        migratePasswordColumn($pdo);
+
+        $seedUsers = [
+            ['nombre' => 'gomez11', 'password' => 'santu99', 'rol' => 'superadmin'],
+            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador'],
+            ['nombre' => 'vendedor_demo', 'password' => '1234', 'rol' => 'vendedor']
+        ];
+        $seedStmt = $pdo->prepare("
+            INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
+            VALUES (:nombre, :password, :rol, NOW())
+            ON DUPLICATE KEY UPDATE `rol` = VALUES(`rol`)
+        ");
+        foreach ($seedUsers as $seedUser) {
+            $seedStmt->execute([
+                ':nombre' => $seedUser['nombre'],
+                ':password' => password_hash($seedUser['password'], PASSWORD_DEFAULT),
+                ':rol' => $seedUser['rol']
+            ]);
+        }
+    } catch (Exception $e) {
+        // El respaldo JSON continúa disponible si MySQL no permite sincronizar.
+    }
+}
+
+/** Migra la columna antigua y convierte contraseñas heredadas a hashes. */
+function migratePasswordColumn(PDO $pdo): void
+{
+    $passwordColumn = $pdo->query("SHOW COLUMNS FROM `usuario` LIKE 'password'")->fetch();
+    $oldColumn = $pdo->query("SHOW COLUMNS FROM `usuario` LIKE 'contraseña'")->fetch();
+
+    if (!$passwordColumn && $oldColumn) {
+        $pdo->exec("ALTER TABLE `usuario` CHANGE `contraseña` `password` varchar(255) NOT NULL");
+    } elseif (!$passwordColumn) {
+        $pdo->exec("ALTER TABLE `usuario` ADD COLUMN `password` varchar(255) NOT NULL AFTER `nombre`");
+    }
+
+    $users = $pdo->query("SELECT `id_usuario`, `password` FROM `usuario`")->fetchAll();
+    $update = $pdo->prepare("UPDATE `usuario` SET `password` = :password WHERE `id_usuario` = :id");
+    foreach ($users as $user) {
+        $stored = (string)$user['password'];
+        if (password_get_info($stored)['algoName'] === 'unknown') {
+            $update->execute([
+                ':password' => password_hash($stored, PASSWORD_DEFAULT),
+                ':id' => (int)$user['id_usuario']
+            ]);
+        }
+    }
 }
 
 /**
@@ -123,7 +180,7 @@ function initDatabase(): void
         CREATE TABLE IF NOT EXISTS `usuario` (
             `id_usuario` int(11) NOT NULL AUTO_INCREMENT,
             `nombre` varchar(100) NOT NULL,
-            `contraseña` varchar(100) NOT NULL,
+            `password` varchar(255) NOT NULL,
             `rol` varchar(50) NOT NULL DEFAULT 'vendedor',
             `ultimo_acceso` datetime DEFAULT NULL,
             `fecha_creacion` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -157,6 +214,17 @@ function initDatabase(): void
         // Ignorar
     }
 
+    // Verificar si la columna 'fase' existe en 'producto'
+    try {
+        $faseCols = $pdoServer->query("SHOW COLUMNS FROM `producto` LIKE 'fase'")->fetchAll();
+        if (empty($faseCols)) {
+            $pdoServer->exec("ALTER TABLE `producto` ADD COLUMN `fase` varchar(50) NOT NULL DEFAULT 'habilitado' AFTER `precio`");
+        }
+        $pdoServer->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` IS NULL OR `fase` = ''");
+    } catch (Exception $e) {
+        // Ignorar
+    }
+
     // Verificar si la columna 'fecha_creacion' existe en 'usuario'
     try {
         $userDateCols = $pdoServer->query("SHOW COLUMNS FROM `usuario` LIKE 'fecha_creacion'")->fetchAll();
@@ -177,8 +245,8 @@ function initDatabase(): void
                 $catStmt = $pdoServer->prepare("INSERT INTO `categoria` (`nombre`) VALUES (:nombre)");
                 $getCatStmt = $pdoServer->prepare("SELECT `ID_categoria` FROM `categoria` WHERE `nombre` = :nombre LIMIT 1");
                 $prodStmt = $pdoServer->prepare("
-                    INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `precio`)
-                    VALUES (:nombre, :codigo, :cantTotal, :cantVendida, :ID_categoria, :precio)
+                    INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `precio`, `fase`)
+                    VALUES (:nombre, :codigo, :cantTotal, :cantVendida, :ID_categoria, :precio, :fase)
                 ");
 
                 $catMap = [];
@@ -202,7 +270,8 @@ function initDatabase(): void
                         ':cantTotal'    => (int)($item['cantidad'] ?? ($item['stock'] ?? 0)),
                         ':cantVendida'  => (int)($item['cantVendida'] ?? 0),
                         ':ID_categoria' => $catMap[$catName],
-                        ':precio'       => (float)($item['precio'] ?? 0)
+                        ':precio'       => (float)($item['precio'] ?? 0),
+                        ':fase'         => (string)($item['fase'] ?? 'habilitado')
                     ]);
                 }
             }
@@ -269,19 +338,42 @@ function initDatabase(): void
         if (file_exists($userJsonPath)) {
             $userJson = json_decode(file_get_contents($userJsonPath) ?: '[]', true);
             if (is_array($userJson) && !empty($userJson)) {
-                $userStmt = $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
+                $userStmt = $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
                 foreach ($userJson as $u) {
                     $userStmt->execute([
                         ':nombre' => (string)($u['usuario'] ?? 'admin'),
-                        ':pass'   => (string)($u['password'] ?? '1234'),
-                        ':rol'    => (string)($u['role'] ?? 'administrador')
+                        ':pass'   => password_hash((string)($u['password'] ?? '1234'), PASSWORD_DEFAULT),
+                        ':rol'    => (string)($u['role'] ?? 'vendedor')
                     ]);
                 }
             }
         } else {
-            $pdoServer->exec("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`) VALUES ('gomez11', 'santu99', 'administrador', NOW())");
-            $pdoServer->exec("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`) VALUES ('vendedor_demo', '1234', 'vendedor', NOW())");
+            $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (?, ?, 'superadmin', NOW())")->execute(['gomez11', password_hash('santu99', PASSWORD_DEFAULT)]);
+            $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (?, ?, 'vendedor', NOW())")->execute(['vendedor_demo', password_hash('1234', PASSWORD_DEFAULT)]);
         }
+    }
+
+    // Mantener las cuentas base y sus roles sincronizados en instalaciones existentes.
+    try {
+        $seedUsers = [
+            ['nombre' => 'gomez11', 'password' => 'santu99', 'rol' => 'superadmin'],
+            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador'],
+            ['nombre' => 'vendedor_demo', 'password' => '1234', 'rol' => 'vendedor']
+        ];
+        $seedStmt = $pdoServer->prepare("
+            INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
+            VALUES (:nombre, :password, :rol, NOW())
+            ON DUPLICATE KEY UPDATE `rol` = VALUES(`rol`)
+        ");
+        foreach ($seedUsers as $seedUser) {
+            $seedStmt->execute([
+                ':nombre' => $seedUser['nombre'],
+                ':password' => password_hash($seedUser['password'], PASSWORD_DEFAULT),
+                ':rol' => $seedUser['rol']
+            ]);
+        }
+    } catch (Exception $e) {
+        // La aplicación conserva el respaldo JSON si la migración no puede ejecutarse.
     }
 
     // Sembrar log inicial si está vacío

@@ -1,13 +1,28 @@
 :root {
-    --color-primary: #e8bddd;
-    --color-secondary: #490633;
-    --color-text: #1d0202;
-    --color-buttom: #1b083b;
-    --color-text-secundary: #4b2b04;
-    --color-othher: #d17e36;
-    --color-background: #f7e9f1;
-    --color-dashboard: #fff5fb;
-    --color-banner: #ae3c1d;
+    --primary: #7c2d92;
+    --primary-light: #9333ea;
+    --primary-dark: #581c87;
+    --accent-indigo: #4f46e5;
+    --accent-blue: #2563eb;
+    --accent-emerald: #059669;
+    --accent-amber: #d97706;
+    --accent-rose: #e11d48;
+
+    --bg-page: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 100%);
+    --bg-card: #ffffff;
+    --bg-soft: #faf5ff;
+    --border-color: #e5e7eb;
+    --border-purple: #e9d5ff;
+
+    --text-main: #1f2937;
+    --text-muted: #6b7280;
+    --text-dark: #111827;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.12);
+    --radius-md: 10px;
+    --radius-lg: 16px;
 }
 
 * {
@@ -17,83 +32,90 @@
 }
 
 body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: linear-gradient(135deg, #fff7fb, #f6e2ec);
-    color: var(--color-text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--bg-page);
+    color: var(--text-main);
+    min-height: 100vh;
 }
 
-header {
-    background-color: var(--color-banner);
-    padding: 20px 24px;
-    margin: auto;
-    display: block;
-    max-width: 100%;
+h1 {
+    margin: 0;
+    color: var(--primary);
+    font-size: 1.85rem;
+    font-weight: 800;
 }
 
-.header-top {
+p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.report-container {
+    max-width: 1280px;
+    margin: 24px auto 60px;
+    padding: 0 20px;
+}
+
+.report-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
+    background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
+    border: 1px solid var(--border-purple);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 24px 28px;
+    margin-bottom: 24px;
 }
 
-.clock-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 14px;
-    padding: 10px 14px;
+.title-area {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    min-width: 180px;
-    text-align: center;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    gap: 8px;
 }
 
-.clock-card span,
-.clock-card small {
-    color: #6f4b63;
-    font-size: 13px;
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
-.clock-card strong {
-    color: var(--color-secondary);
-    font-size: 20px;
+.btn-secondary {
+    background: white;
+    color: #4b5563;
+    border: 1px solid var(--border-color);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.back-link {
-    display: inline-block;
-    margin-top: 10px;
-    color: #fecbed;
-    text-decoration: underline;
-}
-
-h1 {
-    font-size: 38px;
-    font-family: 'Courier New', Courier, monospace;
-    color: #470932;
-    text-align: center;
-    text-shadow: 2px 2px 4px #f8ecd0;
-}
-
-p {
-    font-size: 18px;
-    font-family: 'Courier New', Courier, monospace;
-    color: var(--color-text);
-    text-align: center;
-    margin-top: 8px;
-}
-
-main {
-    padding: 24px;
+.btn-secondary:hover {
+    background: #f9fafb;
+    border-color: #cbd5e1;
+    color: #111827;
 }
 
 #dashboard-informe {
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid var(--border-purple);
+    border-radius: var(--radius-lg);
     padding: 24px;
-    box-shadow: 0 18px 45px rgba(80, 30, 58, 0.16);
-    max-width: 1200px;
+    box-shadow: var(--shadow-lg);
+    max-width: 1280px;
     margin: 0 auto;
 }
 
@@ -258,6 +280,11 @@ th {
 
 .table-wrapper {
     overflow-x: auto;
+    margin-top: 16px;
+}
+
+.summary-table-wrapper {
+    margin-top: 24px;
 }
 
 .sales-table th,

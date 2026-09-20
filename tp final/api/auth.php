@@ -35,7 +35,7 @@ if ($action === 'login' && $method === 'POST') {
     // 1. Consultar base de datos MySQL si está disponible
     if ($db !== null) {
         try {
-            $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `contraseña`, `rol` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
+            $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `password`, `rol` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
             $stmt->execute([':nombre' => $usuario]);
             $found = $stmt->fetch();
         } catch (Exception $e) {
@@ -44,7 +44,7 @@ if ($action === 'login' && $method === 'POST') {
     }
 
     // 2. Si no se encontró en DB o falló, buscar en users.json
-    if (!$found || (string)($found['contraseña'] ?? '') !== $password) {
+    if (!$found || !password_verify($password, (string)($found['password'] ?? ''))) {
         $usersJson = readJsonFile($file);
         $foundJson = null;
         foreach ($usersJson as $u) {
@@ -58,17 +58,17 @@ if ($action === 'login' && $method === 'POST') {
             $found = [
                 'id_usuario' => (int)($foundJson['id'] ?? 1),
                 'nombre'     => (string)$foundJson['usuario'],
-                'contraseña' => (string)$foundJson['password'],
+                'password'   => password_hash((string)$foundJson['password'], PASSWORD_DEFAULT),
                 'rol'        => (string)($foundJson['role'] ?? 'vendedor')
             ];
 
             // Si la DB está disponible, sincronizar el usuario en MySQL
             if ($db !== null) {
                 try {
-                    $ins = $db->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
+                    $ins = $db->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
                     $ins->execute([
                         ':nombre' => $found['nombre'],
-                        ':pass'   => $found['contraseña'],
+                        ':pass'   => $found['password'],
                         ':rol'    => $found['rol']
                     ]);
                     $found['id_usuario'] = (int)$db->lastInsertId();
@@ -79,7 +79,24 @@ if ($action === 'login' && $method === 'POST') {
         }
     }
 
-    if (!$found || (string)($found['contraseña'] ?? '') !== $password) {
+    $clientIp = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+    if (strpos($clientIp, ',') !== false) {
+        $clientIp = trim(explode(',', $clientIp)[0]);
+    }
+    $userAgent = (string)($_SERVER['HTTP_USER_AGENT'] ?? 'Navegador Web');
+
+    if (!$found || !password_verify($password, (string)($found['password'] ?? ''))) {
+        // Registrar intento fallido para auditoría del Super Admin
+        logActivity(
+            $usuario !== '' ? $usuario : 'Desconocido',
+            'login_fallido',
+            "Intento de inicio de sesión fallido para el usuario '{$usuario}'",
+            [
+                'ip' => $clientIp,
+                'user_agent' => $userAgent,
+                'motivo' => 'Credenciales incorrectas'
+            ]
+        );
         sendJson(['ok' => false, 'error' => 'invalid_credentials', 'message' => 'Usuario o contraseña incorrectos.'], 401);
     }
 
@@ -114,12 +131,17 @@ if ($action === 'login' && $method === 'POST') {
         // Ignorar
     }
 
-    // Registrar interacción de inicio de sesión
+    // Registrar interacción de inicio de sesión con datos completos
     logActivity(
         $found['nombre'],
         'login_exitoso',
         "Inicio de sesión exitoso del usuario '{$found['nombre']}' (Rol: {$found['rol']})",
-        ['ip' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'],
+        [
+            'ip' => $clientIp,
+            'user_agent' => $userAgent,
+            'rol' => $found['rol'] ?? 'vendedor',
+            'timestamp' => date('Y-m-d H:i:s')
+        ],
         (int)$found['id_usuario']
     );
 
@@ -135,10 +157,9 @@ if ($action === 'register' && $method === 'POST') {
     $body = getJsonBody();
     $usuario = trim((string) ($body['usuario'] ?? ''));
     $password = (string) ($body['password'] ?? '');
-    $role = trim((string) ($body['role'] ?? 'vendedor'));
-    if ($role === '') {
-        $role = 'vendedor';
-    }
+    // El administrador se define previamente en el sistema; el registro público
+    // solamente puede crear vendedores.
+    $role = 'vendedor';
 
     if ($usuario === '' || $password === '') {
         sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Completá todos los campos.'], 400);
@@ -155,10 +176,10 @@ if ($action === 'register' && $method === 'POST') {
                 sendJson(['ok' => false, 'error' => 'user_exists', 'message' => 'Ese usuario ya existe.'], 409);
             }
 
-            $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`, `ultimo_acceso`) VALUES (:nombre, :pass, :rol, NOW(), NOW())");
+            $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`, `ultimo_acceso`) VALUES (:nombre, :pass, :rol, NOW(), NOW())");
             $insertStmt->execute([
                 ':nombre' => $usuario,
-                ':pass'   => $password,
+                ':pass'   => password_hash($password, PASSWORD_DEFAULT),
                 ':rol'    => $role
             ]);
             $newUserId = (int)$db->lastInsertId();

@@ -8,9 +8,64 @@ handleOptions();
 $file = dataPath('inventario.json');
 $method = requestMethod();
 $db = getDBConnection();
+$superAdmin = isSuperAdminApi();
 
-// GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`)
+requireApiAuth();
+
+// GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`) o fallback a JSON
 if ($method === 'GET') {
+    if (($_GET['action'] ?? '') === 'audit') {
+        requireSuperAdminApi();
+        if ($db === null) {
+            sendJson(['ok' => false, 'message' => 'La auditoría no está disponible sin conexión a la base de datos.'], 503);
+        }
+
+        try {
+            $auditStmt = $db->query("
+                SELECT `id_actividad`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`
+                FROM `actividad_usuario`
+                WHERE `tipo_accion` IN ('stock_habilitar', 'stock_deshabilitar')
+                ORDER BY `id_actividad` DESC
+                LIMIT 250
+            ");
+            $audit = array_map(static function (array $row): array {
+                $details = null;
+                if (!empty($row['detalles'])) {
+                    $decoded = json_decode((string)$row['detalles'], true);
+                    $details = is_array($decoded) ? $decoded : $row['detalles'];
+                }
+                return [
+                    'id' => (int)$row['id_actividad'],
+                    'usuario' => (string)$row['usuario'],
+                    'tipo' => (string)$row['tipo_accion'],
+                    'descripcion' => (string)$row['descripcion'],
+                    'detalles' => $details,
+                    'fecha' => date('c', strtotime((string)$row['fecha']))
+                ];
+            }, $auditStmt->fetchAll());
+            sendJson(['ok' => true, 'auditoria' => $audit]);
+        } catch (Exception $e) {
+            error_log('Auditoría MySQL no disponible, se usa actividades.json: ' . $e->getMessage());
+            $events = readJsonFile(dataPath('actividades.json'));
+            $audit = [];
+            foreach (array_reverse($events) as $event) {
+                if (!in_array((string)($event['tipo_accion'] ?? ''), ['stock_habilitar', 'stock_deshabilitar'], true)) {
+                    continue;
+                }
+                $audit[] = [
+                    'id' => (int)($event['id'] ?? 0),
+                    'usuario' => (string)($event['usuario'] ?? 'Sistema'),
+                    'tipo' => (string)$event['tipo_accion'],
+                    'descripcion' => (string)($event['descripcion'] ?? ''),
+                    'detalles' => is_array($event['detalles'] ?? null) ? $event['detalles'] : null,
+                    'fecha' => (string)($event['fecha'] ?? '')
+                ];
+                if (count($audit) >= 250) break;
+            }
+            sendJson(['ok' => true, 'auditoria' => $audit, 'fuente' => 'respaldo']);
+        }
+    }
+
     try {
         $stmt = $db->query("
             SELECT 
@@ -23,16 +78,18 @@ if ($method === 'GET') {
                 ROUND(COALESCE(p.cantTotal, 0) * COALESCE(p.precio, 0), 2) AS total,
                 COALESCE(c.nombre, 'General') AS categoria,
                 p.ID_categoria,
+                " . ($superAdmin ? "COALESCE(p.fase, 'habilitado') AS fase," : "") . "
                 NULL AS subcategoria
             FROM `producto` p
             LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
+            " . ($superAdmin ? "" : "WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'") . "
             ORDER BY p.ID_stock ASC
         ");
         $productos = $stmt->fetchAll();
 
-        // Convertir tipos numéricos para consistencia en JSON
-        $normalized = array_map(function ($p) {
-            return [
+        // Convertir tipos numéricos y estructurar con campo fase
+        $normalized = array_map(function ($p) use ($superAdmin) {
+            $producto = [
                 'id'           => (int)$p['ID_stock'],
                 'ID_stock'     => (int)$p['ID_stock'],
                 'nombre'       => (string)$p['nombre'],
@@ -45,6 +102,13 @@ if ($method === 'GET') {
                 'ID_categoria' => $p['ID_categoria'] !== null ? (int)$p['ID_categoria'] : null,
                 'subcategoria' => null
             ];
+
+            if ($superAdmin) {
+                $fase = strtolower(trim((string)($p['fase'] ?? 'habilitado')));
+                $producto['fase'] = $fase !== '' ? $fase : 'habilitado';
+            }
+
+            return $producto;
         }, $productos);
 
         // Guardar copia de seguridad en JSON
@@ -54,13 +118,74 @@ if ($method === 'GET') {
     } catch (Exception $e) {
         // Fallback a JSON si hubiese algún problema temporal
         $inventario = readJsonFile($file);
-        sendJson($inventario);
+        if (!$superAdmin) {
+            $inventario = array_values(array_filter($inventario, static function ($p) {
+                return ($p['fase'] ?? 'habilitado') !== 'deshabilitado';
+            }));
+        }
+        $safe = array_map(function ($p) use ($superAdmin) {
+            if ($superAdmin) {
+                $p['fase'] = strtolower(trim((string)($p['fase'] ?? 'habilitado')));
+                if ($p['fase'] === '') $p['fase'] = 'habilitado';
+            } else {
+                unset($p['fase']);
+            }
+            return $p;
+        }, $inventario);
+        sendJson($safe);
     }
 }
 
-// POST: Agregar un nuevo producto al inventario en MySQL
+// POST: Agregar un nuevo producto al inventario en MySQL (o rehabilitar si se especifica action=rehabilitar)
 if ($method === 'POST') {
+    requireAdminApi();
     $body = getJsonBody();
+    $action = $_GET['action'] ?? ($body['action'] ?? 'create');
+
+    // Acción para rehabilitar producto
+    if ($action === 'rehabilitar') {
+        $codigo = trim((string)($body['codigo'] ?? ($_GET['codigo'] ?? '')));
+        if ($codigo === '') {
+            sendJson(['error' => 'missing_code', 'message' => 'Se requiere el código del producto.'], 400);
+        }
+
+        if ($db !== null) {
+            try {
+                $updStmt = $db->prepare("UPDATE `producto` SET `fase` = 'habilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
+                $updStmt->execute([
+                    ':codigo' => $codigo,
+                    ':id'     => is_numeric($codigo) ? (int)$codigo : 0
+                ]);
+            } catch (Exception $e) {
+                // Ignorar
+            }
+        }
+
+        // Sincronizar en JSON
+        $inventario = readJsonFile($file);
+        foreach ($inventario as &$item) {
+            $matchCode = strcasecmp((string)($item['codigo'] ?? ''), $codigo) === 0;
+            $matchId = isset($item['ID_stock']) && is_numeric($codigo) && (int)$item['ID_stock'] === (int)$codigo;
+            if ($matchCode || $matchId) {
+                $item['fase'] = 'habilitado';
+            }
+        }
+        unset($item);
+        writeJsonFile($file, $inventario);
+
+        $currentUser = getApiUser();
+        $uName = $currentUser['usuario'] ?? 'Administrador';
+        logActivity(
+            $uName,
+            'stock_habilitar',
+            "Producto '{$codigo}' rehabilitado (fase: habilitado) por {$uName}",
+            ['codigo' => $codigo, 'fase' => 'habilitado'],
+            $currentUser['id'] ?? null
+        );
+
+        sendJson(['ok' => true, 'message' => "Producto '{$codigo}' rehabilitado exitosamente.", 'fase' => 'habilitado']);
+    }
+
     if (!is_array($body) || empty($body['nombre']) || empty($body['codigo'])) {
         sendJson(['error' => 'invalid_payload', 'message' => 'Faltan campos obligatorios (nombre, codigo).'], 400);
     }
@@ -70,16 +195,42 @@ if ($method === 'POST') {
     $precio = (float)($body['precio'] ?? 0);
     $cantidad = (int)($body['cantidad'] ?? ($body['stock'] ?? 0));
     $categoriaName = trim((string)($body['categoria'] ?? 'General'));
+    $fase = 'habilitado';
     if ($categoriaName === '') {
         $categoriaName = 'General';
     }
 
     try {
         // Verificar si el código ya existe
-        $checkStmt = $db->prepare("SELECT `ID_stock` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) LIMIT 1");
+        $checkStmt = $db->prepare("SELECT `ID_stock`, `fase` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) LIMIT 1");
         $checkStmt->execute([':codigo' => $codigo]);
-        if ($checkStmt->fetch()) {
-            sendJson(['error' => 'item_exists', 'message' => 'Ya existe un producto con este código.'], 409);
+        $existing = $checkStmt->fetch();
+        if ($existing) {
+            // Si existía pero estaba deshabilitado, actualizar y rehabilitar
+            if (strtolower((string)($existing['fase'] ?? '')) === 'deshabilitado') {
+                $updRehab = $db->prepare("UPDATE `producto` SET `nombre` = :nom, `cantTotal` = :cant, `precio` = :prec, `fase` = 'habilitado' WHERE `ID_stock` = :id");
+                $updRehab->execute([
+                    ':nom'  => $nombre,
+                    ':cant' => $cantidad,
+                    ':prec' => $precio,
+                    ':id'   => (int)$existing['ID_stock']
+                ]);
+
+                $inventario = readJsonFile($file);
+                foreach ($inventario as &$item) {
+                    if (strcasecmp((string)($item['codigo'] ?? ''), $codigo) === 0) {
+                        $item['nombre'] = $nombre;
+                        $item['precio'] = $precio;
+                        $item['cantidad'] = $cantidad;
+                        $item['fase'] = 'habilitado';
+                    }
+                }
+                unset($item);
+                writeJsonFile($file, $inventario);
+
+                sendJson(['ok' => true, 'message' => 'Producto existente rehabilitado y actualizado.', 'item' => ['codigo' => $codigo, 'fase' => 'habilitado']]);
+            }
+            sendJson(['error' => 'item_exists', 'message' => 'Ya existe un producto activo con este código.'], 409);
         }
 
         // Obtener o crear la categoría
@@ -95,10 +246,10 @@ if ($method === 'POST') {
             $catId = (int)$catId;
         }
 
-        // Insertar en tabla producto
+        // Insertar en tabla producto con fase habilitado
         $insertProd = $db->prepare("
-            INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `precio`)
-            VALUES (:nombre, :codigo, :cantTotal, 0, :ID_categoria, :precio)
+            INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `precio`, `fase`)
+            VALUES (:nombre, :codigo, :cantTotal, 0, :ID_categoria, :precio, 'habilitado')
         ");
         $insertProd->execute([
             ':nombre'       => $nombre,
@@ -121,6 +272,7 @@ if ($method === 'POST') {
             'cantidad'     => $cantidad,
             'cantVendida'  => 0,
             'total'        => $precio * $cantidad,
+            'fase'         => 'habilitado',
             'subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null
         ];
 
@@ -134,19 +286,21 @@ if ($method === 'POST') {
         logActivity(
             $uName,
             'stock_crear',
-            "Nuevo producto '{$nombre}' (Cód: {$codigo}) agregado con stock {$cantidad} y precio \${$precio}",
+            "Nuevo producto '{$nombre}' (Cód: {$codigo}) agregado con stock {$cantidad}, precio \${$precio} (fase: habilitado)",
             $nuevoItem,
             $currentUser['id'] ?? null
         );
 
         sendJson(['ok' => true, 'item' => $nuevoItem]);
     } catch (Exception $e) {
-        sendJson(['error' => 'save_error', 'message' => 'Error al guardar en base de datos: ' . $e->getMessage()], 500);
+        error_log('Error al guardar producto: ' . $e->getMessage());
+        sendJson(['error' => 'save_error', 'message' => 'No se pudo guardar el producto.'], 500);
     }
 }
 
-// PUT: Actualizar inventario en MySQL
+// PUT: Actualizar producto o inventario en MySQL
 if ($method === 'PUT') {
+    requireAdminApi();
     $payload = getJsonBody();
 
     if (!is_array($payload)) {
@@ -158,7 +312,7 @@ if ($method === 'PUT') {
         if (isset($payload[0]) || empty($payload)) {
             $updateStmt = $db->prepare("
                 UPDATE `producto` 
-                SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre 
+                SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre, `fase` = COALESCE(:fase, `fase`, 'habilitado')
                 WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id
             ");
 
@@ -171,13 +325,15 @@ if ($method === 'PUT') {
                 $cantidad = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
                 $nombre = trim((string)($item['nombre'] ?? ''));
                 $id = (int)($item['ID_stock'] ?? ($item['id'] ?? 0));
+                $faseItem = isset($item['fase']) ? strtolower(trim((string)$item['fase'])) : null;
 
                 $updateStmt->execute([
                     ':cant'   => $cantidad,
                     ':precio' => $precio,
                     ':nombre' => $nombre,
                     ':codigo' => $codigo,
-                    ':id'     => $id
+                    ':id'     => $id,
+                    ':fase'   => $faseItem
                 ]);
             }
 
@@ -191,38 +347,69 @@ if ($method === 'PUT') {
         $precio = (float)($payload['precio'] ?? 0);
         $cantidad = (int)($payload['cantidad'] ?? ($payload['stock'] ?? 0));
         $nombre = trim((string)($payload['nombre'] ?? ''));
+        $fase = isset($payload['fase']) ? strtolower(trim((string)$payload['fase'])) : null;
 
-        $stmt = $db->prepare("
-            UPDATE `producto` 
-            SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre 
-            WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id
-        ");
-        $stmt->execute([
-            ':cant'   => $cantidad,
-            ':precio' => $precio,
-            ':nombre' => $nombre,
-            ':codigo' => $codigo,
-            ':id'     => $id
-        ]);
+        $updates = [];
+        $params = [':codigo' => $codigo, ':id' => $id];
+
+        if ($nombre !== '') {
+            $updates[] = "`nombre` = :nombre";
+            $params[':nombre'] = $nombre;
+        }
+        if (isset($payload['precio'])) {
+            $updates[] = "`precio` = :precio";
+            $params[':precio'] = $precio;
+        }
+        if (isset($payload['cantidad']) || isset($payload['stock'])) {
+            $updates[] = "`cantTotal` = :cant";
+            $params[':cant'] = $cantidad;
+        }
+        if ($fase !== null && in_array($fase, ['habilitado', 'deshabilitado'], true)) {
+            $updates[] = "`fase` = :fase";
+            $params[':fase'] = $fase;
+        }
+
+        if (!empty($updates)) {
+            $sql = "UPDATE `producto` SET " . implode(', ', $updates) . " WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+        }
+
+        // Sincronizar en JSON
+        $inventario = readJsonFile($file);
+        foreach ($inventario as &$item) {
+            $matchCode = strcasecmp((string)($item['codigo'] ?? ''), $codigo) === 0;
+            $matchId = isset($item['ID_stock']) && $id > 0 && (int)$item['ID_stock'] === $id;
+            if ($matchCode || $matchId) {
+                if ($nombre !== '') $item['nombre'] = $nombre;
+                if (isset($payload['precio'])) $item['precio'] = $precio;
+                if (isset($payload['cantidad']) || isset($payload['stock'])) $item['cantidad'] = $cantidad;
+                if ($fase !== null) $item['fase'] = $fase;
+            }
+        }
+        unset($item);
+        writeJsonFile($file, $inventario);
 
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
         logActivity(
             $uName,
             'stock_modificar',
-            "Stock modificado para producto '{$nombre}' (Cód: {$codigo}) a cantidad {$cantidad}, precio \${$precio}",
-            ['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio],
+            "Stock modificado para producto '{$nombre}' (Cód: {$codigo})" . ($fase ? " [Fase: {$fase}]" : ""),
+            ['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio, 'fase' => $fase],
             $currentUser['id'] ?? null
         );
 
-        sendJson(['ok' => true, 'message' => 'Producto actualizado en base de datos.']);
+        sendJson(['ok' => true, 'message' => 'Producto actualizado correctamente en base de datos.']);
     } catch (Exception $e) {
-        sendJson(['error' => 'save_error', 'message' => 'Error al actualizar base de datos: ' . $e->getMessage()], 500);
+        error_log('Error al actualizar inventario: ' . $e->getMessage());
+        sendJson(['error' => 'save_error', 'message' => 'No se pudo actualizar el inventario.'], 500);
     }
 }
 
-// DELETE: Eliminar un producto por código o ID_stock
+// DELETE: Deshabilitar producto (Baja lógica / Soft-delete a fase = 'deshabilitado')
 if ($method === 'DELETE') {
+    requireAdminApi();
     $codigo = $_GET['codigo'] ?? null;
     if (!$codigo) {
         $body = getJsonBody();
@@ -233,55 +420,73 @@ if ($method === 'DELETE') {
         sendJson(['error' => 'missing_code', 'message' => 'Se requiere el parámetro codigo.'], 400);
     }
 
-    $deletedInDb = false;
-    $deletedInJson = false;
+    $updatedInDb = false;
+    $updatedInJson = false;
+    $productName = (string)$codigo;
 
-    // 1. Intentar eliminar en MySQL
+    // 1. Marcar como deshabilitado en MySQL
     if ($db !== null) {
         try {
-            $stmt = $db->prepare("DELETE FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
+            // Obtener el nombre del producto antes de deshabilitar
+            $getName = $db->prepare("SELECT `nombre` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id LIMIT 1");
+            $getName->execute([
+                ':codigo' => (string)$codigo,
+                ':id'     => is_numeric($codigo) ? (int)$codigo : 0
+            ]);
+            $foundRow = $getName->fetch();
+            if ($foundRow && !empty($foundRow['nombre'])) {
+                $productName = (string)$foundRow['nombre'];
+            }
+
+            $stmt = $db->prepare("UPDATE `producto` SET `fase` = 'deshabilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
             $stmt->execute([
                 ':codigo' => (string)$codigo,
                 ':id'     => is_numeric($codigo) ? (int)$codigo : 0
             ]);
             if ($stmt->rowCount() > 0) {
-                $deletedInDb = true;
+                $updatedInDb = true;
             }
         } catch (Exception $e) {
             // Continuar con JSON si hay error en DB
         }
     }
 
-    // 2. Eliminar y sincronizar en archivo JSON
+    // 2. Marcar como deshabilitado en archivo JSON (el producto no se elimina, conserva su historial)
     $inventario = readJsonFile($file);
-    $initialCount = count($inventario);
-    $inventario = array_values(array_filter($inventario, function ($p) use ($codigo) {
+    foreach ($inventario as &$p) {
         $matchCode = strcasecmp((string)($p['codigo'] ?? ''), (string)$codigo) === 0;
         $matchId = isset($p['ID_stock']) && is_numeric($codigo) && (int)$p['ID_stock'] === (int)$codigo;
-        return !$matchCode && !$matchId;
-    }));
+        if ($matchCode || $matchId) {
+            $p['fase'] = 'deshabilitado';
+            $productName = (string)($p['nombre'] ?? $productName);
+            $updatedInJson = true;
+        }
+    }
+    unset($p);
 
-    if (count($inventario) < $initialCount) {
-        $deletedInJson = true;
+    if ($updatedInJson) {
         writeJsonFile($file, $inventario);
     }
 
-    if ($deletedInDb || $deletedInJson) {
+    if ($updatedInDb || $updatedInJson) {
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
         logActivity(
             $uName,
-            'stock_eliminar',
-            "Producto con código/ID '{$codigo}' eliminado del inventario por {$uName}",
-            ['codigo' => $codigo],
+            'stock_deshabilitar',
+            "Producto '{$productName}' (Cód: {$codigo}) marcado como deshabilitado por {$uName}",
+            ['codigo' => $codigo, 'fase' => 'deshabilitado'],
             $currentUser['id'] ?? null
         );
 
         sendJson([
-            'ok' => true,
-            'message' => 'Producto eliminado correctamente de la base de datos y del inventario.',
-            'deletedInDb' => $deletedInDb,
-            'deletedInJson' => $deletedInJson
+            'ok'            => true,
+            'message'       => "El producto '{$productName}' fue deshabilitado correctamente y permanece en la base de datos con fase 'deshabilitado'.",
+            'fase'          => 'deshabilitado',
+            'codigo'        => $codigo,
+            'nombre'        => $productName,
+            'updatedInDb'   => $updatedInDb,
+            'updatedInJson' => $updatedInJson
         ]);
     } else {
         sendJson(['error' => 'not_found', 'message' => 'Producto no encontrado en la base de datos ni en el inventario.'], 404);

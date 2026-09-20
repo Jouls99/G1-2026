@@ -14,46 +14,22 @@ require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/navbar.php';
 ?>
 
-<header>
-    <div class="header-top">
-        <h1>📊 Informe de Stock y Ventas</h1>
-        <div class="clock-card" aria-live="polite">
-            <span id="liveDate">--</span>
-            <strong id="liveTime">--:--:--</strong>
-            <small id="liveDay">--</small>
+<main class="report-container">
+    <header class="report-header">
+        <div class="title-area">
+            <h1>📊 Informe de Stock y Ventas</h1>
+            <p>Este informe muestra ventas, ganancias y resúmenes por categoría y periodo.</p>
         </div>
-    </div>
-    <p>Este informe muestra ventas, ganancias y resúmenes por categoría y periodo.</p>
-    <div style="text-align: center; margin: 10px 0;">
-        <a href="ControlStock.php" class="back-link" style="color: #ffffff; font-weight: bold; margin-right: 15px;">📦 Ir a Control de Stock</a>
-        <a href="prueba2.php" class="back-link" style="color: #ffffff; font-weight: bold;">🛒 Ir a Ventas</a>
-    </div>
 
-    <div class="table-wrapper">
-        <table border="1">
-            <thead>
-                <tr>
-                    <th colspan="10">Resumen de Inventario</th>
-                </tr>
-                <tr>
-                    <th>Categoría</th>
-                    <th>Producto</th>
-                    <th>Código</th>
-                    <th>Cantidad vendida</th>
-                    <th>Cantidad disponible</th>
-                    <th>Precio</th>
-                    <th>Total ganancia</th>
-                    <th>Fecha</th>
-                    <th>Hora</th>
-                    <th>Día</th>
-                </tr>
-            </thead>
-            <tbody id="stockTableBody"></tbody>
-        </table>
-    </div>
-</header>
+        <div class="header-actions">
+            <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
+            <a href="prueba2.php" class="btn-secondary">🛒 Ir a Ventas</a>
+            <?php if (isSuperAdmin()): ?>
+                <a href="usuarios.php" class="btn-secondary" style="background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Gestión de Usuarios</a>
+            <?php endif; ?>
+        </div>
+    </header>
 
-<main>
     <section id="dashboard-informe">
         <div class="dashboard-header">
             <h2>Dashboard dinámico</h2>
@@ -123,6 +99,29 @@ require_once __DIR__ . '/includes/navbar.php';
                 </table>
             </div>
         </section>
+
+        <div class="table-wrapper summary-table-wrapper">
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th colspan="10">Resumen de Inventario</th>
+                    </tr>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Producto</th>
+                        <th>Código</th>
+                        <th>Cantidad vendida</th>
+                        <th>Cantidad disponible</th>
+                        <th>Precio</th>
+                        <th>Total ganancia</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Día</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+            </table>
+        </div>
     </section>
 </main>
 

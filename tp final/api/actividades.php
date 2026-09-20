@@ -9,21 +9,23 @@ $method = requestMethod();
 $currentUser = getApiUser();
 
 if ($method === 'GET') {
-    // Solo administradores pueden ver el registro completo de interacciones
-    requireAdminApi();
+    // Solo Super Administradores pueden auditar el registro completo de actividades y logins
+    requireSuperAdminApi();
 
     $db = getDBConnection();
     $filtroUsuario = trim((string)($_GET['usuario'] ?? ''));
     $filtroTipo = trim((string)($_GET['tipo'] ?? ''));
-    $limit = min(500, max(1, (int)($_GET['limit'] ?? 150)));
+    $limit = min(500, max(1, (int)($_GET['limit'] ?? 200)));
 
     $actividades = [];
     $stats = [
-        'total'  => 0,
-        'ventas' => 0,
-        'logins' => 0,
-        'stock'  => 0,
-        'roles'  => 0
+        'total'          => 0,
+        'ventas'         => 0,
+        'logins'         => 0,
+        'logins_hoy'     => 0,
+        'intentos_fallidos' => 0,
+        'stock'          => 0,
+        'roles'          => 0
     ];
 
     try {
@@ -92,12 +94,14 @@ if ($method === 'GET') {
             ];
         }
 
-        // Estadísticas generales de actividad
+        // Estadísticas generales de actividad y logins
         $statsStmt = $db->query("
             SELECT 
                 COUNT(*) AS total,
                 SUM(CASE WHEN `tipo_accion` LIKE 'venta%' THEN 1 ELSE 0 END) AS ventas,
                 SUM(CASE WHEN `tipo_accion` LIKE 'login%' OR `tipo_accion` LIKE 'registro%' THEN 1 ELSE 0 END) AS logins,
+                SUM(CASE WHEN (`tipo_accion` LIKE 'login%' OR `tipo_accion` LIKE 'registro%') AND DATE(`fecha`) = CURDATE() THEN 1 ELSE 0 END) AS logins_hoy,
+                SUM(CASE WHEN `tipo_accion` = 'login_fallido' THEN 1 ELSE 0 END) AS intentos_fallidos,
                 SUM(CASE WHEN `tipo_accion` LIKE 'stock%' THEN 1 ELSE 0 END) AS stock,
                 SUM(CASE WHEN `tipo_accion` LIKE '%rol%' OR `tipo_accion` LIKE '%usuario%' THEN 1 ELSE 0 END) AS roles
             FROM `actividad_usuario`
@@ -105,11 +109,13 @@ if ($method === 'GET') {
         $statRow = $statsStmt->fetch();
         if ($statRow) {
             $stats = [
-                'total'  => (int)$statRow['total'],
-                'ventas' => (int)($statRow['ventas'] ?? 0),
-                'logins' => (int)($statRow['logins'] ?? 0),
-                'stock'  => (int)($statRow['stock'] ?? 0),
-                'roles'  => (int)($statRow['roles'] ?? 0),
+                'total'             => (int)$statRow['total'],
+                'ventas'            => (int)($statRow['ventas'] ?? 0),
+                'logins'            => (int)($statRow['logins'] ?? 0),
+                'logins_hoy'        => (int)($statRow['logins_hoy'] ?? 0),
+                'intentos_fallidos' => (int)($statRow['intentos_fallidos'] ?? 0),
+                'stock'             => (int)($statRow['stock'] ?? 0),
+                'roles'             => (int)($statRow['roles'] ?? 0),
             ];
         }
 
@@ -130,15 +136,18 @@ if ($method === 'GET') {
             });
         }
 
+        $todayStr = date('Y-m-d');
         sendJson([
             'ok'          => true,
             'actividades' => array_slice(array_values($filtered), 0, $limit),
             'stats'       => [
-                'total'  => count($all),
-                'ventas' => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'venta'))),
-                'logins' => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'login'))),
-                'stock'  => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'stock'))),
-                'roles'  => count(array_filter($all, fn($a) => str_contains((string)($a['tipo_accion'] ?? ''), 'rol'))),
+                'total'             => count($all),
+                'ventas'            => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'venta'))),
+                'logins'            => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'login'))),
+                'logins_hoy'        => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'login') && str_starts_with((string)($a['fecha'] ?? ''), $todayStr))),
+                'intentos_fallidos' => count(array_filter($all, fn($a) => ($a['tipo_accion'] ?? '') === 'login_fallido')),
+                'stock'             => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'stock'))),
+                'roles'             => count(array_filter($all, fn($a) => str_contains((string)($a['tipo_accion'] ?? ''), 'rol'))),
             ]
         ]);
     }

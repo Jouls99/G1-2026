@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `producto` (
   `cantVendida` int(11) DEFAULT 0,
   `ID_categoria` int(11) DEFAULT NULL,
   `precio` decimal(10,2) DEFAULT 0.00,
+  `fase` varchar(50) NOT NULL DEFAULT 'habilitado',
   PRIMARY KEY (`ID_stock`),
   KEY `fk_producto_categoria` (`ID_categoria`),
   CONSTRAINT `fk_producto_categoria`
@@ -46,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `facturacion` (
 CREATE TABLE IF NOT EXISTS `usuario` (
   `id_usuario` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
-  `contraseña` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
   `rol` varchar(50) NOT NULL DEFAULT 'vendedor',
   `ultimo_acceso` datetime DEFAULT NULL,
   `fecha_creacion` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -66,9 +67,11 @@ CREATE TABLE IF NOT EXISTS `actividad_usuario` (
   KEY `fk_actividad_usuario` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
-INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `ultimo_acceso`, `fecha_creacion`)
-SELECT 'gomez11', 'santu99', 'administrador', NOW(), NOW()
-WHERE NOT EXISTS (
-  SELECT 1 FROM `usuario` WHERE `nombre` = 'gomez11'
-);
+INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
+VALUES
+  ('gomez11', '$2y$10$YRaYHgD0mlNkI0PXn.cKUeBflEdGDLx97LVrGtc2sufPLOeHa/x22', 'superadmin', NOW()),
+  ('GOMEZ ADMIN', '$2y$10$JyH3Uir2a6822VOa.gOdx.swjfuYetdL1.EB7wr5DiXBOgtQwKJZK', 'administrador', NOW()),
+  ('vendedor_demo', '$2y$10$i7vxlO0ZNVpDht7ClhhupOB548wSgAa2FduQMNMx7s4qmtpFt4LXe', 'vendedor', NOW())
+ON DUPLICATE KEY UPDATE
+  `rol` = VALUES(`rol`);
 

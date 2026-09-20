@@ -4,39 +4,42 @@
         "ID_stock": 1,
         "nombre": "base matte",
         "codigo": "MQL-001",
-        "cantidad": 45,
+        "cantidad": 36,
         "cantVendida": 15,
         "precio": 18000,
-        "total": 810000,
+        "total": 648000,
         "categoria": "Maquillaje",
         "ID_categoria": 1,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 6,
         "ID_stock": 6,
         "nombre": "cherimoya rose",
         "codigo": "893745-sub",
-        "cantidad": 15,
+        "cantidad": 35,
         "cantVendida": 0,
         "precio": 15000,
-        "total": 225000,
+        "total": 525000,
         "categoria": "Maquillaje",
         "ID_categoria": 1,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 8,
         "ID_stock": 8,
         "nombre": "Crema Hidratante",
         "codigo": "SKN-002",
-        "cantidad": 14,
+        "cantidad": 40,
         "cantVendida": 0,
         "precio": 15000,
-        "total": 210000,
+        "total": 600000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 9,
@@ -49,7 +52,8 @@
         "total": 180000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 11,
@@ -62,20 +66,22 @@
         "total": 180000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 14,
         "ID_stock": 14,
         "nombre": "cherimoya rose",
         "codigo": "893745-sub",
-        "cantidad": 15,
+        "cantidad": 35,
         "cantVendida": 0,
         "precio": 15000,
-        "total": 225000,
+        "total": 525000,
         "categoria": "Fragancias",
         "ID_categoria": 3,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 15,
@@ -88,7 +94,8 @@
         "total": 125000,
         "categoria": "aparatologia",
         "ID_categoria": 4,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
     },
     {
         "id": 17,
@@ -101,6 +108,77 @@
         "total": 120000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null
+        "subcategoria": null,
+        "fase": "habilitado"
+    },
+    {
+        "id": 18,
+        "ID_stock": 18,
+        "nombre": "rastrillo",
+        "codigo": "202048",
+        "cantidad": 80,
+        "cantVendida": 0,
+        "precio": 36000,
+        "total": 2880000,
+        "categoria": "aparatologia",
+        "ID_categoria": 4,
+        "subcategoria": null,
+        "fase": "habilitado"
+    },
+    {
+        "id": 19,
+        "ID_stock": 19,
+        "nombre": "rastrillo femenino",
+        "codigo": "4529470",
+        "cantidad": 45,
+        "cantVendida": 0,
+        "precio": 75000,
+        "total": 3375000,
+        "categoria": "aparatologia",
+        "ID_categoria": 4,
+        "subcategoria": null,
+        "fase": "habilitado"
+    },
+    {
+        "id": 20,
+        "ID_stock": 20,
+        "nombre": "rastrillo hombre",
+        "codigo": "948576290",
+        "cantidad": 46,
+        "cantVendida": 0,
+        "precio": 24000,
+        "total": 1104000,
+        "categoria": "aparatologia",
+        "ID_categoria": 4,
+        "subcategoria": null,
+        "fase": "habilitado"
+    },
+    {
+        "id": 21,
+        "ID_stock": 21,
+        "nombre": "tinta labial",
+        "codigo": "203956",
+        "cantidad": 24,
+        "cantVendida": 0,
+        "precio": 6000,
+        "total": 144000,
+        "categoria": "Maquillaje",
+        "ID_categoria": 1,
+        "subcategoria": null,
+        "fase": "habilitado"
+    },
+    {
+        "id": 22,
+        "ID_stock": 22,
+        "nombre": "mascarilla con niacinamida",
+        "codigo": "9012345",
+        "cantidad": 18,
+        "cantVendida": 0,
+        "precio": 5000,
+        "total": 90000,
+        "categoria": "Skincare",
+        "ID_categoria": 2,
+        "subcategoria": null,
+        "fase": "habilitado"
     }
 ]

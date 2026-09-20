@@ -140,7 +140,34 @@ function getApiUser(): ?array
 }
 
 /**
- * Comprueba si el usuario autenticado en la API es Administrador.
+ * Protege un endpoint de la API exigiendo una sesión activa.
+ */
+function requireApiAuth(): void
+{
+    if (!is_array(getApiUser())) {
+        sendJson([
+            'ok' => false,
+            'error' => 'unauthorized',
+            'message' => 'Debés iniciar sesión para acceder a este recurso.'
+        ], 401);
+    }
+}
+
+/**
+ * Comprueba si el usuario autenticado en la API es Super Administrador.
+ */
+function isSuperAdminApi(): bool
+{
+    $user = getApiUser();
+    if (!$user || !is_array($user)) {
+        return false;
+    }
+    $role = strtolower(trim((string)($user['role'] ?? $user['rol'] ?? '')));
+    return in_array($role, ['superadmin', 'super administrador', 'super_admin', 'super-admin'], true);
+}
+
+/**
+ * Comprueba si el usuario autenticado en la API es Administrador o Super Administrador.
  */
 function isAdminApi(): bool
 {
@@ -148,12 +175,15 @@ function isAdminApi(): bool
     if (!$user || !is_array($user)) {
         return false;
     }
-    $role = strtolower((string)($user['role'] ?? $user['rol'] ?? ''));
+    if (isSuperAdminApi()) {
+        return true;
+    }
+    $role = strtolower(trim((string)($user['role'] ?? $user['rol'] ?? '')));
     return in_array($role, ['administrador', 'admin'], true);
 }
 
 /**
- * Protege un endpoint de la API exigiendo rol de Administrador.
+ * Protege un endpoint de la API exigiendo rol de Administrador o superior.
  */
 function requireAdminApi(): void
 {
@@ -162,6 +192,20 @@ function requireAdminApi(): void
             'ok' => false,
             'error' => 'unauthorized',
             'message' => 'Acceso denegado. Se requieren permisos de Administrador.'
+        ], 403);
+    }
+}
+
+/**
+ * Protege un endpoint de la API exigiendo EXCLUSIVAMENTE rol de Super Administrador.
+ */
+function requireSuperAdminApi(): void
+{
+    if (!isSuperAdminApi()) {
+        sendJson([
+            'ok' => false,
+            'error' => 'superadmin_required',
+            'message' => 'Acceso denegado. Se requieren permisos exclusivos de Super Administrador.'
         ], 403);
     }
 }

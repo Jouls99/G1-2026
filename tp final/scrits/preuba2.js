@@ -15,6 +15,41 @@ const inputPrecio = document.getElementById('precio');
 const stockInfo = document.getElementById('stock-info');
 const datalist = document.getElementById('productos-datalist');
 
+function normalizarNumerosNoNegativos() {
+    if (inputCantidad && Number(inputCantidad.value) < 0) {
+        inputCantidad.value = 0;
+    }
+    if (inputPrecio && Number(inputPrecio.value) < 0) {
+        inputPrecio.value = 0;
+    }
+}
+
+inputCantidad.addEventListener('input', () => {
+    if (inputCantidad.value === '') {
+        inputCantidad.value = 1;
+        return;
+    }
+    if (Number(inputCantidad.value) < 0) {
+        inputCantidad.value = 0;
+    }
+    if (Number(inputCantidad.value) < 1) {
+        inputCantidad.value = 1;
+    }
+});
+
+inputPrecio.addEventListener('input', () => {
+    if (inputPrecio.value === '') {
+        inputPrecio.value = 0;
+        return;
+    }
+    if (Number(inputPrecio.value) < 0) {
+        inputPrecio.value = 0;
+    }
+    if (Number(inputPrecio.value) < 0.01) {
+        inputPrecio.value = 0.01;
+    }
+});
+
 // Cargar inventario desde la base de datos MySQL (vía API)
 async function cargarInventarioParaVentas() {
     try {
@@ -149,10 +184,12 @@ formulario.addEventListener('submit', (e) => {
         return;
     }
 
-    if (!nombre || !codigo || Number.isNaN(precio) || precio <= 0 || cantidad <= 0) {
-        mostrarMensaje('❌ Completá todos los campos con valores válidos.', 'error');
+    if (!nombre || !codigo || Number.isNaN(precio) || precio <= 0 || cantidad <= 0 || cantidad < 0 || precio < 0) {
+        mostrarMensaje('❌ Completá todos los campos con valores válidos. Cantidad y precio no pueden ser negativos.', 'error');
         return;
     }
+
+    normalizarNumerosNoNegativos();
 
     const productoExistente = productosCargados.find(p => String(p.codigo).toLowerCase() === String(item.codigo).toLowerCase());
     if (productoExistente) {

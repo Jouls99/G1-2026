@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
-requireAuth('registroinicio.php');
+// Proteger exclusivamente para Super Administrador
+requireSuperAdmin('prueba2.php');
 
-if (!isAdmin()) {
-    header('Location: prueba2.php?error=unauthorized');
-    exit;
-}
-
-$pageTitle = 'Gestión de Usuarios';
+$pageTitle = 'Consola Super Admin - Gestión de Usuarios y Logins';
 $customCss = 'css/usuarios.css';
 $activePage = 'usuarios';
 
@@ -20,15 +16,17 @@ require_once __DIR__ . '/includes/navbar.php';
 ?>
 
 <main class="usuarios-container">
-    <header class="usuarios-header">
+    <header class="usuarios-header superadmin-header">
         <div class="title-area">
-            <h1>👥 Gestión de Usuarios</h1>
-            <p>Administración de cuentas, roles y seguimiento de actividad del sistema.</p>
+            <h1>👑 Consola Super Admin</h1>
+            <p>Control central de cuentas, asignación de roles y monitoreo en tiempo real de inicios de sesión de usuarios.</p>
         </div>
 
         <div class="header-actions">
-            <span class="admin-security-badge">🛡️ Administrador</span>
-            <button type="button" class="btn-primary" onclick="abrirModalNuevoUsuario()">＋ Nuevo usuario</button>
+            <span class="admin-security-badge superadmin-badge">👑 Super Administrador</span>
+            <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
+            <a href="informe.php" class="btn-secondary">📊 Ver informe</a>
+            <button type="button" class="btn-primary btn-superadmin" onclick="abrirModalNuevoUsuario()">＋ Nuevo usuario</button>
         </div>
     </header>
 
@@ -42,9 +40,9 @@ require_once __DIR__ . '/includes/navbar.php';
         </article>
 
         <article class="kpi-card">
-            <div class="kpi-icon indigo">🛡️</div>
+            <div class="kpi-icon gold">👑</div>
             <div class="kpi-data">
-                <span class="kpi-label">Administradores</span>
+                <span class="kpi-label">Super Admins / Admins</span>
                 <span class="kpi-value" id="kpi-admins">0</span>
             </div>
         </article>
@@ -58,10 +56,10 @@ require_once __DIR__ . '/includes/navbar.php';
         </article>
 
         <article class="kpi-card">
-            <div class="kpi-icon amber">⚡</div>
+            <div class="kpi-icon amber">🔑</div>
             <div class="kpi-data">
-                <span class="kpi-label">Interacciones</span>
-                <span class="kpi-value" id="kpi-interacciones">0</span>
+                <span class="kpi-label">Logins hoy</span>
+                <span class="kpi-value" id="kpi-logins-hoy">0</span>
             </div>
         </article>
 
@@ -75,10 +73,12 @@ require_once __DIR__ . '/includes/navbar.php';
     </section>
 
     <div class="tabs-container" role="tablist" aria-label="Paneles de administración">
-        <button type="button" class="tab-btn active" data-tab="tab-usuarios" role="tab" aria-selected="true">👥 Usuarios</button>
-        <button type="button" class="tab-btn" data-tab="tab-actividades" role="tab" aria-selected="false">⚡ Actividades</button>
+        <button type="button" class="tab-btn active" data-tab="tab-usuarios" role="tab" aria-selected="true">👥 Gestión de Usuarios</button>
+        <button type="button" class="tab-btn" data-tab="tab-logins" role="tab" aria-selected="false">🔑 Monitoreo de Logins</button>
+        <button type="button" class="tab-btn" data-tab="tab-actividades" role="tab" aria-selected="false">⚡ Registro de Actividades</button>
     </div>
 
+    <!-- PESTAÑA 1: GESTIÓN DE USUARIOS -->
     <section id="tab-usuarios" class="tab-content active" role="tabpanel">
         <div class="panel-layout">
             <div class="filters-card">
@@ -89,8 +89,9 @@ require_once __DIR__ . '/includes/navbar.php';
 
                 <div class="chip-group" aria-label="Filtrar por rol">
                     <button type="button" class="chip-filter active" data-filter-role="todos">Todos</button>
-                    <button type="button" class="chip-filter" data-filter-role="administrador">Administradores</button>
-                    <button type="button" class="chip-filter" data-filter-role="vendedor">Vendedores</button>
+                    <button type="button" class="chip-filter" data-filter-role="superadmin">👑 Super Admins</button>
+                    <button type="button" class="chip-filter" data-filter-role="administrador">🛡️ Administradores</button>
+                    <button type="button" class="chip-filter" data-filter-role="vendedor">🛒 Vendedores</button>
                 </div>
             </div>
 
@@ -99,17 +100,18 @@ require_once __DIR__ . '/includes/navbar.php';
                     <thead>
                         <tr>
                             <th>Usuario</th>
-                            <th>Rol</th>
+                            <th>Rol actual</th>
                             <th>Cambiar rol</th>
                             <th>Creado</th>
-                            <th>Último acceso</th>
+                            <th>Último login</th>
+                            <th>Total Logins</th>
                             <th>Ventas</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-usuarios">
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 32px; color: #6b7280;">
+                            <td colspan="8" style="text-align: center; padding: 32px; color: #6b7280;">
                                 Cargando usuarios...
                             </td>
                         </tr>
@@ -119,6 +121,50 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </section>
 
+    <!-- PESTAÑA 2: MONITOREO DE LOGINS (EXCLUSIVO SUPER ADMIN) -->
+    <section id="tab-logins" class="tab-content" role="tabpanel" aria-hidden="true">
+        <div class="panel-layout">
+            <div class="filters-card">
+                <div class="search-box">
+                    <label for="search-login">Buscar en registro de accesos</label>
+                    <input id="search-login" type="search" placeholder="Usuario, IP o dispositivo..." autocomplete="off">
+                </div>
+
+                <div class="chip-group" aria-label="Filtrar eventos de login">
+                    <button type="button" class="chip-filter active" data-filter-login="todos">Todos los eventos</button>
+                    <button type="button" class="chip-filter" data-filter-login="login_exitoso">✅ Logins exitosos</button>
+                    <button type="button" class="chip-filter" data-filter-login="login_fallido">⚠️ Intentos fallidos</button>
+                    <button type="button" class="chip-filter" data-filter-login="registro_usuario">📝 Nuevos registros</button>
+                    <button type="button" class="chip-filter" data-filter-login="logout">🚪 Cierres de sesión</button>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <table class="users-table logins-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Evento de acceso</th>
+                            <th>Fecha y Hora</th>
+                            <th>Dirección IP</th>
+                            <th>Dispositivo / Navegador</th>
+                            <th>Detalles</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-logins">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 32px; color: #6b7280;">
+                                Cargando registro de inicios de sesión...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- PESTAÑA 3: TODAS LAS ACTIVIDADES DEL SISTEMA -->
     <section id="tab-actividades" class="tab-content" role="tabpanel" aria-hidden="true">
         <div class="panel-layout">
             <div class="filters-card">
@@ -130,7 +176,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <div class="chip-group" aria-label="Filtrar actividades">
                     <button type="button" class="chip-filter active" data-filter-act="todas">Todas</button>
                     <button type="button" class="chip-filter" data-filter-act="venta">Ventas</button>
-                    <button type="button" class="chip-filter" data-filter-act="login">Login</button>
+                    <button type="button" class="chip-filter" data-filter-act="login">Logins</button>
                     <button type="button" class="chip-filter" data-filter-act="rol">Roles</button>
                     <button type="button" class="chip-filter" data-filter-act="stock">Stock</button>
                 </div>
@@ -145,50 +191,57 @@ require_once __DIR__ . '/includes/navbar.php';
     </section>
 </main>
 
+<!-- MODAL CREAR NUEVO USUARIO -->
 <div id="modal-nuevo-usuario" class="modal-overlay" aria-hidden="true">
     <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3>Crear nuevo usuario</h3>
+            <h3>👑 Crear nuevo usuario</h3>
             <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
         </div>
 
         <form id="form-nuevo-usuario">
             <div class="field-group">
-                <label for="new-username">Usuario</label>
-                <input id="new-username" type="text" name="usuario" placeholder="Ej: vendedora01" required>
+                <label for="new-username">Nombre de usuario</label>
+                <input id="new-username" type="text" name="usuario" placeholder="Ej: vendedora01" required autocomplete="off">
             </div>
 
             <div class="field-group">
                 <label for="new-password">Contraseña</label>
-                <input id="new-password" type="password" name="password" placeholder="Asignar contraseña" required>
+                <input id="new-password" type="password" name="password" placeholder="Asignar contraseña segura" required autocomplete="new-password">
             </div>
 
             <div class="field-group">
-                <label>Rol del usuario</label>
-                <div class="role-picker">
+                <label>Asignar Rol</label>
+                <div class="role-picker role-picker-3">
                     <label class="role-radio-card selected">
-                        <input type="radio" name="new-role" id="role-new-vendedor" value="vendedor" checked>
+                        <input type="radio" name="new-role" id="role-new-vendedor" value="vendedor" checked> <!-- este rol solo aparece cuando lo inicia el usuario como vendedor, pero no puede ver que existe un administrador ni sabe que existe un super admin, y tiene funciones básicas -->
                         <span>🛒 Vendedor</span>
                     </label>
-                    <label class="role-radio-card">
+                    <label class="role-radio-card"> <!-- este rol solo lo puede ver cuándo el usuario como administrador inicia sesión, pero no puede ver al super admin ni su actividad -->
                         <input type="radio" name="new-role" id="role-new-admin" value="administrador">
-                        <span>🛡️ Administrador</span>
+                        <span>🛡️ Admin</span>
+                    </label>
+                    <label class="role-radio-card"> <!-- esta rol solo aparece cuándo se inicia el usuario como super admin,  -->
+                        <input type="radio" name="new-role" id="role-new-superadmin" value="superadmin">
+                        <span>👑 Super Admin</span>
                     </label>
                 </div>
             </div>
+            <!-- La actividad de todos los usuarios independientemente del rol, su actividad será guardada por seguridad -->
 
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" data-modal-close>Cancelar</button>
-                <button type="submit" class="btn-primary">Guardar usuario</button>
+                <button type="submit" class="btn-primary btn-superadmin">Guardar usuario</button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- MODAL EDITAR USUARIO -->
 <div id="modal-editar-usuario" class="modal-overlay" aria-hidden="true">
     <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3>Editar usuario</h3>
+            <h3>✏️ Editar usuario</h3>
             <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
         </div>
 
@@ -202,31 +255,36 @@ require_once __DIR__ . '/includes/navbar.php';
 
             <div class="field-group">
                 <label for="edit-password">Nueva contraseña</label>
-                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para no cambiarla">
+                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para no cambiarla" autocomplete="new-password">
             </div>
 
             <div class="field-group">
                 <label>Rol</label>
-                <div class="role-picker">
+                <div class="role-picker role-picker-3">
                     <label class="role-radio-card">
-                        <input type="radio" name="edit-role" id="role-edit-vendedor" value="vendedor" checked>
+                        <input type="radio" name="edit-role" id="role-edit-vendedor" value="vendedor">
                         <span>🛒 Vendedor</span>
                     </label>
                     <label class="role-radio-card">
                         <input type="radio" name="edit-role" id="role-edit-admin" value="administrador">
-                        <span>🛡️ Administrador</span>
+                        <span>🛡️ Admin</span>
+                    </label>
+                    <label class="role-radio-card">
+                        <input type="radio" name="edit-role" id="role-edit-superadmin" value="superadmin">
+                        <span>👑 Super Admin</span>
                     </label>
                 </div>
             </div>
 
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" data-modal-close>Cancelar</button>
-                <button type="submit" class="btn-primary">Actualizar</button>
+                <button type="submit" class="btn-primary btn-superadmin">Actualizar</button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- MODAL DETALLE COMPLETO DE USUARIO (CON LOGINS Y VENTAS) -->
 <div id="modal-detalle-usuario" class="modal-overlay large" aria-hidden="true">
     <div class="modal-content modal-lg">
         <div class="modal-header">
@@ -240,6 +298,7 @@ require_once __DIR__ . '/includes/navbar.php';
     </div>
 </div>
 
+<!-- NOTIFICACIÓN TOAST -->
 <div id="toast-notification" class="toast-notification" aria-live="polite">
     <span id="toast-message">Acción realizada.</span>
 </div>

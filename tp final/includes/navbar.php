@@ -25,10 +25,10 @@ $userInitial = strtoupper(substr($userName, 0, 1));
         <li class="nav-item <?= $activePage === 'informe' ? 'active' : '' ?>">
             <a href="informe.php">📊 Informes & Métricas</a>
         </li>
-        <?php if (isAdmin()): ?>
+        <?php if (isSuperAdmin()): ?>
         <li class="nav-item <?= $activePage === 'usuarios' ? 'active' : '' ?>">
-            <a href="usuarios.php" style="background: rgba(124, 58, 237, 0.25); border: 1px solid rgba(167, 139, 250, 0.4);">
-                👥 Gestión Usuarios <span style="background: #7c3aed; color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 4px; font-weight: bold;">ADMIN</span>
+            <a href="usuarios.php" style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(217, 119, 6, 0.2)); border: 1px solid #f59e0b; color: #fff;">
+                👑 Gestión Usuarios <span style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; margin-left: 4px; font-weight: 800; letter-spacing: 0.5px;">SUPER ADMIN</span>
             </a>
         </li>
         <?php endif; ?>
@@ -36,10 +36,14 @@ $userInitial = strtoupper(substr($userName, 0, 1));
 
     <div class="user-section">
         <?php if (isLoggedIn()): ?>
+            <?php 
+                $roleClass = isSuperAdmin() ? 'role-badge-superadmin' : (isAdmin() ? 'role-badge-admin' : 'role-badge-vendedor');
+                $roleLabel = isSuperAdmin() ? '👑 Super Admin' : (isAdmin() ? '🛡️ Admin' : '🛒 Vendedor');
+            ?>
             <div class="user-info" title="Usuario conectado">
-                <span class="user-avatar"><?= htmlspecialchars($userInitial, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="user-avatar" style="<?= isSuperAdmin() ? 'background: linear-gradient(135deg, #f59e0b, #7c3aed);' : '' ?>"><?= htmlspecialchars($userInitial, ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="user-name"><?= htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="user-role"><?= htmlspecialchars($userRole, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="user-role <?= $roleClass ?>" style="<?= isSuperAdmin() ? 'background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-weight: 700;' : '' ?>"><?= htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
             <a href="logout.php" class="btn-logout" title="Cerrar sesión segura de PHP">
                 🚪 Salir

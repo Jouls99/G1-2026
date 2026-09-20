@@ -10,13 +10,15 @@ $method = requestMethod();
 $db = getDBConnection();
 $currentUser = getApiUser();
 
-// GET: Listar usuarios con métricas de ventas e interacciones
+// Solo el Super Admin puede acceder a la API de gestión de usuarios y auditoría de logins
+requireSuperAdminApi();
+
+// GET: Listar usuarios con métricas de ventas, logins e interacciones
 if ($method === 'GET') {
     $action = $_GET['action'] ?? 'list';
     
-    // Si se solicita el detalle de interacción específico de un usuario
+    // Si se solicita el detalle de interacción y logins de un usuario específico
     if ($action === 'detail') {
-        requireAdminApi();
         $targetUser = trim((string)($_GET['usuario'] ?? ''));
         if ($targetUser === '') {
             sendJson(['ok' => false, 'message' => 'Usuario no especificado.'], 400);
@@ -51,7 +53,6 @@ if ($method === 'GET') {
             $vStmt->execute([':nombre' => $targetUser]);
             $ventas = $vStmt->fetchAll();
 
-            // Total facturado y cantidad de ventas
             $totFacturado = 0;
             $totItems = 0;
             foreach ($ventas as $v) {
@@ -59,7 +60,7 @@ if ($method === 'GET') {
                 $totItems += (int)($v['cantidadVendida'] ?? 0);
             }
 
-            // Actividades registradas para este usuario
+            // Actividades generales registradas para este usuario
             $aStmt = $db->prepare("
                 SELECT `id_actividad`, `tipo_accion`, `descripcion`, `detalles`, `fecha`
                 FROM `actividad_usuario`
@@ -69,6 +70,17 @@ if ($method === 'GET') {
             ");
             $aStmt->execute([':nombre' => $targetUser]);
             $actividades = $aStmt->fetchAll();
+
+            // Inicios de sesión / logins específicos para este usuario
+            $lStmt = $db->prepare("
+                SELECT `id_actividad`, `tipo_accion`, `descripcion`, `detalles`, `fecha`
+                FROM `actividad_usuario`
+                WHERE LOWER(`usuario`) = LOWER(:nombre) AND (`tipo_accion` LIKE 'login%' OR `tipo_accion` LIKE 'registro%')
+                ORDER BY `id_actividad` DESC
+                LIMIT 50
+            ");
+            $lStmt->execute([':nombre' => $targetUser]);
+            $logins = $lStmt->fetchAll();
 
             sendJson([
                 'ok'          => true,
@@ -80,11 +92,12 @@ if ($method === 'GET') {
                     'fecha_creacion' => $userData['fecha_creacion'] ? date('c', strtotime((string)$userData['fecha_creacion'])) : null,
                 ],
                 'metricas'    => [
-                    'total_ventas'    => count($ventas),
-                    'total_facturado' => $totFacturado,
-                    'total_items'     => $totItems,
-                    'ticket_promedio' => count($ventas) > 0 ? round($totFacturado / count($ventas), 2) : 0,
-                    'total_actividades' => count($actividades)
+                    'total_ventas'      => count($ventas),
+                    'total_facturado'   => $totFacturado,
+                    'total_items'       => $totItems,
+                    'ticket_promedio'   => count($ventas) > 0 ? round($totFacturado / count($ventas), 2) : 0,
+                    'total_actividades' => count($actividades),
+                    'total_logins'      => count($logins)
                 ],
                 'ventas'      => $ventas,
                 'actividades' => array_map(function($a) {
@@ -100,14 +113,30 @@ if ($method === 'GET') {
                         'detalles'    => $det,
                         'fecha'       => date('c', strtotime((string)$a['fecha']))
                     ];
-                }, $actividades)
+                }, $actividades),
+                'logins'      => array_map(function($l) {
+                    $det = null;
+                    if (!empty($l['detalles'])) {
+                        $dec = json_decode((string)$l['detalles'], true);
+                        $det = is_array($dec) ? $dec : $l['detalles'];
+                    }
+                    return [
+                        'id'          => (int)$l['id_actividad'],
+                        'tipo'        => (string)$l['tipo_accion'],
+                        'descripcion' => (string)$l['descripcion'],
+                        'ip'          => is_array($det) ? ($det['ip'] ?? '127.0.0.1') : '127.0.0.1',
+                        'user_agent'  => is_array($det) ? ($det['user_agent'] ?? 'Navegador Web') : 'Navegador Web',
+                        'detalles'    => $det,
+                        'fecha'       => date('c', strtotime((string)$l['fecha']))
+                    ];
+                }, $logins)
             ]);
         } catch (Exception $e) {
             sendJson(['ok' => false, 'message' => 'Error al consultar detalle de usuario: ' . $e->getMessage()], 500);
         }
     }
 
-    // Listado general de usuarios (con métricas si es admin)
+    // Listado general de usuarios (con métricas de ventas, logins e interacciones)
     try {
         $stmt = $db->query("
             SELECT 
@@ -118,7 +147,8 @@ if ($method === 'GET') {
                 u.`fecha_creacion`,
                 COALESCE(COUNT(DISTINCT f.`ID_factura`), 0) AS total_ventas,
                 COALESCE(SUM(f.`ganancia`), 0) AS total_facturado,
-                (SELECT COUNT(*) FROM `actividad_usuario` a WHERE LOWER(a.`usuario`) = LOWER(u.`nombre`)) AS total_actividades
+                (SELECT COUNT(*) FROM `actividad_usuario` a WHERE LOWER(a.`usuario`) = LOWER(u.`nombre`)) AS total_actividades,
+                (SELECT COUNT(*) FROM `actividad_usuario` a WHERE LOWER(a.`usuario`) = LOWER(u.`nombre`) AND a.`tipo_accion` LIKE 'login%') AS total_logins
             FROM `usuario` u
             LEFT JOIN `facturacion` f ON LOWER(f.`usuario`) = LOWER(u.`nombre`)
             GROUP BY u.`id_usuario`, u.`nombre`, u.`rol`, u.`ultimo_acceso`, u.`fecha_creacion`
@@ -136,7 +166,8 @@ if ($method === 'GET') {
                 'fecha_creacion'    => $u['fecha_creacion'] ? date('c', strtotime((string)$u['fecha_creacion'])) : null,
                 'total_ventas'      => (int)$u['total_ventas'],
                 'total_facturado'   => (float)$u['total_facturado'],
-                'total_actividades' => (int)$u['total_actividades']
+                'total_actividades' => (int)$u['total_actividades'],
+                'total_logins'      => (int)$u['total_logins']
             ];
         }
 
@@ -153,30 +184,30 @@ if ($method === 'GET') {
                 'fecha_creacion'    => $u['createdAt'] ?? null,
                 'total_ventas'      => 0,
                 'total_facturado'   => 0,
-                'total_actividades' => 0
+                'total_actividades' => 0,
+                'total_logins'      => 0
             ];
         }, $users);
         sendJson($safeUsers);
     }
 }
 
-// POST: Crear nuevo usuario desde el panel o registro
+// POST: Crear nuevo usuario desde la consola del Super Admin
 if ($method === 'POST') {
     $body = getJsonBody();
     $usuario = trim((string) ($body['usuario'] ?? ''));
     $password = (string) ($body['password'] ?? '');
     $role = trim((string) ($body['role'] ?? 'vendedor'));
-    if ($role === '') {
-        $role = 'vendedor';
-    }
 
     if ($usuario === '' || $password === '') {
         sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Completá todos los campos.'], 400);
     }
 
-    // Si intenta asignar rol de administrador, debe ser admin
-    if (in_array(strtolower($role), ['administrador', 'admin'], true) && !isAdminApi()) {
-        $role = 'vendedor'; // Fallback a vendedor si no es admin
+    $validRoles = ['superadmin', 'administrador', 'vendedor'];
+    if (!in_array(strtolower($role), $validRoles, true)) {
+        $role = 'vendedor';
+    } else {
+        $role = strtolower($role);
     }
 
     try {
@@ -187,10 +218,10 @@ if ($method === 'POST') {
             sendJson(['ok' => false, 'error' => 'user_exists', 'message' => 'Ese nombre de usuario ya está registrado.'], 409);
         }
 
-        $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `contraseña`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
+        $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
         $insertStmt->execute([
             ':nombre' => $usuario,
-            ':pass'   => $password,
+            ':pass'   => password_hash($password, PASSWORD_DEFAULT),
             ':rol'    => $role
         ]);
         $newUserId = (int)$db->lastInsertId();
@@ -202,22 +233,23 @@ if ($method === 'POST') {
             'usuario'   => $usuario,
             'password'  => $password,
             'role'      => $role,
-            'createdAt' => date('c')
+            'createdAt' => date('c'),
+            'lastLogin' => null
         ];
         writeJsonFile($file, $users);
 
-        $adminName = $currentUser['usuario'] ?? $usuario;
+        $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
         logActivity(
-            $adminName,
+            $superAdminName,
             'usuario_creado',
-            "Usuario '{$usuario}' creado exitosamente con rol '{$role}' por {$adminName}",
-            ['usuario' => $usuario, 'rol' => $role],
+            "Usuario '{$usuario}' creado exitosamente con rol '{$role}' por el Super Admin {$superAdminName}",
+            ['usuario' => $usuario, 'rol' => $role, 'creado_por' => $superAdminName],
             $newUserId
         );
 
         sendJson([
             'ok'      => true,
-            'message' => "Usuario '{$usuario}' registrado con éxito.",
+            'message' => "Usuario '{$usuario}' registrado con éxito con rol '{$role}'.",
             'user'    => [
                 'id'      => $newUserId,
                 'usuario' => $usuario,
@@ -229,10 +261,8 @@ if ($method === 'POST') {
     }
 }
 
-// PUT: Modificar usuario o cambiar su rol (Solo Administradores)
+// PUT: Modificar usuario o cambiar su rol (Solo Super Admin)
 if ($method === 'PUT') {
-    requireAdminApi();
-
     $body = getJsonBody();
     $id = isset($body['id']) ? (int)$body['id'] : null;
     $usuario = trim((string)($body['usuario'] ?? ''));
@@ -260,12 +290,14 @@ if ($method === 'PUT') {
         $targetName = (string)$target['nombre'];
         $currentRole = (string)$target['rol'];
 
-        // Protección: Si el admin intenta quitarse el rol de admin a sí mismo, verificar que quede al menos otro admin
+        // Protección: Si el Super Admin intenta cambiarse de rol a sí mismo, verificar que quede al menos otro Super Admin
         if ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
-            if ($targetId === (int)($currentUser['id'] ?? 0) && strtolower($newRole) !== 'administrador') {
-                $otherAdmins = (int)$db->query("SELECT COUNT(*) FROM `usuario` WHERE `rol` = 'administrador' AND `id_usuario` != {$targetId}")->fetchColumn();
-                if ($otherAdmins === 0) {
-                    sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'No podés remover tus permisos de Administrador porque sos el único administrador del sistema.'], 403);
+            if ($targetId === (int)($currentUser['id'] ?? 0) && strtolower($newRole) !== 'superadmin') {
+                $countStmt = $db->prepare("SELECT COUNT(*) FROM `usuario` WHERE `rol` = 'superadmin' AND `id_usuario` != :id");
+                $countStmt->execute([':id' => $targetId]);
+                $otherSuperAdmins = (int)$countStmt->fetchColumn();
+                if ($otherSuperAdmins === 0) {
+                    sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'No podés remover tus permisos de Super Administrador porque sos el único Super Admin del sistema.'], 403);
                 }
             }
         }
@@ -273,15 +305,36 @@ if ($method === 'PUT') {
         // Construir actualización dinámica
         $updates = [];
         $params = [':id' => $targetId];
+        $nombreFinal = $targetName;
 
-        if ($newRole !== null && in_array(strtolower($newRole), ['administrador', 'vendedor', 'admin'], true)) {
+        if ($usuario !== '' && strcasecmp($usuario, $targetName) !== 0) {
+            $dupStmt = $db->prepare("SELECT `id_usuario` FROM `usuario` WHERE LOWER(`nombre`) = LOWER(:nombre) AND `id_usuario` != :id LIMIT 1");
+            $dupStmt->execute([':nombre' => $usuario, ':id' => $targetId]);
+            if ($dupStmt->fetch()) {
+                sendJson(['ok' => false, 'error' => 'user_exists', 'message' => 'Ese nombre de usuario ya está registrado.'], 409);
+            }
+            $updates[] = "`nombre` = :nombre";
+            $params[':nombre'] = $usuario;
+            $nombreFinal = $usuario;
+        }
+
+        if ($newRole !== null) {
+            $roleClean = strtolower(trim($newRole));
+            if (in_array($roleClean, ['superadmin', 'super administrador', 'super_admin'], true)) {
+                $roleClean = 'superadmin';
+            } elseif (in_array($roleClean, ['administrador', 'admin'], true)) {
+                $roleClean = 'administrador';
+            } else {
+                $roleClean = 'vendedor';
+            }
             $updates[] = "`rol` = :rol";
-            $params[':rol'] = $newRole;
+            $params[':rol'] = $roleClean;
+            $newRole = $roleClean;
         }
 
         if ($newPassword !== null) {
-            $updates[] = "`contraseña` = :pass";
-            $params[':pass'] = $newPassword;
+            $updates[] = "`password` = :pass";
+            $params[':pass'] = password_hash($newPassword, PASSWORD_DEFAULT);
         }
 
         if (empty($updates)) {
@@ -296,6 +349,7 @@ if ($method === 'PUT') {
         $users = readJsonFile($file);
         foreach ($users as &$u) {
             if ((isset($u['id']) && (int)$u['id'] === $targetId) || strcasecmp((string)($u['usuario'] ?? ''), $targetName) === 0) {
+                $u['usuario'] = $nombreFinal;
                 if ($newRole !== null) {
                     $u['role'] = $newRole;
                 }
@@ -304,23 +358,23 @@ if ($method === 'PUT') {
                 }
             }
         }
+        unset($u);
         writeJsonFile($file, $users);
 
-        // Si se cambió el rol, registrar interacción específica
-        $adminName = $currentUser['usuario'] ?? 'Administrador';
+        $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
         if ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
             logActivity(
-                $adminName,
+                $superAdminName,
                 'rol_cambiado',
-                "El Administrador {$adminName} cambió el rol de '{$targetName}' de '{$currentRole}' a '{$newRole}'",
+                "El Super Admin {$superAdminName} cambió el rol de '{$targetName}' de '{$currentRole}' a '{$newRole}'",
                 ['usuario' => $targetName, 'rol_anterior' => $currentRole, 'nuevo_rol' => $newRole],
                 $targetId
             );
         } else {
             logActivity(
-                $adminName,
+                $superAdminName,
                 'usuario_modificado',
-                "Datos del usuario '{$targetName}' modificados por {$adminName}",
+                "Datos del usuario '{$targetName}' actualizados por el Super Admin {$superAdminName}",
                 ['usuario' => $targetName],
                 $targetId
             );
@@ -328,10 +382,10 @@ if ($method === 'PUT') {
 
         sendJson([
             'ok'      => true,
-            'message' => "Usuario '{$targetName}' actualizado correctamente.",
+            'message' => "Usuario '{$nombreFinal}' actualizado correctamente.",
             'user'    => [
                 'id'      => $targetId,
-                'usuario' => $targetName,
+                'usuario' => $nombreFinal,
                 'role'    => $newRole ?? $currentRole
             ]
         ]);
@@ -340,10 +394,8 @@ if ($method === 'PUT') {
     }
 }
 
-// DELETE: Eliminar usuario (Solo Administradores)
+// DELETE: Eliminar usuario (Solo Super Admin)
 if ($method === 'DELETE') {
-    requireAdminApi();
-
     $id = $_GET['id'] ?? null;
     if (!$id) {
         $body = getJsonBody();
@@ -356,9 +408,9 @@ if ($method === 'DELETE') {
 
     $idInt = (int)$id;
 
-    // Protección: Un administrador no puede eliminarse a sí mismo
+    // Protección: Un Super Admin no puede eliminarse a sí mismo
     if ($idInt === (int)($currentUser['id'] ?? 0)) {
-        sendJson(['ok' => false, 'error' => 'self_delete', 'message' => 'No podés eliminar tu propia cuenta mientras tenés la sesión activa.'], 403);
+        sendJson(['ok' => false, 'error' => 'self_delete', 'message' => 'No podés eliminar tu propia cuenta de Super Admin mientras tenés la sesión activa.'], 403);
     }
 
     try {
@@ -385,11 +437,11 @@ if ($method === 'DELETE') {
         }));
         writeJsonFile($file, $users);
 
-        $adminName = $currentUser['usuario'] ?? 'Administrador';
+        $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
         logActivity(
-            $adminName,
+            $superAdminName,
             'usuario_eliminado',
-            "Usuario '{$targetName}' eliminado del sistema por el Administrador {$adminName}",
+            "Usuario '{$targetName}' eliminado del sistema por el Super Admin {$superAdminName}",
             ['id_usuario' => $idInt, 'usuario' => $targetName],
             $currentUser['id'] ?? null
         );

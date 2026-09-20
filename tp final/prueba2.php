@@ -10,6 +10,7 @@ requireAuth('registroinicio.php');
 $pageTitle = 'Panel de Gestión de Ventas (POS)';
 $customCss = 'css/prueba2.css';
 $activePage = 'ventas';
+$puedeVerEstadoBase = isSuperAdmin();
 
 // Cargar productos directamente desde MySQL (tabla producto y categoria)
 $productosDB = [];
@@ -27,9 +28,11 @@ try {
                 COALESCE(p.cantTotal, 0) AS cantidad,
                 COALESCE(p.cantVendida, 0) AS cantVendida,
                 CAST(COALESCE(p.precio, 0) AS DECIMAL(10,2)) AS precio,
-                COALESCE(c.nombre, 'General') AS categoria
+                COALESCE(c.nombre, 'General') AS categoria,
+                COALESCE(p.fase, 'habilitado') AS fase
             FROM `producto` p
             LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
+            WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'
             ORDER BY p.nombre ASC
         ");
 
@@ -51,6 +54,9 @@ try {
     if (file_exists($jsonPath)) {
         $json = json_decode(file_get_contents($jsonPath) ?: '[]', true);
         if (is_array($json)) {
+            $habilitadosJson = array_filter($json, function($item) {
+                return ($item['fase'] ?? 'habilitado') !== 'deshabilitado';
+            });
             $productosDB = array_map(function($item) {
                 return [
                     'ID_stock'    => $item['id'] ?? $item['ID_stock'] ?? 0,
@@ -59,9 +65,10 @@ try {
                     'cantidad'    => $item['cantidad'] ?? $item['stock'] ?? 0,
                     'cantVendida' => $item['cantVendida'] ?? 0,
                     'precio'      => $item['precio'] ?? 0,
-                    'categoria'   => $item['categoria'] ?? 'General'
+                    'categoria'   => $item['categoria'] ?? 'General',
+                    'fase'        => $item['fase'] ?? 'habilitado'
                 ];
-            }, $json);
+            }, array_values($habilitadosJson));
         }
     }
 }
@@ -72,9 +79,11 @@ require_once __DIR__ . '/includes/navbar.php';
 
 <header style="margin-top: 15px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
     <h1>🛒 Panel de Gestión de Ventas</h1>
-    <div style="font-size: 0.9rem; padding: 4px 12px; border-radius: 20px; background: <?= $dbConectada ? '#dcfce7; color: #166534; border: 1px solid #86efac;' : '#fee2e2; color: #991b1b; border: 1px solid #fca5a5;' ?>">
-        <?= $dbConectada ? '🟢 Conectado a Base de Datos MySQL (<code>sos_cosmeticos</code>)' : '🔴 Error de Conexión: ' . htmlspecialchars($errorDB ?? 'Desconocido') ?>
-    </div>
+    <?php if ($puedeVerEstadoBase): ?>
+        <div style="font-size: 0.9rem; padding: 4px 12px; border-radius: 20px; background: <?= $dbConectada ? '#dcfce7; color: #166534; border: 1px solid #86efac;' : '#fee2e2; color: #991b1b; border: 1px solid #fca5a5;' ?>">
+            <?= $dbConectada ? '🟢 Conectado a Base de Datos MySQL (<code>sos_cosmeticos</code>)' : '🔴 Error de Conexión: ' . htmlspecialchars($errorDB ?? 'Desconocido') ?>
+        </div>
+    <?php endif; ?>
 </header>
 
 <main>
@@ -142,11 +151,11 @@ require_once __DIR__ . '/includes/navbar.php';
                     <label for="cantidad">
                         Cantidad <span id="stock-info" style="font-size: 0.85em; font-weight: bold; color: #ae3c1d; margin-left: 8px;"></span>
                     </label>
-                    <input type="number" id="cantidad" name="cantidad" min="1" value="1" required>
+                    <input type="number" id="cantidad" name="cantidad" min="0,0" max="9999" value="0,0" required oninput="this.value = this.value < 0 ? 0 : this.value;">
                 </div>
                 <div class="form-group">
                     <label for="precio">Precio de Venta</label>
-                    <input type="number" id="precio" name="precio" step="0.01" placeholder="$0.00" required>
+                    <input type="number" id="precio" name="precio" min="0.01" step="0.01" placeholder="$0.00" required oninput="this.value = this.value < 0 ? 0 : this.value;">
                 </div>
                 <button type="submit" class="btn-cargar">+ Cargar a la Tabla</button>
             </form>

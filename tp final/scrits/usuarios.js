@@ -1,26 +1,32 @@
 /**
- * Panel de Gestión de Usuarios y Monitoreo de Interacciones
- * SOS Cosméticos - Exclusivo Administrador
+ * Consola de Super Admin: Gestión de Usuarios y Monitoreo de Logins
+ * SOS Cosméticos - Exclusivo Super Administrador
  */
 
 // Estado global de la vista
 let listaUsuarios = [];
 let listaActividades = [];
+let listaLogins = [];
+let metricasGenerales = {};
+
 let filtroRolActual = 'todos';
 let filtroTipoActividad = 'todas';
+let filtroLoginActual = 'todos';
 let usuarioSeleccionado = null;
 
 // Elementos del DOM
 const tbodyUsuarios = document.getElementById('tbody-usuarios');
+const tbodyLogins = document.getElementById('tbody-logins');
 const activityStream = document.getElementById('activity-stream');
 const inputSearchUser = document.getElementById('search-user');
+const inputSearchLogin = document.getElementById('search-login');
 const inputSearchActivity = document.getElementById('search-activity');
 
 // KPI elements
 const kpiTotalUsers = document.getElementById('kpi-total-users');
 const kpiAdmins = document.getElementById('kpi-admins');
 const kpiVendedores = document.getElementById('kpi-vendedores');
-const kpiInteracciones = document.getElementById('kpi-interacciones');
+const kpiLoginsHoy = document.getElementById('kpi-logins-hoy');
 const kpiVentasTotal = document.getElementById('kpi-ventas-total');
 
 // Modales
@@ -70,15 +76,68 @@ function formatDate(isoString) {
 }
 
 /**
+ * Calcular tiempo transcurrido relativo (hace X minutos, hoy a las...)
+ */
+function timeAgo(isoString) {
+    if (!isoString) return 'Sin registros';
+    try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+        const now = new Date();
+        const diffMs = now - d;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 1) return '🟢 Justo ahora';
+        if (diffMins < 60) return `Hace ${diffMins} min`;
+        if (diffHours < 24) return `Hace ${diffHours} h`;
+        if (diffDays === 1) return 'Ayer';
+        if (diffDays < 7) return `Hace ${diffDays} días`;
+        return formatDate(isoString);
+    } catch (e) {
+        return isoString;
+    }
+}
+
+/**
+ * Interpretar User Agent para extraer Navegador y Sistema Operativo amigable
+ */
+function parseUserAgent(ua) {
+    if (!ua || typeof ua !== 'string') return 'Navegador Web';
+
+    let os = 'PC';
+    if (/windows/i.test(ua)) os = 'Windows';
+    else if (/android/i.test(ua)) os = 'Android';
+    else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+    else if (/macintosh|mac os x/i.test(ua)) os = 'Mac';
+    else if (/linux/i.test(ua)) os = 'Linux';
+
+    let browser = 'Web';
+    if (/edg/i.test(ua)) browser = 'Edge';
+    else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
+    else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+    else if (/safari/i.test(ua)) browser = 'Safari';
+    else if (/opera|opr/i.test(ua)) browser = 'Opera';
+
+    return `${browser} (${os})`;
+}
+
+/**
  * Cargar usuarios y sus estadísticas desde la API
  */
 async function cargarUsuarios() {
     try {
         const response = await fetch('api/users.php', { cache: 'no-store' });
-        if (!response.ok) {
-            throw new Error('Error al conectar con la API de usuarios.');
+        const data = await response.json();
+        if (!response.ok || (data && !Array.isArray(data) && data.ok === false)) {
+            if (response.status === 403) {
+                window.location.href = 'prueba2.php?error=unauthorized';
+                return;
+            }
+            throw new Error((data && data.message) || 'Error al conectar con la API de usuarios.');
         }
-        listaUsuarios = await response.json();
+        listaUsuarios = Array.isArray(data) ? data : [];
         renderKPIs();
         renderTablaUsuarios();
     } catch (error) {
@@ -92,20 +151,21 @@ async function cargarUsuarios() {
  */
 function renderKPIs() {
     const totalUsers = listaUsuarios.length;
-    const admins = listaUsuarios.filter(u => u.role.toLowerCase() === 'administrador' || u.role.toLowerCase() === 'admin').length;
-    const vendedores = listaUsuarios.filter(u => u.role.toLowerCase() === 'vendedor').length;
+    const superAdmins = listaUsuarios.filter(u => (u.role || '').toLowerCase() === 'superadmin').length;
+    const regularAdmins = listaUsuarios.filter(u => (u.role || '').toLowerCase() === 'administrador' || (u.role || '').toLowerCase() === 'admin').length;
+    const vendedores = listaUsuarios.filter(u => (u.role || '').toLowerCase() === 'vendedor').length;
     const totalVentasDinero = listaUsuarios.reduce((sum, u) => sum + (parseFloat(u.total_facturado) || 0), 0);
-    const totalActividades = listaUsuarios.reduce((sum, u) => sum + (parseInt(u.total_actividades) || 0), 0);
+    const loginsHoy = metricasGenerales.logins_hoy ?? listaUsuarios.reduce((sum, u) => sum + (parseInt(u.total_logins) || 0), 0);
 
     if (kpiTotalUsers) kpiTotalUsers.textContent = totalUsers;
-    if (kpiAdmins) kpiAdmins.textContent = admins;
+    if (kpiAdmins) kpiAdmins.textContent = `${superAdmins + regularAdmins} (${superAdmins} Super)`;
     if (kpiVendedores) kpiVendedores.textContent = vendedores;
+    if (kpiLoginsHoy) kpiLoginsHoy.textContent = loginsHoy;
     if (kpiVentasTotal) kpiVentasTotal.textContent = formatMoney(totalVentasDinero);
-    if (kpiInteracciones) kpiInteracciones.textContent = totalActividades;
 }
 
 /**
- * Renderizar la tabla de usuarios con filtros y buscador
+ * Renderizar la tabla de usuarios con filtros y selector de rol
  */
 function renderTablaUsuarios() {
     if (!tbodyUsuarios) return;
@@ -113,15 +173,21 @@ function renderTablaUsuarios() {
     const query = (inputSearchUser ? inputSearchUser.value.trim().toLowerCase() : '');
     
     let filtrados = listaUsuarios.filter(u => {
-        const coincideNombre = u.usuario.toLowerCase().includes(query);
-        const coincideRol = filtroRolActual === 'todos' || u.role.toLowerCase() === filtroRolActual;
+        const coincideNombre = (u.usuario || '').toLowerCase().includes(query);
+        let rolNorm = (u.role || 'vendedor').toLowerCase();
+        if (rolNorm === 'admin') rolNorm = 'administrador';
+        
+        let coincideRol = true;
+        if (filtroRolActual !== 'todos') {
+            coincideRol = (rolNorm === filtroRolActual);
+        }
         return coincideNombre && coincideRol;
     });
 
     if (filtrados.length === 0) {
         tbodyUsuarios.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; padding: 36px 16px; color: #6b7280;">
+                <td colspan="8" style="text-align: center; padding: 36px 16px; color: #6b7280;">
                     <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
                     <strong>No se encontraron usuarios que coincidan con los filtros.</strong>
                 </td>
@@ -131,17 +197,32 @@ function renderTablaUsuarios() {
     }
 
     tbodyUsuarios.innerHTML = filtrados.map(u => {
-        const isAdmin = u.role.toLowerCase() === 'administrador' || u.role.toLowerCase() === 'admin';
+        const role = (u.role || 'vendedor').toLowerCase();
+        const isSuper = role === 'superadmin' || role === 'super administrador';
+        const isAdmin = isSuper || role === 'administrador' || role === 'admin';
+        
+        let roleBadgeHtml = '';
+        let roleSelectClass = 'role-vendedor';
+
+        if (isSuper) {
+            roleBadgeHtml = `<span class="badge-role superadmin">👑 Super Admin</span>`;
+            roleSelectClass = 'role-superadmin';
+        } else if (isAdmin) {
+            roleBadgeHtml = `<span class="badge-role admin">🛡️ Administrador</span>`;
+            roleSelectClass = 'role-admin';
+        } else {
+            roleBadgeHtml = `<span class="badge-role vendedor">🛒 Vendedor</span>`;
+            roleSelectClass = 'role-vendedor';
+        }
+
         const avatarInitial = u.usuario ? u.usuario.charAt(0).toUpperCase() : '?';
-        const roleLabel = isAdmin ? 'Administrador' : 'Vendedor';
-        const badgeClass = isAdmin ? 'admin' : 'vendedor';
-        const roleSelectClass = isAdmin ? 'role-admin' : 'role-vendedor';
+        const lastLoginStr = u.ultimo_acceso || u.lastLogin;
 
         return `
             <tr data-user-id="${u.id}">
                 <td>
                     <div class="user-profile-cell">
-                        <div class="avatar-bubble ${badgeClass}">${avatarInitial}</div>
+                        <div class="avatar-bubble ${isSuper ? 'superadmin' : (isAdmin ? 'admin' : 'vendedor')}">${avatarInitial}</div>
                         <div>
                             <div class="user-details-title">${escapeHtml(u.usuario)}</div>
                             <div class="user-details-sub">ID: #${u.id}</div>
@@ -149,16 +230,13 @@ function renderTablaUsuarios() {
                     </div>
                 </td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="badge-role ${badgeClass}">
-                            ${isAdmin ? '🛡️' : '🛒'} ${roleLabel}
-                        </span>
-                    </div>
+                    ${roleBadgeHtml}
                 </td>
                 <td>
                     <select class="role-select-box ${roleSelectClass}" onchange="cambiarRolUsuario(${u.id}, '${escapeHtml(u.usuario)}', this.value)">
-                        <option value="vendedor" ${!isAdmin ? 'selected' : ''}>🛒 Vendedor</option>
-                        <option value="administrador" ${isAdmin ? 'selected' : ''}>🛡️ Administrador</option>
+                        <option value="vendedor" ${role === 'vendedor' ? 'selected' : ''}>🛒 Vendedor</option>
+                        <option value="administrador" ${role === 'administrador' || role === 'admin' ? 'selected' : ''}>🛡️ Administrador</option>
+                        <option value="superadmin" ${isSuper ? 'selected' : ''}>👑 Super Admin</option>
                     </select>
                 </td>
                 <td>
@@ -167,20 +245,26 @@ function renderTablaUsuarios() {
                     </span>
                 </td>
                 <td>
-                    <span style="font-size: 0.88rem; color: #4b5563;">
-                        ${formatDate(u.ultimo_acceso || u.lastLogin)}
-                    </span>
+                    <div style="font-size: 0.88rem; font-weight: 600; color: ${lastLoginStr ? '#1e1b4b' : '#9ca3af'};">
+                        ${formatDate(lastLoginStr)}
+                    </div>
+                    <small style="color: #6b7280;">${timeAgo(lastLoginStr)}</small>
+                </td>
+                <td>
+                    <div class="login-count-badge" title="Total de inicios de sesión registrados">
+                        🔑 <strong>${u.total_logins || 0}</strong> accesos
+                    </div>
                 </td>
                 <td>
                     <div style="font-weight: 700; color: #166534;">
                         ${formatMoney(u.total_facturado)}
                     </div>
-                    <small style="color: #6b7280;">${u.total_ventas || 0} tickets emitidos</small>
+                    <small style="color: #6b7280;">${u.total_ventas || 0} ventas</small>
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="btn-action-sm btn-inspect" onclick="verDetalleUsuario('${escapeHtml(u.usuario)}')" title="Ver todas las interacciones y ventas">
-                            🔍 Interacción
+                        <button type="button" class="btn-action-sm btn-inspect" onclick="verDetalleUsuario('${escapeHtml(u.usuario)}')" title="Ver detalle, historial de logins y ventas">
+                            🔍 Inspeccionar
                         </button>
                         <button type="button" class="btn-action-sm btn-edit" onclick="abrirModalEditar(${u.id}, '${escapeHtml(u.usuario)}', '${u.role}')" title="Editar credenciales">
                             ✏️
@@ -196,7 +280,7 @@ function renderTablaUsuarios() {
 }
 
 /**
- * Cambiar el rol de un usuario de forma instantánea
+ * Cambiar el rol de un usuario de forma instantánea (Solo Super Admin)
  */
 async function cambiarRolUsuario(id, usuario, nuevoRol) {
     try {
@@ -218,45 +302,152 @@ async function cambiarRolUsuario(id, usuario, nuevoRol) {
 
         showToast(`✅ Rol de '${usuario}' actualizado a '${nuevoRol}'.`);
         await cargarUsuarios();
-        cargarActividades();
+        cargarLoginsYActividades();
     } catch (error) {
         showToast('❌ ' + error.message, true);
-        cargarUsuarios(); // Restaurar selector en caso de error
+        cargarUsuarios();
     }
 }
 
 /**
- * Cargar el feed de actividades / interacciones
+ * Cargar y separar el feed de logins y actividades
  */
-async function cargarActividades() {
-    if (!activityStream) return;
-
+async function cargarLoginsYActividades() {
     try {
-        let url = 'api/actividades.php?limit=150';
-        if (filtroTipoActividad && filtroTipoActividad !== 'todas') {
-            url += `&tipo=${encodeURIComponent(filtroTipoActividad)}`;
-        }
-
-        const response = await fetch(url, { cache: 'no-store' });
+        const response = await fetch('api/actividades.php?limit=250', { cache: 'no-store' });
         if (!response.ok) {
             throw new Error('Error al consultar el registro de actividades.');
         }
 
         const data = await response.json();
         listaActividades = data.actividades || [];
+        metricasGenerales = data.stats || {};
+
+        // Filtrar actividades relacionadas a autenticación para la pestaña de Logins
+        listaLogins = listaActividades.filter(act => {
+            const tipo = (act.tipo || '').toLowerCase();
+            return tipo.startsWith('login') || tipo.startsWith('registro') || tipo.includes('logout');
+        });
+
+        if (kpiLoginsHoy && metricasGenerales.logins_hoy !== undefined) {
+            kpiLoginsHoy.textContent = metricasGenerales.logins_hoy;
+        }
+
+        renderTablaLogins();
         renderActividades();
     } catch (error) {
-        console.error('Error cargando actividades:', error);
-        activityStream.innerHTML = `
-            <div style="text-align: center; padding: 30px; color: #ef4444;">
-                ❌ No se pudo cargar el historial de interacciones: ${error.message}
-            </div>
-        `;
+        console.error('Error cargando actividades y logins:', error);
+        if (tbodyLogins) {
+            tbodyLogins.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align:center; padding: 30px; color: #ef4444;">
+                        ❌ Error al cargar registro de logins: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
+        if (activityStream) {
+            activityStream.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: #ef4444;">
+                    ❌ No se pudo cargar el historial de interacciones: ${error.message}
+                </div>
+            `;
+        }
     }
 }
 
 /**
- * Renderizar la lista cronológica de actividades
+ * Renderizar la tabla de Monitoreo de Logins
+ */
+function renderTablaLogins() {
+    if (!tbodyLogins) return;
+
+    const query = inputSearchLogin ? inputSearchLogin.value.trim().toLowerCase() : '';
+
+    let filtrados = listaLogins.filter(log => {
+        const matchUser = (log.usuario || '').toLowerCase().includes(query);
+        const matchDesc = (log.descripcion || '').toLowerCase().includes(query);
+        const matchIp = log.detalles && log.detalles.ip ? String(log.detalles.ip).includes(query) : false;
+        const matchCoincide = matchUser || matchDesc || matchIp;
+
+        let coincideTipo = true;
+        if (filtroLoginActual !== 'todos') {
+            coincideTipo = (log.tipo === filtroLoginActual);
+        }
+
+        return matchCoincide && coincideTipo;
+    });
+
+    if (filtrados.length === 0) {
+        tbodyLogins.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 36px 16px; color: #6b7280;">
+                    <div style="font-size: 2rem; margin-bottom: 8px;">🔑</div>
+                    <strong>No hay eventos de inicio de sesión con los filtros seleccionados.</strong>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbodyLogins.innerHTML = filtrados.map(log => {
+        let eventBadge = '<span class="login-event-badge success">✅ Login exitoso</span>';
+        const tipo = (log.tipo || '').toLowerCase();
+
+        if (tipo === 'login_fallido') {
+            eventBadge = '<span class="login-event-badge danger">⚠️ Fallido</span>';
+        } else if (tipo === 'registro_usuario') {
+            eventBadge = '<span class="login-event-badge info">📝 Registro</span>';
+        } else if (tipo === 'logout') {
+            eventBadge = '<span class="login-event-badge neutral">🚪 Logout</span>';
+        }
+
+        const ip = log.detalles && log.detalles.ip ? log.detalles.ip : '127.0.0.1';
+        const rawUa = log.detalles && log.detalles.user_agent ? log.detalles.user_agent : '';
+        const deviceInfo = parseUserAgent(rawUa);
+        const roleStr = log.rol || 'usuario';
+
+        return `
+            <tr>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="avatar-bubble small ${roleStr.toLowerCase().includes('super') ? 'superadmin' : (roleStr.toLowerCase().includes('admin') ? 'admin' : 'vendedor')}">
+                            ${(log.usuario || '?').charAt(0).toUpperCase()}
+                        </span>
+                        <div>
+                            <strong style="color: #1e1b4b;">${escapeHtml(log.usuario)}</strong>
+                            <div style="font-size: 0.72rem; color: #6b7280;">${escapeHtml(roleStr)}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    ${eventBadge}
+                </td>
+                <td>
+                    <div style="font-weight: 600; color: #374151;">${formatDate(log.fecha)}</div>
+                    <small style="color: #6b7280;">${timeAgo(log.fecha)}</small>
+                </td>
+                <td>
+                    <span class="ip-chip" title="Dirección IP del cliente">🌐 ${escapeHtml(ip)}</span>
+                </td>
+                <td>
+                    <span class="device-chip" title="${escapeHtml(rawUa)}">💻 ${escapeHtml(deviceInfo)}</span>
+                </td>
+                <td>
+                    <span style="font-size: 0.85rem; color: #4b5563;">${escapeHtml(log.descripcion)}</span>
+                </td>
+                <td>
+                    <button type="button" class="btn-action-sm btn-inspect" onclick="verDetalleUsuario('${escapeHtml(log.usuario)}')" title="Ver historial de este usuario">
+                        🔍 Ver
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+/**
+ * Renderizar la lista cronológica de actividades generales
  */
 function renderActividades() {
     if (!activityStream) return;
@@ -264,8 +455,8 @@ function renderActividades() {
     const query = inputSearchActivity ? inputSearchActivity.value.trim().toLowerCase() : '';
 
     let filtradas = listaActividades.filter(act => {
-        const matchUser = act.usuario.toLowerCase().includes(query);
-        const matchDesc = act.descripcion.toLowerCase().includes(query);
+        const matchUser = (act.usuario || '').toLowerCase().includes(query);
+        const matchDesc = (act.descripcion || '').toLowerCase().includes(query);
         return matchUser || matchDesc;
     });
 
@@ -294,7 +485,7 @@ function renderActividades() {
             icon = '📦';
             typeClass = 'type-stock';
         } else if (tipo.includes('rol') || tipo.includes('usuario')) {
-            icon = '🛡️';
+            icon = '👑';
             typeClass = 'type-roles';
         } else if (tipo.includes('delete') || tipo.includes('eliminar')) {
             icon = '🗑️';
@@ -315,6 +506,8 @@ function renderActividades() {
             }
         }
 
+        const isSuper = (act.rol || '').toLowerCase().includes('super');
+
         return `
             <div class="activity-item ${typeClass}">
                 <div class="activity-icon">${icon}</div>
@@ -322,11 +515,11 @@ function renderActividades() {
                     <div class="activity-top-line">
                         <div style="display:flex; align-items:center; gap:8px;">
                             <span class="activity-user">${escapeHtml(act.usuario)}</span>
-                            <span class="badge-role ${act.rol === 'administrador' ? 'admin' : 'vendedor'}" style="font-size:0.7rem; padding: 2px 6px;">
+                            <span class="badge-role ${isSuper ? 'superadmin' : (act.rol === 'administrador' ? 'admin' : 'vendedor')}" style="font-size:0.7rem; padding: 2px 6px;">
                                 ${act.rol || 'Usuario'}
                             </span>
                         </div>
-                        <span class="activity-time">🕒 ${formatDate(act.fecha)}</span>
+                        <span class="activity-time">🕒 ${formatDate(act.fecha)} (${timeAgo(act.fecha)})</span>
                     </div>
                     <p class="activity-desc">${escapeHtml(act.descripcion)}</p>
                     ${detallesHtml}
@@ -337,7 +530,7 @@ function renderActividades() {
 }
 
 /**
- * Abrir modal de detalle completo de interacciones de un usuario específico
+ * Abrir modal de detalle completo de interacciones, logins y ventas de un usuario específico
  */
 async function verDetalleUsuario(username) {
     if (!modalDetalleUsuario) return;
@@ -345,12 +538,12 @@ async function verDetalleUsuario(username) {
     const modalBody = document.getElementById('detalle-usuario-body');
     const modalTitle = document.getElementById('detalle-usuario-title');
     
-    if (modalTitle) modalTitle.textContent = `Interacciones y Ventas: ${username}`;
+    if (modalTitle) modalTitle.textContent = `Consola de Auditoría: ${username}`;
     if (modalBody) {
         modalBody.innerHTML = `
             <div style="text-align: center; padding: 40px;">
                 <div style="font-size: 2rem; margin-bottom: 12px;">⏳</div>
-                <p>Cargando información y métricas de <strong>${escapeHtml(username)}</strong>...</p>
+                <p>Cargando información, historial de logins y ventas de <strong>${escapeHtml(username)}</strong>...</p>
             </div>
         `;
     }
@@ -369,27 +562,35 @@ async function verDetalleUsuario(username) {
         const m = data.metricas;
         const ventas = data.ventas || [];
         const actividades = data.actividades || [];
+        const logins = data.logins || [];
+
+        const isSuper = (u.rol || '').toLowerCase().includes('super');
+        const isAdmin = isSuper || (u.rol || '').toLowerCase() === 'administrador' || (u.rol || '').toLowerCase() === 'admin';
 
         modalBody.innerHTML = `
             <div class="user-summary-card">
                 <div class="name-and-role">
-                    <div class="avatar-bubble ${u.rol === 'administrador' ? 'admin' : ''}" style="width: 48px; height: 48px; font-size: 1.3rem;">
+                    <div class="avatar-bubble ${isSuper ? 'superadmin' : (isAdmin ? 'admin' : 'vendedor')}" style="width: 52px; height: 52px; font-size: 1.4rem;">
                         ${u.nombre.charAt(0).toUpperCase()}
                     </div>
                     <div>
                         <h3 style="margin: 0; color: #1e1b4b; font-size: 1.3rem;">${escapeHtml(u.nombre)}</h3>
-                        <span class="badge-role ${u.rol === 'administrador' ? 'admin' : 'vendedor'}">
-                            ${u.rol === 'administrador' ? '🛡️ Administrador' : '🛒 Vendedor'}
+                        <span class="badge-role ${isSuper ? 'superadmin' : (isAdmin ? 'admin' : 'vendedor')}">
+                            ${isSuper ? '👑 Super Admin' : (isAdmin ? '🛡️ Administrador' : '🛒 Vendedor')}
                         </span>
                     </div>
                 </div>
                 <div style="font-size: 0.85rem; color: #4b5563;">
-                    <div>📅 Registrado: <strong>${formatDate(u.fecha_creacion)}</strong></div>
-                    <div>🔑 Último acceso: <strong>${formatDate(u.ultimo_acceso)}</strong></div>
+                    <div>📅 Fecha de Registro: <strong>${formatDate(u.fecha_creacion)}</strong></div>
+                    <div>🔑 Último Inicio de Sesión: <strong>${formatDate(u.ultimo_acceso)}</strong> <small>(${timeAgo(u.ultimo_acceso)})</small></div>
                 </div>
             </div>
 
             <div class="user-stats-mini-grid">
+                <div class="stat-mini-box">
+                    <small>Logins Registrados</small>
+                    <strong style="color: #d97706;">🔑 ${m.total_logins || logins.length} accesos</strong>
+                </div>
                 <div class="stat-mini-box">
                     <small>Total Facturado</small>
                     <strong style="color: #15803d;">${formatMoney(m.total_facturado)}</strong>
@@ -404,9 +605,12 @@ async function verDetalleUsuario(username) {
                 </div>
             </div>
 
-            <!-- Tabs internas del detalle -->
-            <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-                <button type="button" class="chip-filter active" onclick="cambiarSubtabDetalle(this, 'detalle-ventas')">
+            <!-- Sub-tabs del detalle -->
+            <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+                <button type="button" class="chip-filter active" onclick="cambiarSubtabDetalle(this, 'detalle-logins')">
+                    🔑 Historial de Logins (${logins.length})
+                </button>
+                <button type="button" class="chip-filter" onclick="cambiarSubtabDetalle(this, 'detalle-ventas')">
                     🛒 Historial de Ventas (${ventas.length})
                 </button>
                 <button type="button" class="chip-filter" onclick="cambiarSubtabDetalle(this, 'detalle-actividades')">
@@ -414,14 +618,44 @@ async function verDetalleUsuario(username) {
                 </button>
             </div>
 
-            <!-- Panel de Ventas del usuario -->
-            <div id="detalle-ventas" class="detalle-subtab-content" style="display: block;">
-                ${ventas.length === 0 ? `
-                    <p style="text-align: center; color: #6b7280; padding: 20px;">Este usuario aún no ha registrado ventas.</p>
+            <!-- Panel 1: Logins del usuario -->
+            <div id="detalle-logins" class="detalle-subtab-content" style="display: block;">
+                ${logins.length === 0 ? `
+                    <p style="text-align: center; color: #6b7280; padding: 24px; background: #fafafa; border-radius: 8px;">No hay registros de inicio de sesión para este usuario.</p>
                 ` : `
                     <div style="max-height: 280px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                            <thead style="background: #faf5ff; position: sticky; top: 0;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                            <thead style="background: #fef3c7; position: sticky; top: 0; z-index: 2;">
+                                <tr>
+                                    <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #fcd34d;">Fecha y Hora</th>
+                                    <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #fcd34d;">Dirección IP</th>
+                                    <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #fcd34d;">Dispositivo / Navegador</th>
+                                    <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #fcd34d;">Evento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${logins.map(l => `
+                                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                                        <td style="padding: 8px 12px; font-weight: 600;">${formatDate(l.fecha)} <br><small style="color:#6b7280; font-weight:normal;">${timeAgo(l.fecha)}</small></td>
+                                        <td style="padding: 8px 12px;"><span class="ip-chip">🌐 ${escapeHtml(l.ip || '127.0.0.1')}</span></td>
+                                        <td style="padding: 8px 12px;"><span class="device-chip">💻 ${escapeHtml(parseUserAgent(l.user_agent))}</span></td>
+                                        <td style="padding: 8px 12px;">${escapeHtml(l.descripcion)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `}
+            </div>
+
+            <!-- Panel 2: Ventas del usuario -->
+            <div id="detalle-ventas" class="detalle-subtab-content" style="display: none;">
+                ${ventas.length === 0 ? `
+                    <p style="text-align: center; color: #6b7280; padding: 24px; background: #fafafa; border-radius: 8px;">Este usuario aún no ha registrado ventas.</p>
+                ` : `
+                    <div style="max-height: 280px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                            <thead style="background: #faf5ff; position: sticky; top: 0; z-index: 2;">
                                 <tr>
                                     <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #e9d5ff;">Factura #</th>
                                     <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid #e9d5ff;">Fecha</th>
@@ -446,17 +680,17 @@ async function verDetalleUsuario(username) {
                 `}
             </div>
 
-            <!-- Panel de Actividades del usuario -->
+            <!-- Panel 3: Actividades del usuario -->
             <div id="detalle-actividades" class="detalle-subtab-content" style="display: none;">
                 ${actividades.length === 0 ? `
-                    <p style="text-align: center; color: #6b7280; padding: 20px;">No hay registros de actividad para este usuario.</p>
+                    <p style="text-align: center; color: #6b7280; padding: 24px; background: #fafafa; border-radius: 8px;">No hay registros de actividad general para este usuario.</p>
                 ` : `
                     <div style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
                         ${actividades.map(a => `
                             <div style="background: #f8fafc; border-left: 3px solid #7c3aed; padding: 8px 12px; border-radius: 4px; font-size: 0.88rem;">
                                 <div style="display: flex; justify-content: space-between; color: #6b7280; font-size: 0.78rem; margin-bottom: 2px;">
                                     <strong>${a.tipo}</strong>
-                                    <span>${formatDate(a.fecha)}</span>
+                                    <span>${formatDate(a.fecha)} (${timeAgo(a.fecha)})</span>
                                 </div>
                                 <div>${escapeHtml(a.descripcion)}</div>
                             </div>
@@ -487,13 +721,12 @@ function cambiarSubtabDetalle(btn, targetId) {
 }
 
 /**
- * Abrir modal de creación de usuario
+ * Abrir modal de creación de usuario con selector de 3 roles
  */
 function abrirModalNuevoUsuario() {
     const form = document.getElementById('form-nuevo-usuario');
     if (form) form.reset();
     
-    // Seleccionar vendedor por defecto
     const radioVendedor = document.getElementById('role-new-vendedor');
     if (radioVendedor) {
         radioVendedor.checked = true;
@@ -503,26 +736,34 @@ function abrirModalNuevoUsuario() {
 }
 
 /**
- * Abrir modal de edición de usuario
+ * Abrir modal de edición de usuario con selector de 3 roles
  */
 function abrirModalEditar(id, usuario, rolActual) {
+    const formEditar = document.getElementById('form-editar-usuario');
+    if (formEditar) formEditar.dataset.rolActual = rolActual;
     document.getElementById('edit-user-id').value = id;
     document.getElementById('edit-username').value = usuario;
     document.getElementById('edit-password').value = '';
     
+    const radioSuper = document.getElementById('role-edit-superadmin');
     const radioAdmin = document.getElementById('role-edit-admin');
     const radioVendedor = document.getElementById('role-edit-vendedor');
     
-    const isAdmin = rolActual.toLowerCase() === 'administrador' || rolActual.toLowerCase() === 'admin';
-    if (isAdmin && radioAdmin) radioAdmin.checked = true;
-    if (!isAdmin && radioVendedor) radioVendedor.checked = true;
+    const roleNorm = (rolActual || '').toLowerCase();
+    if (roleNorm === 'superadmin' || roleNorm === 'super administrador') {
+        if (radioSuper) radioSuper.checked = true;
+    } else if (roleNorm === 'administrador' || roleNorm === 'admin') {
+        if (radioAdmin) radioAdmin.checked = true;
+    } else {
+        if (radioVendedor) radioVendedor.checked = true;
+    }
 
     actualizarEstiloRadioRoles('form-editar-usuario');
     abrirModal(modalEditarUsuario);
 }
 
 /**
- * Eliminar usuario con confirmación
+ * Eliminar usuario con confirmación de seguridad
  */
 async function eliminarUsuario(id, usuario) {
     if (!confirm(`⚠️ ¿Estás seguro de que deseás eliminar la cuenta del usuario '${usuario}'?\nEsta acción no se puede deshacer.`)) {
@@ -541,7 +782,7 @@ async function eliminarUsuario(id, usuario) {
 
         showToast(`🗑️ Usuario '${usuario}' eliminado correctamente.`);
         await cargarUsuarios();
-        cargarActividades();
+        cargarLoginsYActividades();
     } catch (error) {
         showToast('❌ ' + error.message, true);
     }
@@ -594,17 +835,20 @@ function escapeHtml(text) {
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Cargar datos iniciales
     cargarUsuarios();
-    cargarActividades();
+    cargarLoginsYActividades();
 
     // 2. Buscadores en vivo
     if (inputSearchUser) {
         inputSearchUser.addEventListener('input', renderTablaUsuarios);
     }
+    if (inputSearchLogin) {
+        inputSearchLogin.addEventListener('input', renderTablaLogins);
+    }
     if (inputSearchActivity) {
         inputSearchActivity.addEventListener('input', renderActividades);
     }
 
-    // 3. Filtros por rol
+    // 3. Filtros por rol en usuarios
     document.querySelectorAll('.chip-filter[data-filter-role]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.chip-filter[data-filter-role]').forEach(b => b.classList.remove('active'));
@@ -614,17 +858,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 4. Filtros de actividades
+    // 4. Filtros de logins
+    document.querySelectorAll('.chip-filter[data-filter-login]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.chip-filter[data-filter-login]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filtroLoginActual = btn.getAttribute('data-filter-login');
+            renderTablaLogins();
+        });
+    });
+
+    // 5. Filtros de actividades
     document.querySelectorAll('.chip-filter[data-filter-act]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.chip-filter[data-filter-act]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             filtroTipoActividad = btn.getAttribute('data-filter-act');
-            cargarActividades();
+            cargarLoginsYActividades();
         });
     });
 
-    // 5. Cambio de pestañas principales (Tabs)
+    // 6. Cambio de pestañas principales (Tabs)
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const targetTab = btn.getAttribute('data-tab');
@@ -632,16 +886,30 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
             const content = document.getElementById(targetTab);
-            if (content) content.classList.add('active');
+            if (content) {
+                content.classList.add('active');
+                content.removeAttribute('aria-hidden');
+            }
+            document.querySelectorAll('.tab-content').forEach(c => {
+                if (c.id !== targetTab) {
+                    c.setAttribute('aria-hidden', 'true');
+                }
+            });
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                if (b !== btn) b.setAttribute('aria-selected', 'false');
+            });
 
-            if (targetTab === 'tab-actividades') {
-                cargarActividades();
+            if (targetTab === 'tab-logins') {
+                renderTablaLogins();
+            } else if (targetTab === 'tab-actividades') {
+                renderActividades();
             }
         });
     });
 
-    // 6. Cierre de modales con botones de cerrar o backdrop
+    // 7. Cierre de modales
     document.querySelectorAll('.modal-close, [data-modal-close]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const modal = btn.closest('.modal-overlay');
@@ -657,7 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 7. Radio cards selector de roles
+    // 8. Radio cards selector de roles
     document.querySelectorAll('.role-radio-card').forEach(card => {
         card.addEventListener('click', () => {
             const radio = card.querySelector('input[type="radio"]');
@@ -669,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 8. Formulario Crear Nuevo Usuario
+    // 9. Formulario Crear Nuevo Usuario
     const formNuevoUsuario = document.getElementById('form-nuevo-usuario');
     if (formNuevoUsuario) {
         formNuevoUsuario.addEventListener('submit', async (e) => {
@@ -695,17 +963,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'Error al crear usuario.');
                 }
 
-                showToast(`✅ Usuario '${usuario}' creado con éxito.`);
+                showToast(`✅ Usuario '${usuario}' creado con rol '${role}'.`);
                 cerrarModal(modalNuevoUsuario);
                 await cargarUsuarios();
-                cargarActividades();
+                cargarLoginsYActividades();
             } catch (err) {
                 showToast('❌ ' + err.message, true);
             }
         });
     }
 
-    // 9. Formulario Editar Usuario
+    // 10. Formulario Editar Usuario
     const formEditarUsuario = document.getElementById('form-editar-usuario');
     if (formEditarUsuario) {
         formEditarUsuario.addEventListener('submit', async (e) => {
@@ -732,10 +1000,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'Error al actualizar usuario.');
                 }
 
-                showToast(`✅ Usuario '${usuario}' actualizado.`);
+                showToast(`✅ Usuario '${usuario}' actualizado correctamente.`);
                 cerrarModal(modalEditarUsuario);
                 await cargarUsuarios();
-                cargarActividades();
+                cargarLoginsYActividades();
             } catch (err) {
                 showToast('❌ ' + err.message, true);
             }
