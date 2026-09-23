@@ -51,9 +51,28 @@ function getDBConnection(): ?PDO
         }
     }
 
+    ensureProductPhaseColumn($pdo);
     syncDefaultUsers($pdo);
 
     return $pdo;
+}
+
+/** Asegura que producto.fase exista y use los estados textuales del sistema. */
+function ensureProductPhaseColumn(PDO $pdo): void
+{
+    $phaseColumn = $pdo->query("SHOW COLUMNS FROM `producto` LIKE 'fase'")->fetch();
+
+    if (!$phaseColumn) {
+        $pdo->exec("ALTER TABLE `producto` ADD COLUMN `fase` varchar(50) NOT NULL DEFAULT 'habilitado' AFTER `precio`");
+        return;
+    }
+
+    if (stripos((string)($phaseColumn['Type'] ?? ''), 'int') === 0) {
+        $pdo->exec("ALTER TABLE `producto` MODIFY COLUMN `fase` varchar(50) NOT NULL DEFAULT 'habilitado'");
+        $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` = '1' OR `fase` = '0'");
+    }
+
+    $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` IS NULL OR `fase` = ''");
 }
 
 /**
@@ -210,17 +229,6 @@ function initDatabase(): void
         if (empty($factCols)) {
             $pdoServer->exec("ALTER TABLE `facturacion` ADD COLUMN `usuario` varchar(100) DEFAULT 'gomez11' AFTER `ID_stock`");
         }
-    } catch (Exception $e) {
-        // Ignorar
-    }
-
-    // Verificar si la columna 'fase' existe en 'producto'
-    try {
-        $faseCols = $pdoServer->query("SHOW COLUMNS FROM `producto` LIKE 'fase'")->fetchAll();
-        if (empty($faseCols)) {
-            $pdoServer->exec("ALTER TABLE `producto` ADD COLUMN `fase` varchar(50) NOT NULL DEFAULT 'habilitado' AFTER `precio`");
-        }
-        $pdoServer->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` IS NULL OR `fase` = ''");
     } catch (Exception $e) {
         // Ignorar
     }

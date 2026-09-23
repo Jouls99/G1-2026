@@ -24,6 +24,7 @@ require_once __DIR__ . '/includes/navbar.php';
         <div class="header-actions">
             <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
             <a href="prueba2.php" class="btn-secondary">🛒 Ir a Ventas</a>
+            <button type="button" class="btn-secondary" id="openSwitchUserBtn">🔄 Cambiar usuario</button>
             <?php if (isSuperAdmin()): ?>
                 <a href="usuarios.php" class="btn-secondary" style="background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Gestión de Usuarios</a>
             <?php endif; ?>
@@ -59,6 +60,10 @@ require_once __DIR__ . '/includes/navbar.php';
             <article class="metric-card">
                 <span>Resumen</span>
                 <strong id="metricSummary">$0</strong>
+            </article>
+            <article class="metric-card">
+                <span>Valorización del stock</span>
+                <strong id="metricInventoryValue">$0</strong>
             </article>
         </div>
 
@@ -124,6 +129,29 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </section>
 </main>
+
+<div id="switchUserModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="switchUserTitle">
+    <div class="modal-content switch-user-modal-content">
+        <button type="button" class="close-btn" id="closeSwitchUserBtn" aria-label="Cerrar">&times;</button>
+        <h2 id="switchUserTitle">🔄 Cambiar usuario</h2>
+        <p class="switch-user-description">Ingresá el nombre y la contraseña de la cuenta a la que querés cambiar.</p>
+        <form id="switchUserForm">
+            <div class="form-group-modal">
+                <label for="switchUserName">Nombre de usuario</label>
+                <input type="text" id="switchUserName" class="switch-user-input" required autocomplete="username">
+            </div>
+            <div class="form-group-modal">
+                <label for="switchUserPassword">Contraseña</label>
+                <input type="password" id="switchUserPassword" class="switch-user-input" required autocomplete="current-password">
+            </div>
+            <p id="switchUserMessage" class="switch-user-message" role="alert" aria-live="polite"></p>
+            <div class="modal-buttons">
+                <button type="submit" class="btn btn-save" id="switchUserSubmit">Ingresar</button>
+                <button type="button" class="btn btn-delete-sale" id="cancelSwitchUserBtn">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- Modal de Edición de Venta -->
 <div id="editSaleModal" class="modal" style="display: none;">

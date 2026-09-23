@@ -10,8 +10,7 @@
         "total": 648000,
         "categoria": "Maquillaje",
         "ID_categoria": 1,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 6,
@@ -24,8 +23,7 @@
         "total": 525000,
         "categoria": "Maquillaje",
         "ID_categoria": 1,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 8,
@@ -38,8 +36,7 @@
         "total": 600000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 9,
@@ -52,8 +49,7 @@
         "total": 180000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 11,
@@ -66,8 +62,7 @@
         "total": 180000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 14,
@@ -80,8 +75,7 @@
         "total": 525000,
         "categoria": "Fragancias",
         "ID_categoria": 3,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 15,
@@ -94,8 +88,7 @@
         "total": 125000,
         "categoria": "aparatologia",
         "ID_categoria": 4,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 17,
@@ -108,8 +101,7 @@
         "total": 120000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 18,
@@ -122,8 +114,7 @@
         "total": 2880000,
         "categoria": "aparatologia",
         "ID_categoria": 4,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 19,
@@ -136,8 +127,7 @@
         "total": 3375000,
         "categoria": "aparatologia",
         "ID_categoria": 4,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 20,
@@ -150,8 +140,7 @@
         "total": 1104000,
         "categoria": "aparatologia",
         "ID_categoria": 4,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 21,
@@ -164,8 +153,7 @@
         "total": 144000,
         "categoria": "Maquillaje",
         "ID_categoria": 1,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     },
     {
         "id": 22,
@@ -178,7 +166,6 @@
         "total": 90000,
         "categoria": "Skincare",
         "ID_categoria": 2,
-        "subcategoria": null,
-        "fase": "habilitado"
+        "subcategoria": null
     }
 ]

@@ -44,6 +44,7 @@ let inventario = [
 ];
 
 let categoriaSeleccionada = inventario[0];
+let categoriaFiltro = '';
 let productoSeleccionado = null;
 let productoPendienteEliminar = null;
 let categoryContextMenu = null;
@@ -156,7 +157,9 @@ function renderCategories() {
     const container = document.getElementById('categoriesContainer');
     if (!container) return;
     container.innerHTML = '';
-    inventario.forEach(cat => {
+    inventario
+        .filter(cat => !categoriaFiltro || cat.id === categoriaFiltro)
+        .forEach(cat => {
         const btn = document.createElement('button');
         btn.className = `btn ${categoriaSeleccionada?.id === cat.id ? 'btn-active' : ''}`;
         btn.innerText = cat.nombre;
@@ -164,7 +167,21 @@ function renderCategories() {
         btn.oncontextmenu = (event) => showCategoryContextMenu(event, cat);
         btn.title = 'Click para abrir • Click derecho para eliminar categoría';
         container.appendChild(btn);
+        });
+}
+
+function renderCategoryFilter() {
+    const filter = document.getElementById('categoryFilter');
+    if (!filter) return;
+
+    filter.innerHTML = '<option value="">Todas las categorías</option>';
+    inventario.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.id;
+        option.textContent = cat.nombre;
+        filter.appendChild(option);
     });
+    filter.value = inventario.some(cat => cat.id === categoriaFiltro) ? categoriaFiltro : '';
 }
 
 function hideCategoryContextMenu() {
@@ -396,6 +413,7 @@ function deleteCategory(catId) {
     }
 
     inventario = inventario.filter(c => c.id !== catId);
+    if (categoriaFiltro === catId) categoriaFiltro = '';
 
     if (categoriaSeleccionada?.id === catId) {
         categoriaSeleccionada = inventario[0] || null;
@@ -404,6 +422,7 @@ function deleteCategory(catId) {
 
     guardarInventario();
     renderCategories();
+    renderCategoryFilter();
 
     if (categoriaSeleccionada) {
         renderTable(categoriaSeleccionada);
@@ -433,6 +452,7 @@ function addCategory() {
     categoriaSeleccionada = newCat;
     guardarInventario();
     renderCategories();
+    renderCategoryFilter();
     renderCategorySelector();
     renderTable(categoriaSeleccionada);
 }
@@ -849,6 +869,7 @@ function formatAuditDate(value) {
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     await cargarInventario();
+    renderCategoryFilter();
     renderCategorySelector();
 
     const btnVerStock = document.getElementById('btn-ver-stock');
@@ -945,6 +966,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </tbody>
                 </table>
             `;
+        });
+    }
+
+    const categoryFilter = document.getElementById('categoryFilter');
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', (event) => {
+            categoriaFiltro = event.target.value;
+            renderCategories();
         });
     }
 

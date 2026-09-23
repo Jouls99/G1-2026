@@ -655,5 +655,95 @@
             ]
         },
         "fecha": "2026-09-20T00:14:14+02:00"
+    },
+    {
+        "id": "1790114028590",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: superadmin)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "superadmin",
+            "timestamp": "2026-09-22 23:53:48"
+        },
+        "fecha": "2026-09-22T23:53:48+02:00"
+    },
+    {
+        "id": "1790115914793",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $540000 (30 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 540000,
+            "articulos": 30,
+            "productos": [
+                "base matte (x30)"
+            ]
+        },
+        "fecha": "2026-09-23T00:25:14+02:00"
+    },
+    {
+        "id": "1790121765838",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: superadmin)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "superadmin",
+            "timestamp": "2026-09-23 02:02:45"
+        },
+        "fecha": "2026-09-23T02:02:45+02:00"
+    },
+    {
+        "id": "1790121828872",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $144000 (24 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 144000,
+            "articulos": 24,
+            "productos": [
+                "tinta labial (x24)"
+            ]
+        },
+        "fecha": "2026-09-23T02:03:48+02:00"
+    },
+    {
+        "id": "1790121859104",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_registrada",
+        "descripcion": "Venta registrada por $144000 (24 unidades)",
+        "detalles": {
+            "factura_ids": [],
+            "total": 144000,
+            "articulos": 24,
+            "productos": [
+                "tinta labial (x24)"
+            ]
+        },
+        "fecha": "2026-09-23T02:04:19+02:00"
+    },
+    {
+        "id": "1790121944772",
+        "id_usuario": 6,
+        "usuario": "santi_vendedor",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'santi_vendedor' (Rol: vendedor)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/153.0.0.0 Safari\/537.36 Edg\/153.0.0.0",
+            "rol": "vendedor",
+            "timestamp": "2026-09-23 02:05:44"
+        },
+        "fecha": "2026-09-23T02:05:44+02:00"
     }
 ]

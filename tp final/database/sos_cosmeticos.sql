@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS `actividad_usuario` (
   KEY `fk_actividad_usuario` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
+CREATE TABLE IF NOT EXISTS `Estado_fase` (
+  `id_estado` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(50) NOT NULL,
+  PRIMARY KEY (`id_estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+
+INSERT INTO `Estado_fase` (`nombre`) VALUES
+  ('habilitado'),
+  ('deshabilitado');
+
 INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
 VALUES
   ('gomez11', '$2y$10$YRaYHgD0mlNkI0PXn.cKUeBflEdGDLx97LVrGtc2sufPLOeHa/x22', 'superadmin', NOW()),

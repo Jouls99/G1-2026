@@ -410,6 +410,31 @@ th {
     font-size: 24px;
 }
 
+.switch-user-modal-content {
+    max-width: 430px;
+}
+
+.switch-user-description {
+    margin-bottom: 18px;
+}
+
+.switch-user-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e7c7dc;
+    border-radius: 8px;
+    background: #fff;
+    color: #490633;
+    font-size: 14px;
+}
+
+.switch-user-message {
+    min-height: 20px;
+    margin-bottom: 12px;
+    color: #b91c1c;
+    font-size: 0.9rem;
+}
+
 .form-group-modal {
     margin-bottom: 18px;
 }

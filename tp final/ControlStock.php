@@ -23,7 +23,7 @@ require_once __DIR__ . '/includes/navbar.php';
             <p class="stock-page-subtitle">Inventario, categorías y productos del sistema.</p>
         </div>
         <div class="stock-page-actions">
-            <a href="prueba2.php" class="stock-nav-btn">🛒 Ir a Ventas</a>
+            <a href="venta.php" class="stock-nav-btn">🛒 Ir a Ventas</a>
             <a href="informe.php" class="stock-nav-btn">📊 Ver informe</a>
             <?php if (isSuperAdmin()): ?>
             <a href="usuarios.php" class="stock-nav-btn stock-nav-btn-admin">👑 Gestión de Usuarios</a>
@@ -84,6 +84,10 @@ require_once __DIR__ . '/includes/navbar.php';
     <div class="dashboard">
         <div class="sidebar">
             <h3>Categorías</h3>
+            <label for="categoryFilter" class="category-filter-label">Filtrar categoría</label>
+            <select id="categoryFilter" class="category-filter">
+                <option value="">Todas las categorías</option>
+            </select>
             <div id="categoriesContainer"></div>
             <hr style="margin: 15px 0; border: 0; border-top: 1px solid #e5e7eb;">
             <?php if (!$soloLectura): ?>
@@ -93,7 +97,7 @@ require_once __DIR__ . '/includes/navbar.php';
             <?php endif; ?>
             <button class="btn btn-export" type="button" onclick="exportarJSON()">⬇ Exportar JSON</button>
             <br>
-            <a href="prueba2.php" class="ver-stock" style="display:block; width:100%; box-sizing:border-box; margin-top:8px;">← Volver a Ventas</a>
+            <a href="venta.php" class="ver-stock" style="display:block; width:100%; box-sizing:border-box; margin-top:8px;">← Volver a Ventas</a>
             <?php if (isSuperAdmin()): ?>
             <a href="usuarios.php" class="ver-stock" style="display:block; width:100%; box-sizing:border-box; margin-top:8px; background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Ir a Gestión de Usuarios</a>
             <?php endif; ?>

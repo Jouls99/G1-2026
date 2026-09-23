@@ -85,6 +85,25 @@ h1 {
     border-radius: 6px;
 }
 
+.category-filter-label {
+    display: block;
+    margin: 10px 0 5px;
+    color: #6b21a8;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.category-filter {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+}
+
 .search-box {
     width: 100%;
     padding: 10px;

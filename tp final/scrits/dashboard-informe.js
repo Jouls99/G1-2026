@@ -27,7 +27,7 @@ function getPeriodLabels(period) {
     case 'semanal':
       return ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
     case 'mensual':
-      return ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+      return ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     case 'diario':
     default:
       return ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -123,10 +123,18 @@ function renderMetrics(series) {
   const sold = series.sold.at(-1) || 0;
   const revenue = series.revenue.at(-1) || 0;
   const summary = series.summary.at(-1) || 0;
+  const inventoryValue = state.inventory
+    .filter((item) => item.categoria === state.category)
+    .reduce((total, item) => {
+      const quantity = Number(item.cantidad ?? item.stock ?? 0);
+      const price = Number(item.precio ?? 0);
+      return total + price * quantity;
+    }, 0);
 
   document.getElementById('metricSold').textContent = sold;
   document.getElementById('metricRevenue').textContent = currencyFormatter.format(revenue);
   document.getElementById('metricSummary').textContent = currencyFormatter.format(summary);
+  document.getElementById('metricInventoryValue').textContent = currencyFormatter.format(inventoryValue);
   document.getElementById('dashboardTitle').textContent = `${state.category} · ${state.period.charAt(0).toUpperCase() + state.period.slice(1)}`;
 }
 
@@ -332,6 +340,67 @@ window.addEventListener('storage', (event) => {
 });
 window.addEventListener('inventario-updated', () => {
   loadInventory();
+});
+
+// Cambiar de cuenta usando la autenticación del servidor y su rol real.
+const switchUserModal = document.getElementById('switchUserModal');
+const switchUserForm = document.getElementById('switchUserForm');
+const switchUserMessage = document.getElementById('switchUserMessage');
+const switchUserSubmit = document.getElementById('switchUserSubmit');
+
+function closeSwitchUserModal() {
+  if (!switchUserModal) return;
+  switchUserModal.style.display = 'none';
+  switchUserForm?.reset();
+  if (switchUserMessage) switchUserMessage.textContent = '';
+}
+
+document.getElementById('openSwitchUserBtn')?.addEventListener('click', () => {
+  if (!switchUserModal) return;
+  switchUserModal.style.display = 'flex';
+  document.getElementById('switchUserName')?.focus();
+});
+document.getElementById('closeSwitchUserBtn')?.addEventListener('click', closeSwitchUserModal);
+document.getElementById('cancelSwitchUserBtn')?.addEventListener('click', closeSwitchUserModal);
+
+switchUserForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const usuario = document.getElementById('switchUserName').value.trim();
+  const password = document.getElementById('switchUserPassword').value;
+  if (!usuario || !password) return;
+
+  switchUserSubmit.disabled = true;
+  switchUserSubmit.textContent = 'Verificando...';
+  switchUserMessage.textContent = '';
+
+  try {
+    const response = await fetch('api/auth.php?action=login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario, password })
+    });
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message || 'Usuario o contraseña incorrectos.');
+    }
+
+    const role = result.user?.role || 'vendedor';
+    const roleLabels = {
+      superadmin: 'Super Admin',
+      administrador: 'Administrador',
+      admin: 'Administrador',
+      vendedor: 'Vendedor'
+    };
+    localStorage.setItem('usuarioActual', result.user.usuario);
+    alert(`Sesión cambiada correctamente. Rol detectado: ${roleLabels[role.toLowerCase()] || role}.`);
+    window.location.reload();
+  } catch (error) {
+    switchUserMessage.textContent = error.message;
+  } finally {
+    switchUserSubmit.disabled = false;
+    switchUserSubmit.textContent = 'Ingresar';
+  }
 });
 
 // === MODAL DE EDICIÓN DE VENTAS ===

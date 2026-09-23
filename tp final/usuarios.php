@@ -254,8 +254,8 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
 
             <div class="field-group">
-                <label for="edit-password">Nueva contraseña</label>
-                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para no cambiarla" autocomplete="new-password">
+                <label for="edit-password">Restablecer contraseña</label>
+                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para conservarla" autocomplete="new-password">
             </div>
 
             <div class="field-group">

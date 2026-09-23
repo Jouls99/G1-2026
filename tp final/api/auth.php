@@ -47,12 +47,20 @@ if ($action === 'login' && $method === 'POST') {
     if (!$found || !password_verify($password, (string)($found['password'] ?? ''))) {
         $usersJson = readJsonFile($file);
         $foundJson = null;
-        foreach ($usersJson as $u) {
-            if (strcasecmp(trim((string)($u['usuario'] ?? '')), $usuario) === 0 && (string)($u['password'] ?? '') === $password) {
+        foreach ($usersJson as $index => &$u) {
+            $storedPassword = (string)($u['password'] ?? '');
+            $validPassword = password_verify($password, $storedPassword)
+                || hash_equals($storedPassword, $password);
+            if (strcasecmp(trim((string)($u['usuario'] ?? '')), $usuario) === 0 && $validPassword) {
+                if (password_get_info($storedPassword)['algoName'] === 'unknown') {
+                    $u['password'] = password_hash($password, PASSWORD_DEFAULT);
+                    writeJsonFile($file, $usersJson);
+                }
                 $foundJson = $u;
                 break;
             }
         }
+        unset($u);
 
         if ($foundJson) {
             $found = [
@@ -208,7 +216,7 @@ if ($action === 'register' && $method === 'POST') {
     $users[] = [
         'id'        => $newUserId,
         'usuario'   => $usuario,
-        'password'  => $password,
+        'password'  => password_hash($password, PASSWORD_DEFAULT),
         'role'      => $role,
         'createdAt' => date('c'),
         'lastLogin' => date('c')

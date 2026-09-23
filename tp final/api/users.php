@@ -231,7 +231,7 @@ if ($method === 'POST') {
         $users[] = [
             'id'        => $newUserId,
             'usuario'   => $usuario,
-            'password'  => $password,
+            'password'  => password_hash($password, PASSWORD_DEFAULT),
             'role'      => $role,
             'createdAt' => date('c'),
             'lastLogin' => null
@@ -291,7 +291,15 @@ if ($method === 'PUT') {
         $currentRole = (string)$target['rol'];
 
         // Protección: Si el Super Admin intenta cambiarse de rol a sí mismo, verificar que quede al menos otro Super Admin
-        if ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
+        if ($newPassword !== null) {
+            logActivity(
+                $superAdminName,
+                'password_restablecida',
+                "El Super Admin {$superAdminName} restableció la contraseña del usuario '{$targetName}'",
+                ['usuario' => $targetName],
+                $targetId
+            );
+        } elseif ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
             if ($targetId === (int)($currentUser['id'] ?? 0) && strtolower($newRole) !== 'superadmin') {
                 $countStmt = $db->prepare("SELECT COUNT(*) FROM `usuario` WHERE `rol` = 'superadmin' AND `id_usuario` != :id");
                 $countStmt->execute([':id' => $targetId]);
@@ -354,7 +362,7 @@ if ($method === 'PUT') {
                     $u['role'] = $newRole;
                 }
                 if ($newPassword !== null) {
-                    $u['password'] = $newPassword;
+                    $u['password'] = password_hash($newPassword, PASSWORD_DEFAULT);
                 }
             }
         }
