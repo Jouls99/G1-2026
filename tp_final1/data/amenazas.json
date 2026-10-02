@@ -1,0 +1,14 @@
+[
+    {
+        "regla": "fallos_cuenta_ip",
+        "clave": "127.0.0.1|esperanza",
+        "titulo": "Múltiples fallos para la misma cuenta",
+        "descripcion": "5 intentos fallidos para Esperanza desde 127.0.0.1.",
+        "usuario": "Esperanza",
+        "ip": "127.0.0.1",
+        "intentos": 5,
+        "fecha": "2026-10-03T01:06:59+02:00",
+        "ventana_minutos": 15,
+        "id": "bc0b5165bb6ddce99dbaa6434c7c7765a47e2eab8eded80a14aa4c7c5bddb5ad"
+    }
+]
