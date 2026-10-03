@@ -803,5 +803,18 @@
             "timestamp": "2026-10-03 01:14:49"
         },
         "fecha": "2026-10-03T01:14:49+02:00"
+    },
+    {
+        "id": "1790985518955",
+        "id_usuario": null,
+        "usuario": "Esperanza",
+        "tipo_accion": "login_fallido",
+        "descripcion": "Intento de inicio de sesión fallido para el usuario 'Esperanza'",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/154.0.0.0 Safari\/537.36 Edg\/154.0.0.0",
+            "motivo": "Credenciales incorrectas"
+        },
+        "fecha": "2026-10-03T01:58:38+02:00"
     }
 ]
