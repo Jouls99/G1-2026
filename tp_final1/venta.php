@@ -96,6 +96,7 @@ require_once __DIR__ . '/includes/navbar.php';
                     <table>
                         <thead>
                             <tr>
+                                <th>Quitar</th>
                                 <th>Código</th>
                                 <th>Nombre Producto</th>
                                 <th style="text-align: right;">Precio</th>
@@ -103,7 +104,7 @@ require_once __DIR__ . '/includes/navbar.php';
                         </thead>
                         <tbody id="tabla-productos">
                             <tr>
-                                <td colspan="3" class="text-empty">
+                                <td colspan="4" class="text-empty">
                                     Ningún producto cargado. Usá el panel de la derecha para sumar artículos.
                                 </td>
                             </tr>
@@ -148,10 +149,9 @@ require_once __DIR__ . '/includes/navbar.php';
                     <input type="text" id="codigo" name="codigo" placeholder="Código de producto" required>
                 </div>
                 <div class="form-group">
-                    <label for="cantidad">
-                        Cantidad <span id="stock-info" style="font-size: 0.85em; font-weight: bold; color: #ae3c1d; margin-left: 8px;"></span>
+                    <label for="cantidad">Cantidad <span id="stock-info" style="font-size: 0.85em; font-weight: bold; color: #ae3c1d; margin-left: 8px;"></span>
                     </label>
-                    <input type="number" id="cantidad" name="cantidad" min="0,0" max="9999" value="0,0" required oninput="this.value = this.value < 0 ? 0 : this.value;">
+                    <input type="number" id="cantidad" name="cantidad" min="1" max="9999" step="1" placeholder="1" required>
                 </div>
                 <div class="form-group">
                     <label for="precio">Precio de Venta</label>

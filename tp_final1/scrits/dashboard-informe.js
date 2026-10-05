@@ -24,6 +24,16 @@ const currencyFormatter = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 0
 });
 
+function escapeHtml(str) {
+  if (typeof str !== 'string') return String(str ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function getPeriodLabels(period) {
   switch (period) {
     case 'semanal':
@@ -88,6 +98,7 @@ function buildSeries(category, period) {
 function renderCategoryButtons() {
   const categories = [...new Set(state.inventory.map((item) => item.categoria))];
   const container = document.getElementById('categoryButtons');
+  if (!container) return;
   container.innerHTML = '';
 
   categories.forEach((category) => {
@@ -106,6 +117,7 @@ function renderCategoryButtons() {
 function renderPeriodButtons() {
   const periods = ['diario', 'semanal', 'mensual'];
   const container = document.getElementById('periodButtons');
+  if (!container) return;
   container.innerHTML = '';
 
   periods.forEach((period) => {
@@ -133,15 +145,22 @@ function renderMetrics(series) {
       return total + price * quantity;
     }, 0);
 
-  document.getElementById('metricSold').textContent = sold;
-  document.getElementById('metricRevenue').textContent = currencyFormatter.format(revenue);
-  document.getElementById('metricSummary').textContent = currencyFormatter.format(summary);
-  document.getElementById('metricInventoryValue').textContent = currencyFormatter.format(inventoryValue);
-  document.getElementById('dashboardTitle').textContent = `${state.category} · ${state.period.charAt(0).toUpperCase() + state.period.slice(1)}`;
+  const elSold = document.getElementById('metricSold');
+  const elRev = document.getElementById('metricRevenue');
+  const elSum = document.getElementById('metricSummary');
+  const elVal = document.getElementById('metricInventoryValue');
+  const elTitle = document.getElementById('dashboardTitle');
+
+  if (elSold) elSold.textContent = sold;
+  if (elRev) elRev.textContent = currencyFormatter.format(revenue);
+  if (elSum) elSum.textContent = currencyFormatter.format(summary);
+  if (elVal) elVal.textContent = currencyFormatter.format(inventoryValue);
+  if (elTitle) elTitle.textContent = `${state.category} · ${state.period.charAt(0).toUpperCase() + state.period.slice(1)}`;
 }
 
 function renderChart(series) {
   const svg = document.getElementById('lineChart');
+  if (!svg) return;
   const width = 640;
   const height = 280;
   const padding = 36;
@@ -207,6 +226,7 @@ function getLastSaleInfo(codigo) {
 
 function renderProducts() {
   const list = document.getElementById('productList');
+  if (!list) return;
   const soldSummary = buildSoldSummary();
   const items = state.inventory.filter((item) => item.categoria === state.category);
 
@@ -220,7 +240,7 @@ function renderProducts() {
       const sold = soldSummary[String(item.codigo || '').toLowerCase()] || 0;
       return `
         <li>
-          <span>${item.nombre}</span>
+          <span>${escapeHtml(item.nombre)}</span>
           <strong>${sold} vend.</strong>
           <small>${item.cantidad} disponibles</small>
         </li>
@@ -232,6 +252,7 @@ function renderProducts() {
 function renderInventoryTable() {
   const soldSummary = buildSoldSummary();
   const tbody = document.getElementById('stockTableBody');
+  if (!tbody) return;
   tbody.innerHTML = state.inventory.map((item) => {
     const sold = soldSummary[String(item.codigo || '').toLowerCase()] || 0;
     const saleInfo = getLastSaleInfo(item.codigo);
@@ -240,9 +261,9 @@ function renderInventoryTable() {
 
     return `
       <tr>
-        <td>${item.categoria || 'Sin categoría'}</td>
-        <td>${item.nombre}</td>
-        <td>${item.codigo}</td>
+        <td>${escapeHtml(item.categoria || 'Sin categoría')}</td>
+        <td>${escapeHtml(item.nombre)}</td>
+        <td>${escapeHtml(item.codigo)}</td>
         <td>${sold}</td>
         <td>${available}</td>
         <td>${currencyFormatter.format(item.precio || 0)}</td>
@@ -258,9 +279,11 @@ function renderInventoryTable() {
 function renderSalesHistory() {
   const tbody = document.getElementById('salesHistoryBody');
   const count = document.getElementById('salesCount');
+  if (!tbody) return;
+
   const sales = [...state.sales].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-  count.textContent = `${sales.length} ventas`;
+  if (count) count.textContent = `${sales.length} ventas`;
 
   if (!sales.length) {
     tbody.innerHTML = '<tr><td colspan="6">No hay ventas registradas todavía.</td></tr>';
@@ -269,7 +292,7 @@ function renderSalesHistory() {
 
   tbody.innerHTML = sales.map((sale) => {
     const date = new Date(sale.fecha);
-    const productoText = (sale.productos || []).map((producto) => `${producto.nombre} × ${producto.cantidad}`).join(', ');
+    const productoText = (sale.productos || []).map((producto) => `${escapeHtml(producto.nombre)} × ${producto.cantidad}`).join(', ');
     return `
       <tr>
         <td>${date.toLocaleDateString('es-AR')}</td>
@@ -277,7 +300,14 @@ function renderSalesHistory() {
         <td>${date.toLocaleDateString('es-AR', { weekday: 'long' })}</td>
         <td>${productoText}</td>
         <td>${currencyFormatter.format(sale.total || 0)}</td>
-        <td>${puedeModificarInforme ? `<button class="btn-edit-action" onclick="abrirModalEdicion('${sale.id}')">✏️ Editar</button>` : 'Solo lectura'}</td>
+        <td>
+          ${puedeModificarInforme ? `
+            <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+              <button type="button" class="btn-edit-action" onclick="abrirModalEdicion('${sale.id}')" title="Editar venta">✏️ Editar</button>
+              <button type="button" class="btn-delete-action" onclick="confirmarEliminarVenta('${sale.id}')" title="Eliminar venta">🗑️ Eliminar</button>
+            </div>
+          ` : '<span style="color:#6b7280; font-size:0.85rem;">Solo lectura</span>'}
+        </td>
       </tr>
     `;
   }).join('');
@@ -285,9 +315,12 @@ function renderSalesHistory() {
 
 function updateClock() {
   const now = new Date();
-  document.getElementById('liveDate').textContent = now.toLocaleDateString('es-AR');
-  document.getElementById('liveTime').textContent = now.toLocaleTimeString('es-AR');
-  document.getElementById('liveDay').textContent = now.toLocaleDateString('es-AR', { weekday: 'long' });
+  const elDate = document.getElementById('liveDate');
+  const elTime = document.getElementById('liveTime');
+  const elDay = document.getElementById('liveDay');
+  if (elDate) elDate.textContent = now.toLocaleDateString('es-AR');
+  if (elTime) elTime.textContent = now.toLocaleTimeString('es-AR');
+  if (elDay) elDay.textContent = now.toLocaleDateString('es-AR', { weekday: 'long' });
 }
 
 function render() {
@@ -406,7 +439,7 @@ switchUserForm?.addEventListener('submit', async (event) => {
 // === MODAL DE EDICIÓN DE VENTAS ===
 function abrirModalEdicion(saleId) {
   if (!puedeModificarInforme) return;
-  const sale = state.sales.find(s => s.id === saleId);
+  const sale = state.sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
 
   document.getElementById('edit-sale-id').value = sale.id;
@@ -415,10 +448,10 @@ function abrirModalEdicion(saleId) {
   const container = document.getElementById('edit-sale-products-container');
   container.innerHTML = '';
 
-  sale.productos.forEach((prod) => {
+  (sale.productos || []).forEach((prod) => {
     // Calcular el stock disponible real sumando lo ya vendido de este producto
     const invItem = state.inventory.find(item => String(item.codigo).toLowerCase() === String(prod.codigo).toLowerCase());
-    const stockDisponibleRestaurado = (invItem ? invItem.cantidad : 0) + prod.cantidad;
+    const stockDisponibleRestaurado = (invItem ? Number(invItem.cantidad) : 0) + Number(prod.cantidad);
 
     const row = document.createElement('div');
     row.className = 'edit-product-row';
@@ -434,14 +467,14 @@ function abrirModalEdicion(saleId) {
 
     row.innerHTML = `
       <div style="flex: 2; display: flex; flex-direction: column;">
-        <span style="font-weight: 600; color: #490633;">${prod.nombre}</span>
+        <span style="font-weight: 600; color: #490633;">${escapeHtml(prod.nombre)}</span>
         <small style="color: #6b4d64;">Precio: ${currencyFormatter.format(prod.precio)}</small>
       </div>
       <div style="flex: 1.5; display: flex; align-items: center; gap: 6px; justify-content: flex-end;">
-        <input type="number" class="edit-product-qty" min="${usuarioEsAdminInforme ? 0 : 1}" max="${stockDisponibleRestaurado}" value="${prod.cantidad}" data-codigo="${prod.codigo}" data-precio="${prod.precio}" style="width: 60px; padding: 6px; border: 1px solid #dabad3; border-radius: 6px; text-align: center; color: #490633; font-weight: bold;">
+        <input type="number" class="edit-product-qty" min="0" max="${stockDisponibleRestaurado}" value="${prod.cantidad}" data-codigo="${escapeHtml(prod.codigo)}" data-precio="${prod.precio}" data-nombre="${escapeHtml(prod.nombre)}" style="width: 60px; padding: 6px; border: 1px solid #dabad3; border-radius: 6px; text-align: center; color: #490633; font-weight: bold;">
         <span style="font-size: 0.8em; color: #7a4f6a;">(Máx: ${stockDisponibleRestaurado})</span>
       </div>
-      ${usuarioEsAdminInforme ? '<button type="button" class="btn-remove-prod" style="padding: 6px 10px; background-color: #ffe5e5; color: #cc0000; border: 1px solid #ffcccc; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: 0.2s;">❌</button>' : ''}
+      <button type="button" class="btn-remove-prod" style="padding: 6px 10px; background-color: #ffe5e5; color: #cc0000; border: 1px solid #ffcccc; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: 0.2s;" title="Dejar cantidad en 0">❌</button>
     `;
 
     // Quitar producto click
@@ -470,11 +503,12 @@ function abrirModalEdicion(saleId) {
   });
 
   recalcularTotalModal();
-  document.getElementById('editSaleModal').style.display = 'block';
+  document.getElementById('editSaleModal').style.display = 'flex';
 }
 
 function recalcularTotalModal() {
   const container = document.getElementById('edit-sale-products-container');
+  if (!container) return;
   const rows = container.querySelectorAll('.edit-product-row');
   let total = 0;
   
@@ -485,12 +519,14 @@ function recalcularTotalModal() {
     total += qty * price;
   });
 
-  document.getElementById('edit-sale-total').textContent = currencyFormatter.format(total);
+  const totalEl = document.getElementById('edit-sale-total');
+  if (totalEl) totalEl.textContent = currencyFormatter.format(total);
 }
 
 // Cerrar modal
-document.getElementById('closeModalBtn').addEventListener('click', () => {
-  document.getElementById('editSaleModal').style.display = 'none';
+document.getElementById('closeModalBtn')?.addEventListener('click', () => {
+  const modal = document.getElementById('editSaleModal');
+  if (modal) modal.style.display = 'none';
 });
 
 window.addEventListener('click', (event) => {
@@ -501,188 +537,123 @@ window.addEventListener('click', (event) => {
 });
 
 // Guardar cambios modal
-document.getElementById('edit-sale-form').addEventListener('submit', async (e) => {
+document.getElementById('edit-sale-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!puedeModificarInforme) return;
 
   const saleId = document.getElementById('edit-sale-id').value;
-  const originalSale = state.sales.find(s => s.id === saleId);
+  const originalSale = state.sales.find(s => String(s.id) === String(saleId));
   if (!originalSale) return;
 
   const container = document.getElementById('edit-sale-products-container');
   const rows = container.querySelectorAll('.edit-product-row');
 
-  // Clonar el inventario para simular stock
-  const tempInventory = JSON.parse(JSON.stringify(state.inventory));
-
-  // 1. Restaurar stock original de la venta
-  originalSale.productos.forEach(prod => {
-    const invItem = tempInventory.find(item => String(item.codigo).toLowerCase() === String(prod.codigo).toLowerCase());
-    if (invItem) {
-      invItem.cantidad += prod.cantidad;
-      invItem.total = invItem.precio * invItem.cantidad;
-    }
-  });
-
   const nuevosProductosVenta = [];
-  let totalVenta = 0;
+  let totalCantidad = 0;
 
-  // 2. Validar y descontar el nuevo stock
   for (const row of rows) {
     const qtyInput = row.querySelector('.edit-product-qty');
     const qty = parseInt(qtyInput.value) || 0;
     const codigo = qtyInput.dataset.codigo;
     const precio = parseFloat(qtyInput.dataset.precio) || 0;
+    const nombre = qtyInput.dataset.nombre || 'Producto';
+
+    totalCantidad += qty;
 
     if (qty > 0) {
-      const invItem = tempInventory.find(item => String(item.codigo).toLowerCase() === String(codigo).toLowerCase());
-      if (!invItem) {
-        alert(`Error: El producto con código ${codigo} ya no existe en el inventario.`);
-        return;
-      }
-      if (invItem.cantidad < qty) {
-        alert(`Stock insuficiente para ${invItem.nombre}. Disponible: ${invItem.cantidad}`);
-        return;
-      }
-
-      invItem.cantidad -= qty;
-      invItem.total = invItem.precio * invItem.cantidad;
-
       nuevosProductosVenta.push({
-        nombre: invItem.nombre,
-        codigo: invItem.codigo,
+        nombre: nombre,
+        codigo: codigo,
         cantidad: qty,
-        precio: invItem.precio
+        precio: precio
       });
-
-      totalVenta += qty * invItem.precio;
     }
   }
 
-  if (nuevosProductosVenta.length === 0) {
-    if (!usuarioEsAdminInforme) {
-      alert('Este permiso no permite eliminar ventas. La cantidad debe ser mayor que cero.');
-      return;
-    }
-    if (!confirm('La venta quedará vacía (0 productos). ¿Querés eliminar esta venta del historial?')) {
+  // Si la cantidad total es 0, consultar si desea eliminar la venta
+  if (totalCantidad === 0 || nuevosProductosVenta.length === 0) {
+    if (!confirm('⚠️ La venta quedará vacía (0 productos).\n¿Deseás eliminar esta venta del historial y devolver el stock al inventario?')) {
       return;
     }
     await eliminarVentaDirecto(saleId);
     return;
   }
 
-  if (!usuarioEsAdminInforme) {
-    if (originalSale.productos.length !== 1 || nuevosProductosVenta.length !== 1) {
-      alert('Con este permiso solo se puede modificar la cantidad de un producto por venta.');
-      return;
-    }
-    try {
-      const response = await fetch('api/ventas.php?action=editar_informe', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: saleId,
-          codigo: nuevosProductosVenta[0].codigo,
-          cantidad: nuevosProductosVenta[0].cantidad
-        })
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.message || 'No se pudo modificar la venta.');
-      document.getElementById('editSaleModal').style.display = 'none';
-      alert('✅ Venta modificada con éxito.');
-      await loadInventory();
-    } catch (error) {
-      alert(`❌ Error al guardar: ${error.message}`);
-    }
-    return;
-  }
-
-  // 3. Confirmar cambios en el state
-  state.inventory = tempInventory;
-  
-  // Actualizar la venta
-  originalSale.productos = nuevosProductosVenta;
-  originalSale.total = totalVenta;
-  originalSale.dinero = totalVenta;
-
-  // Guardar en la base de datos
   try {
-    const saveInvRes = await fetch('api/inventario.php', {
+    const response = await fetch('api/ventas.php', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.inventory)
+      body: JSON.stringify({
+        id: saleId,
+        codigo: nuevosProductosVenta[0].codigo,
+        cantidad: nuevosProductosVenta[0].cantidad,
+        precio: nuevosProductosVenta[0].precio,
+        productos: nuevosProductosVenta
+      })
     });
-    if (!saveInvRes.ok) throw new Error('No se pudo actualizar el inventario.');
+    const result = await response.json();
 
-    const saveSalesRes = await fetch('api/ventas.php', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.sales)
-    });
-    if (!saveSalesRes.ok) throw new Error('No se pudo actualizar las ventas.');
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message || 'No se pudo modificar la venta.');
+    }
+
+    document.getElementById('editSaleModal').style.display = 'none';
+    alert(result.message || '✅ Venta modificada con éxito y stock actualizado.');
+
+    await loadInventory();
 
     localStorage.setItem('inventarioUpdated', Date.now().toString());
     window.dispatchEvent(new Event('inventario-updated'));
-
-    document.getElementById('editSaleModal').style.display = 'none';
-    alert('✅ Venta modificada con éxito.');
-    render();
   } catch (error) {
     alert(`❌ Error al guardar: ${error.message}`);
   }
 });
 
-// Eliminar venta
+// Eliminar venta directo vía API
 async function eliminarVentaDirecto(saleId) {
-  const sale = state.sales.find(s => s.id === saleId);
-  if (!sale) return;
-
-  // Devolver el stock
-  sale.productos.forEach(prod => {
-    const invItem = state.inventory.find(item => String(item.codigo).toLowerCase() === String(prod.codigo).toLowerCase());
-    if (invItem) {
-      invItem.cantidad += prod.cantidad;
-      invItem.total = invItem.precio * invItem.cantidad;
-    }
-  });
-
-  // Filtrar
-  state.sales = state.sales.filter(s => s.id !== saleId);
+  if (!puedeModificarInforme) return;
 
   try {
-    const saveInvRes = await fetch('api/inventario.php', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.inventory)
+    const response = await fetch(`api/ventas.php?id=${encodeURIComponent(saleId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
     });
-    if (!saveInvRes.ok) throw new Error('No se pudo actualizar el inventario.');
+    const result = await response.json();
 
-    const saveSalesRes = await fetch('api/ventas.php', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state.sales)
-    });
-    if (!saveSalesRes.ok) throw new Error('No se pudo actualizar las ventas.');
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message || 'No se pudo eliminar la venta.');
+    }
+
+    const modal = document.getElementById('editSaleModal');
+    if (modal) modal.style.display = 'none';
+
+    alert(result.message || '✅ Venta eliminada con éxito y stock restaurado.');
+
+    await loadInventory();
 
     localStorage.setItem('inventarioUpdated', Date.now().toString());
     window.dispatchEvent(new Event('inventario-updated'));
-
-    document.getElementById('editSaleModal').style.display = 'none';
-    alert('✅ Venta eliminada con éxito y stock restaurado.');
-    render();
   } catch (error) {
     alert(`❌ Error al eliminar: ${error.message}`);
   }
 }
 
-document.getElementById('btnDeleteSale').addEventListener('click', async () => {
-    if (!usuarioEsAdminInforme) return;
+// Confirmar y eliminar venta desde tabla o botón
+function confirmarEliminarVenta(saleId) {
+  if (!puedeModificarInforme) return;
+  if (confirm('⚠️ ¿Estás seguro de que querés eliminar esta venta del historial?\nEl stock de los productos se devolverá automáticamente al inventario.')) {
+    eliminarVentaDirecto(saleId);
+  }
+}
+
+document.getElementById('btnDeleteSale')?.addEventListener('click', async () => {
+  if (!puedeModificarInforme) return;
   const saleId = document.getElementById('edit-sale-id').value;
   if (!saleId) return;
 
-  if (confirm('¿Estás seguro de que querés eliminar esta venta? El stock se devolverá al inventario.')) {
-    await eliminarVentaDirecto(saleId);
-  }
+  confirmarEliminarVenta(saleId);
 });
 
 window.abrirModalEdicion = abrirModalEdicion;
+window.confirmarEliminarVenta = confirmarEliminarVenta;
+window.eliminarVentaDirecto = eliminarVentaDirecto;

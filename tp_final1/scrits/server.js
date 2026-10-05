@@ -47,7 +47,7 @@ app.post('/api/users', async (req, res) => {
 });
 
 // Inventario endpoints
-app.get('/api/inventario', async (req, res) => {
+app.get(['/api/inventario', '/api/inventario.php'], async (req, res) => {
   try {
     const content = await fs.readFile(INVENTARIO_FILE, 'utf8');
     const inventario = JSON.parse(content || '[]');
@@ -59,7 +59,7 @@ app.get('/api/inventario', async (req, res) => {
   }
 });
 
-app.put('/api/inventario', async (req, res) => {
+app.put(['/api/inventario', '/api/inventario.php'], async (req, res) => {
   const payload = req.body;
   if (!Array.isArray(payload)) return res.status(400).json({ error: 'invalid_payload' });
   try {
@@ -71,7 +71,7 @@ app.put('/api/inventario', async (req, res) => {
   }
 });
 
-app.get('/api/ventas', async (req, res) => {
+app.get(['/api/ventas', '/api/ventas.php'], async (req, res) => {
   try {
     const content = await fs.readFile(VENTAS_FILE, 'utf8');
     const ventas = JSON.parse(content || '[]');
@@ -83,7 +83,7 @@ app.get('/api/ventas', async (req, res) => {
   }
 });
 
-app.post('/api/ventas', async (req, res) => {
+app.post(['/api/ventas', '/api/ventas.php'], async (req, res) => {
   const payload = req.body;
   if (!payload || !Array.isArray(payload.productos) || payload.productos.length === 0) {
     return res.status(400).json({ error: 'invalid_payload' });
@@ -112,7 +112,7 @@ app.post('/api/ventas', async (req, res) => {
   }
 });
 
-app.put('/api/ventas', async (req, res) => {
+app.put(['/api/ventas', '/api/ventas.php'], async (req, res) => {
   const payload = req.body;
   if (!Array.isArray(payload)) return res.status(400).json({ error: 'invalid_payload' });
   try {

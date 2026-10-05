@@ -154,7 +154,7 @@ async function cargarUsuarios() {
         const data = await response.json();
         if (!response.ok || (data && !Array.isArray(data) && data.ok === false)) {
             if (response.status === 403) {
-                window.location.href = 'prueba2.php?error=unauthorized';
+                window.location.href = 'venta.php?error=unauthorized';
                 return;
             }
             throw new Error((data && data.message) || 'Error al conectar con la API de usuarios.');

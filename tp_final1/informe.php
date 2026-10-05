@@ -24,7 +24,7 @@ require_once __DIR__ . '/includes/navbar.php';
 
         <div class="header-actions">
             <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
-            <a href="prueba2.php" class="btn-secondary">🛒 Ir a Ventas</a>
+            <a href="venta.php" class="btn-secondary">🛒 Ir a Ventas</a>
             <button type="button" class="btn-secondary" id="openSwitchUserBtn">🔄 Cambiar usuario</button>
             <?php if (isSuperAdmin()): ?>
                 <a href="usuarios.php" class="btn-secondary" style="background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Gestión de Usuarios</a>

@@ -1900,5 +1900,179 @@
             "subcategoria": null
         },
         "fecha": "2026-10-03T01:46:55+02:00"
+    },
+    {
+        "id": "1790986942770",
+        "id_usuario": 3290,
+        "usuario": "gomez11",
+        "tipo_accion": "usuario_creado",
+        "descripcion": "Usuario 'juan' creado exitosamente con rol 'vendedor' por el Super Admin gomez11",
+        "detalles": {
+            "usuario": "juan",
+            "rol": "vendedor",
+            "creado_por": "gomez11"
+        },
+        "fecha": "2026-10-03T02:22:22+02:00"
+    },
+    {
+        "id": "1791219375290",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "ventas_actualizadas",
+        "descripcion": "Historial de ventas actualizado en el sistema por gomez11",
+        "detalles": {
+            "total_ventas": 29
+        },
+        "fecha": "2026-10-05T18:56:15+02:00"
+    },
+    {
+        "id": "1791219646400",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "ventas_actualizadas",
+        "descripcion": "Historial de ventas actualizado en el sistema por gomez11",
+        "detalles": {
+            "total_ventas": 29
+        },
+        "fecha": "2026-10-05T19:00:46+02:00"
+    },
+    {
+        "id": "1791219665886",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "ventas_actualizadas",
+        "descripcion": "Historial de ventas actualizado en el sistema por gomez11",
+        "detalles": {
+            "total_ventas": 29
+        },
+        "fecha": "2026-10-05T19:01:05+02:00"
+    },
+    {
+        "id": "1791219674408",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "ventas_actualizadas",
+        "descripcion": "Historial de ventas actualizado en el sistema por gomez11",
+        "detalles": {
+            "total_ventas": 29
+        },
+        "fecha": "2026-10-05T19:01:14+02:00"
+    },
+    {
+        "id": "1791220442409",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #35 (base matte) eliminada por gomez11. 2 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "35",
+            "producto": "base matte",
+            "unidades_devueltas": 2
+        },
+        "fecha": "2026-10-05T19:14:02+02:00"
+    },
+    {
+        "id": "1791220483329",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #36 (base matte) eliminada por gomez11. 2 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "36",
+            "producto": "base matte",
+            "unidades_devueltas": 2
+        },
+        "fecha": "2026-10-05T19:14:43+02:00"
+    },
+    {
+        "id": "1791220567695",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_modificada",
+        "descripcion": "Venta #37 (base matte) modificada por gomez11. Nueva cantidad: 2",
+        "detalles": {
+            "id": 37,
+            "codigo": "MQL-001",
+            "cantidad": 2
+        },
+        "fecha": "2026-10-05T19:16:07+02:00"
+    },
+    {
+        "id": "1791221378108",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #37 (base matte) eliminada por gomez11. 2 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "37",
+            "producto": "base matte",
+            "unidades_devueltas": 2
+        },
+        "fecha": "2026-10-05T19:29:38+02:00"
+    },
+    {
+        "id": "1791221385191",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #35 (base matte) eliminada por gomez11. 2 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "35",
+            "producto": "base matte",
+            "unidades_devueltas": 2
+        },
+        "fecha": "2026-10-05T19:29:45+02:00"
+    },
+    {
+        "id": "1791221391158",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #33 (mascarilla con niacinamida) eliminada por gomez11. 16 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "33",
+            "producto": "mascarilla con niacinamida",
+            "unidades_devueltas": 16
+        },
+        "fecha": "2026-10-05T19:29:51+02:00"
+    },
+    {
+        "id": "1791221397359",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #32 (mascarilla Ácido ialurónico) eliminada por gomez11. 18 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "32",
+            "producto": "mascarilla Ácido ialurónico",
+            "unidades_devueltas": 18
+        },
+        "fecha": "2026-10-05T19:29:57+02:00"
+    },
+    {
+        "id": "1791229158325",
+        "id_usuario": 2357,
+        "usuario": "gomez11",
+        "tipo_accion": "rol_cambiado",
+        "descripcion": "El Super Admin gomez11 cambió el rol de 'GOMEZ ADMIN' de 'administrador' a 'vendedor'",
+        "detalles": {
+            "usuario": "GOMEZ ADMIN",
+            "rol_anterior": "administrador",
+            "nuevo_rol": "vendedor"
+        },
+        "fecha": "2026-10-05T21:39:18+02:00"
+    },
+    {
+        "id": "1791229174308",
+        "id_usuario": 2357,
+        "usuario": "gomez11",
+        "tipo_accion": "rol_cambiado",
+        "descripcion": "El Super Admin gomez11 cambió el rol de 'GOMEZ ADMIN' de 'administrador' a 'vendedor'",
+        "detalles": {
+            "usuario": "GOMEZ ADMIN",
+            "rol_anterior": "administrador",
+            "nuevo_rol": "vendedor"
+        },
+        "fecha": "2026-10-05T21:39:34+02:00"
     }
 ]

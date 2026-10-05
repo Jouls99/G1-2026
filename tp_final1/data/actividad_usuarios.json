@@ -816,5 +816,19 @@
             "motivo": "Credenciales incorrectas"
         },
         "fecha": "2026-10-03T01:58:38+02:00"
+    },
+    {
+        "id": "1791218869994",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "login_exitoso",
+        "descripcion": "Inicio de sesión exitoso del usuario 'gomez11' (Rol: superadmin)",
+        "detalles": {
+            "ip": "::1",
+            "user_agent": "Mozilla\/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit\/537.36 (KHTML, like Gecko) Chrome\/154.0.0.0 Safari\/537.36 Edg\/154.0.0.0",
+            "rol": "superadmin",
+            "timestamp": "2026-10-05 18:47:49"
+        },
+        "fecha": "2026-10-05T18:47:49+02:00"
     }
 ]

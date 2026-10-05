@@ -394,6 +394,7 @@ function logActivity(string $usuario, string $tipo, string $descripcion, ?array 
                 ':fecha'    => $fecha
             ]);
         }
+        
     } catch (Exception $e) {
         // Continuar con respaldo JSON
     }
@@ -420,10 +421,10 @@ function logActivity(string $usuario, string $tipo, string $descripcion, ?array 
         } else {
             appendJsonRecord('actividades.json', $activity);
         }
+
     } catch (Throwable $e) {
         // Ignorar
     }
 
     return true;
 }
-

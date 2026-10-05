@@ -5,7 +5,7 @@
         "password": "santu99",
         "role": "superadmin",
         "createdAt": "2026-09-01T01:56:05+02:00",
-        "lastLogin": "2026-10-03T01:14:49+02:00",
+        "lastLogin": "2026-10-05T18:47:49+02:00",
         "inicio_sesion": "2026-10-03T01:09:32+02:00",
         "cierre_sessión": "2026-10-03T01:09:32+02:00"
     },
@@ -13,7 +13,7 @@
         "id": 2,
         "usuario": "GOMEZ ADMIN",
         "password": "$2y$10$FDjQrBi7fShVETn9s5QwM.lakS3qLV11fpO1JjKXZBATXUah63586",
-        "role": "administrador",
+        "role": "vendedor",
         "createdAt": "2026-09-15T18:03:29+02:00",
         "lastLogin": "2026-09-16T01:52:19+02:00",
         "inicio_sesion": "2026-09-16T01:52:19+02:00",
@@ -39,5 +39,13 @@
         "puede_modificar_informes": true,
         "inicio_sesion": "2026-09-16T01:52:19+02:00",
         "cierre_sessión": "2026-09-16T01:52:19+02:00"
+    },
+    {
+        "id": 3290,
+        "usuario": "juan",
+        "password": "$2y$10$91YHODkESh.jpQNUUO0UBu1R1YCzIDJdw7Tm2lcIC6WUFX27pF6L6",
+        "role": "vendedor",
+        "createdAt": "2026-10-03T02:22:22+02:00",
+        "lastLogin": null
     }
 ]

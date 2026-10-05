@@ -17,36 +17,23 @@ const datalist = document.getElementById('productos-datalist');
 
 function normalizarNumerosNoNegativos() {
     if (inputCantidad && Number(inputCantidad.value) < 0) {
-        inputCantidad.value = 0;
+        inputCantidad.value ='0';
     }
     if (inputPrecio && Number(inputPrecio.value) < 0) {
-        inputPrecio.value = 0;
+        inputPrecio.value = '0.00';
     }
 }
 
-inputCantidad.addEventListener('input', () => {
-    if (inputCantidad.value === '') {
-        inputCantidad.value = 1;
-        return;
-    }
-    if (Number(inputCantidad.value) < 0) {
-        inputCantidad.value = 0;
-    }
-    if (Number(inputCantidad.value) < 1) {
-        inputCantidad.value = 1;
-    }
-});
-
 inputPrecio.addEventListener('input', () => {
     if (inputPrecio.value === '') {
-        inputPrecio.value = 0;
+        inputPrecio.value = '0.00';
         return;
     }
     if (Number(inputPrecio.value) < 0) {
         inputPrecio.value = 0;
     }
     if (Number(inputPrecio.value) < 0.01) {
-        inputPrecio.value = 0.01;
+        inputPrecio.value = 0.00;
     }
 });
 
@@ -126,7 +113,7 @@ function actualizarTabla() {
     if (productosCargados.length === 0) {
         tablaProductos.innerHTML = `
             <tr>
-                <td colspan="3" class="text-empty">
+                <td colspan="4" class="text-empty">
                     Ningún producto cargado. Usá el panel de la derecha para sumar artículos.
                 </td>
             </tr>
@@ -140,13 +127,28 @@ function actualizarTabla() {
 
     productosCargados.forEach((prod, index) => {
         const fila = document.createElement('tr');
-        
-        fila.innerHTML = `
-            <td class="td-codigo">${prod.codigo}</td>
-            <td>${prod.nombre} × ${prod.cantidad}</td>
-            <td class="td-precio" style="text-align: right;">$${(prod.precio * prod.cantidad).toFixed(2)}</td>
-        `;
-        
+
+        const celdaEliminar = document.createElement('td');
+        celdaEliminar.className = 'td-eliminar';
+        const checkboxEliminar = document.createElement('input');
+        checkboxEliminar.type = 'checkbox';
+        checkboxEliminar.dataset.removeIndex = String(index);
+        checkboxEliminar.setAttribute('aria-label', `Quitar ${prod.nombre} de la venta`);
+        celdaEliminar.appendChild(checkboxEliminar);
+
+        const celdaCodigo = document.createElement('td');
+        celdaCodigo.className = 'td-codigo';
+        celdaCodigo.textContent = prod.codigo;
+
+        const celdaNombre = document.createElement('td');
+        celdaNombre.textContent = `${prod.nombre} × ${prod.cantidad}`;
+
+        const celdaPrecio = document.createElement('td');
+        celdaPrecio.className = 'td-precio';
+        celdaPrecio.style.textAlign = 'right';
+        celdaPrecio.textContent = `$${(prod.precio * prod.cantidad).toFixed(2)}`;
+
+        fila.append(celdaEliminar, celdaCodigo, celdaNombre, celdaPrecio);
         tablaProductos.appendChild(fila);
         sumaTotal += prod.precio * prod.cantidad;
     });
@@ -160,8 +162,13 @@ formulario.addEventListener('submit', (e) => {
 
     const nombre = inputNombre.value.trim();
     const codigo = inputCodigo.value.trim();
-    const cantidad = parseInt(inputCantidad.value, 10) || 1;
+    const cantidad = Number(inputCantidad.value);
     const precio = parseFloat(inputPrecio.value);
+
+    if (!nombre || !codigo || !Number.isInteger(cantidad) || cantidad < 1 || Number.isNaN(precio) || precio <= 0) {
+        mostrarMensaje('❌ Completá todos los campos con valores válidos. La cantidad debe ser un entero mayor a cero y el precio debe ser mayor a cero.', 'error');
+        return;
+    }
 
     // Validar que el producto sea válido y tenga stock en la base de datos
     const item = inventarioProductos.find(p => 
@@ -181,11 +188,6 @@ formulario.addEventListener('submit', (e) => {
 
     if (yaCargada + cantidad > item.cantidad) {
         mostrarMensaje(`❌ Stock insuficiente en base de datos. Disponible: ${item.cantidad}. Ya cargaste ${yaCargada} unidades.`, 'error');
-        return;
-    }
-
-    if (!nombre || !codigo || Number.isNaN(precio) || precio <= 0 || cantidad <= 0 || cantidad < 0 || precio < 0) {
-        mostrarMensaje('❌ Completá todos los campos con valores válidos. Cantidad y precio no pueden ser negativos.', 'error');
         return;
     }
 
@@ -268,6 +270,30 @@ btnRegistrar.addEventListener('click', async () => {
 btnCancelar.addEventListener('click', () => {
     if (productosCargados.length === 0) {
         mostrarMensaje('ℹ️ No hay productos para cancelar.', 'correcto');
+        return;
+    }
+
+    const indicesSeleccionados = Array.from(
+        tablaProductos.querySelectorAll('input[data-remove-index]:checked'),
+        checkbox => Number(checkbox.dataset.removeIndex)
+    ).filter(Number.isInteger);
+
+    if (indicesSeleccionados.length > 0) {
+        const cantidadSeleccionada = indicesSeleccionados.length;
+        const etiquetaProductos = cantidadSeleccionada === 1 ? 'producto' : 'productos';
+        const verboQuitar = cantidadSeleccionada === 1 ? 'quitó' : 'quitaron';
+        const confirmacion = `¿Querés quitar ${cantidadSeleccionada} ${etiquetaProductos} seleccionado${cantidadSeleccionada === 1 ? '' : 's'} de la venta?`;
+        if (confirm(confirmacion)) {
+            const indicesAQuitar = new Set(indicesSeleccionados);
+            productosCargados = productosCargados.filter((_, index) => !indicesAQuitar.has(index));
+            actualizarTabla();
+            mostrarMensaje(
+                productosCargados.length === 0
+                    ? `🗑 Venta cancelada: se ${verboQuitar} ${cantidadSeleccionada} ${etiquetaProductos}.`
+                    : `🗑 Se ${verboQuitar} ${cantidadSeleccionada} ${etiquetaProductos} de la venta.`,
+                'correcto'
+            );
+        }
         return;
     }
 

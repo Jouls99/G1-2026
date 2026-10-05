@@ -36,7 +36,7 @@ function requireAuth(string $redirectUrl = 'registroinicio.php'): void
 /**
  * Si el usuario ya está autenticado, lo redirige al panel principal.
  */
-function redirectIfLoggedIn(string $targetUrl = 'prueba2.php'): void
+function redirectIfLoggedIn(string $targetUrl = 'venta.php'): void
 {
     if (isLoggedIn()) {
         header('Location: ' . $targetUrl);
@@ -140,7 +140,7 @@ function hasRole(string $role): bool
  * Protege una página requiriendo que el usuario sea Administrador (o Super Admin).
  * Si no está autenticado o no es admin, redirige al panel de ventas o login.
  */
-function requireAdmin(string $redirectUrl = 'prueba2.php'): void
+function requireAdmin(string $redirectUrl = 'venta.php'): void
 {
     if (!isLoggedIn()) {
         header('Location: registroinicio.php');
@@ -157,7 +157,7 @@ function requireAdmin(string $redirectUrl = 'prueba2.php'): void
  * Protege una página requiriendo que el usuario sea EXCLUSIVAMENTE Super Administrador.
  * Si no lo es, deniega el acceso y redirige a la vista principal.
  */
-function requireSuperAdmin(string $redirectUrl = 'prueba2.php'): void
+function requireSuperAdmin(string $redirectUrl = 'venta.php'): void
 {
     if (!isLoggedIn()) {
         header('Location: registroinicio.php');

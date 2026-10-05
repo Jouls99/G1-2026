@@ -356,6 +356,23 @@ th {
     border-color: var(--color-secondary);
 }
 
+.btn-delete-action {
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: #b91c1c;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s ease;
+}
+
+.btn-delete-action:hover {
+    background-color: #ef4444;
+    color: #ffffff;
+    border-color: #dc2626;
+}
+
 /* --- ESTILOS DEL MODAL --- */
 .modal {
     position: fixed;

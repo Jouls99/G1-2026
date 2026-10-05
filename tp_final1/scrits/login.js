@@ -102,7 +102,7 @@ if (formIngreso) {
         const result = await loginUsuario(usuario, password);
         if (result.ok) {
             localStorage.setItem('usuarioActual', usuario);
-            window.location.href = 'prueba2.php';
+            window.location.href = 'venta.php';
         } else {
             alert(result.message);
         }

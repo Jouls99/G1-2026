@@ -1,24 +1,5 @@
 [
     {
-        "id": "32",
-        "ID_factura": 32,
-        "usuario": "GOMEZ ADMIN",
-        "fecha": "2026-09-28T00:00:00+02:00",
-        "total": 54000,
-        "dinero": 54000,
-        "productos": [
-            {
-                "id": 11,
-                "ID_stock": 11,
-                "nombre": "mascarilla Ácido ialurónico",
-                "codigo": "mko-74859182-sub",
-                "cantidad": 18,
-                "precio": 3000,
-                "categoria": "Skincare"
-            }
-        ]
-    },
-    {
         "id": "31",
         "ID_factura": 31,
         "usuario": "GOMEZ ADMIN",

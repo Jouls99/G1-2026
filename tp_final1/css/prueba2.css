@@ -90,6 +90,18 @@
             color: #64748b;
         }
 
+        .td-eliminar {
+            text-align: center;
+        }
+
+        .td-eliminar input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #ef4444;
+            vertical-align: middle;
+        }
+
         .td-precio {
             text-align: right;
             font-weight: 600;
