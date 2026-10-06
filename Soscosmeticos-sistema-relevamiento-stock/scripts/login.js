@@ -78,7 +78,7 @@ if (formRegistro) {
         const ok = await guardarUsuarioServidor(usuario, password);
         if (ok) {
             localStorage.setItem('usuarioActual', usuario);
-            window.location.href = 'prueba2.html';
+            window.location.href = 'index.php';
         }
     });
 }
@@ -99,7 +99,7 @@ if (formIngreso) {
 
         if (usuarioEncontrado && usuarioEncontrado.password === password) {
             localStorage.setItem('usuarioActual', usuario);
-            window.location.href = 'prueba2.html';
+            window.location.href = 'index.php';
         } else {
             alert('Usuario o contraseña incorrectos.');
         }
