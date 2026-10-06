@@ -52,6 +52,8 @@ function getDBConnection(): ?PDO
     }
 
     ensureProductPhaseColumn($pdo);
+    ensureProductSubcategoryColumn($pdo);
+    ensurePriceAdjustmentHistoryTable($pdo);
     ensureUserPermissionColumns($pdo);
     ensureUniqueAdministrativeRoles($pdo);
     syncDefaultUsers($pdo);
@@ -122,6 +124,61 @@ function ensureProductPhaseColumn(PDO $pdo): void
     }
 
     $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` IS NULL OR `fase` = ''");
+}
+
+/** Asegura que cada producto conserve su tipo/subcategoría en MySQL. */
+function ensureProductSubcategoryColumn(PDO $pdo): void
+{
+    $column = $pdo->query("SHOW COLUMNS FROM `producto` LIKE 'subcategoria'")->fetch();
+    if (!$column) {
+        $pdo->exec("ALTER TABLE `producto` ADD COLUMN `subcategoria` varchar(100) DEFAULT NULL AFTER `ID_categoria`");
+        $inventoryPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'inventario.json';
+        if (is_file($inventoryPath)) {
+            $inventory = json_decode(file_get_contents($inventoryPath) ?: '[]', true);
+            if (is_array($inventory)) {
+                $updateByCode = $pdo->prepare("UPDATE `producto` SET `subcategoria` = :subcategoria WHERE LOWER(`codigo`) = LOWER(:codigo)");
+                $updateById = $pdo->prepare("UPDATE `producto` SET `subcategoria` = :subcategoria WHERE `ID_stock` = :id");
+                foreach ($inventory as $item) {
+                    if (!is_array($item) || empty($item['subcategoria'])) {
+                        continue;
+                    }
+                    $subcategoria = trim((string)$item['subcategoria']);
+                    if (!empty($item['codigo'])) {
+                        $updateByCode->execute([
+                            ':subcategoria' => $subcategoria,
+                            ':codigo' => trim((string)$item['codigo'])
+                        ]);
+                    } elseif (!empty($item['ID_stock']) || !empty($item['id'])) {
+                        $updateById->execute([
+                            ':subcategoria' => $subcategoria,
+                            ':id' => (int)($item['ID_stock'] ?? $item['id'])
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Crea el historial persistente de cambios de precios por lote. */
+function ensurePriceAdjustmentHistoryTable(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `historial_ajuste_precio` (
+            `id_ajuste` int(11) NOT NULL AUTO_INCREMENT,
+            `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `usuario` varchar(100) NOT NULL,
+            `alcance` varchar(30) NOT NULL,
+            `categoria` varchar(255) DEFAULT NULL,
+            `tipo` varchar(255) DEFAULT NULL,
+            `nombre_producto` varchar(100) DEFAULT NULL,
+            `tipo_ajuste` varchar(20) NOT NULL,
+            `valor` decimal(12,2) NOT NULL,
+            `cantidad_productos` int(11) NOT NULL,
+            PRIMARY KEY (`id_ajuste`),
+            KEY `idx_historial_ajuste_fecha` (`fecha`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
 }
 
 /**
@@ -216,6 +273,7 @@ function initDatabase(): void
             `cantTotal` int(11) DEFAULT 0,
             `cantVendida` int(11) DEFAULT 0,
             `ID_categoria` int(11) DEFAULT NULL,
+            `subcategoria` varchar(100) DEFAULT NULL,
             `precio` decimal(10,2) DEFAULT 0.00,
             PRIMARY KEY (`ID_stock`),
             KEY `fk_producto_categoria` (`ID_categoria`),
@@ -278,6 +336,28 @@ function initDatabase(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
     ");
 
+    $pdoServer->exec("
+        CREATE TABLE IF NOT EXISTS `historial_ajuste_precio` (
+            `id_ajuste` int(11) NOT NULL AUTO_INCREMENT,
+            `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `usuario` varchar(100) NOT NULL,
+            `alcance` varchar(30) NOT NULL,
+            `categoria` varchar(255) DEFAULT NULL,
+            `tipo` varchar(255) DEFAULT NULL,
+            `nombre_producto` varchar(100) DEFAULT NULL,
+            `tipo_ajuste` varchar(20) NOT NULL,
+            `valor` decimal(12,2) NOT NULL,
+            `cantidad_productos` int(11) NOT NULL,
+            PRIMARY KEY (`id_ajuste`),
+            KEY `idx_historial_ajuste_fecha` (`fecha`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+    ");
+
+    $subcategoryColumn = $pdoServer->query("SHOW COLUMNS FROM `producto` LIKE 'subcategoria'")->fetch();
+    if (!$subcategoryColumn) {
+        $pdoServer->exec("ALTER TABLE `producto` ADD COLUMN `subcategoria` varchar(100) DEFAULT NULL AFTER `ID_categoria`");
+    }
+
     // Verificar si la columna 'usuario' existe en 'facturacion'
     try {
         $factCols = $pdoServer->query("SHOW COLUMNS FROM `facturacion` LIKE 'usuario'")->fetchAll();
@@ -308,8 +388,8 @@ function initDatabase(): void
                 $catStmt = $pdoServer->prepare("INSERT INTO `categoria` (`nombre`) VALUES (:nombre)");
                 $getCatStmt = $pdoServer->prepare("SELECT `ID_categoria` FROM `categoria` WHERE `nombre` = :nombre LIMIT 1");
                 $prodStmt = $pdoServer->prepare("
-                    INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `precio`, `fase`)
-                    VALUES (:nombre, :codigo, :cantTotal, :cantVendida, :ID_categoria, :precio, :fase)
+                    INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `subcategoria`, `precio`, `fase`)
+                    VALUES (:nombre, :codigo, :cantTotal, :cantVendida, :ID_categoria, :subcategoria, :precio, :fase)
                 ");
 
                 $catMap = [];
@@ -333,6 +413,7 @@ function initDatabase(): void
                         ':cantTotal'    => (int)($item['cantidad'] ?? ($item['stock'] ?? 0)),
                         ':cantVendida'  => (int)($item['cantVendida'] ?? 0),
                         ':ID_categoria' => $catMap[$catName],
+                        ':subcategoria' => !empty($item['subcategoria']) ? trim((string)$item['subcategoria']) : null,
                         ':precio'       => (float)($item['precio'] ?? 0),
                         ':fase'         => (string)($item['fase'] ?? 'habilitado')
                     ]);

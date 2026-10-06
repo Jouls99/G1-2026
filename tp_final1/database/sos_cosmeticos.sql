@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `producto` (
   `cantTotal` int(11) DEFAULT 0,
   `cantVendida` int(11) DEFAULT 0,
   `ID_categoria` int(11) DEFAULT NULL,
+  `subcategoria` varchar(100) DEFAULT NULL,
   `precio` decimal(10,2) DEFAULT 0.00,
   `fase` varchar(50) NOT NULL DEFAULT 'habilitado',
   PRIMARY KEY (`ID_stock`),
@@ -67,6 +68,21 @@ CREATE TABLE IF NOT EXISTS `actividad_usuario` (
   KEY `fk_actividad_usuario` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
+CREATE TABLE IF NOT EXISTS `historial_ajuste_precio` (
+  `id_ajuste` int(11) NOT NULL AUTO_INCREMENT,
+  `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `usuario` varchar(100) NOT NULL,
+  `alcance` varchar(30) NOT NULL,
+  `categoria` varchar(255) DEFAULT NULL,
+  `tipo` varchar(255) DEFAULT NULL,
+  `nombre_producto` varchar(100) DEFAULT NULL,
+  `tipo_ajuste` varchar(20) NOT NULL,
+  `valor` decimal(12,2) NOT NULL,
+  `cantidad_productos` int(11) NOT NULL,
+  PRIMARY KEY (`id_ajuste`),
+  KEY `idx_historial_ajuste_fecha` (`fecha`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+
 CREATE TABLE IF NOT EXISTS `Estado_fase` (
   `id_estado` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(50) NOT NULL,
@@ -84,4 +100,3 @@ VALUES
   ('vendedor_demo', '$2y$10$i7vxlO0ZNVpDht7ClhhupOB548wSgAa2FduQMNMx7s4qmtpFt4LXe', 'vendedor', NOW())
 ON DUPLICATE KEY UPDATE
   `rol` = VALUES(`rol`);
-

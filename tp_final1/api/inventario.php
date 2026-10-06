@@ -14,6 +14,40 @@ requireApiAuth();
 
 // GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`) o fallback a JSON
 if ($method === 'GET') {
+    if (($_GET['action'] ?? '') === 'price_history') {
+        requireAdminApi();
+        if ($db === null) {
+            sendJson(['ok' => false, 'message' => 'El historial de ajustes requiere conexión a la base de datos.'], 503);
+        }
+
+        try {
+            $historyStmt = $db->query("
+                SELECT `fecha`, `usuario`, `alcance`, `categoria`, `tipo`, `nombre_producto`,
+                       `tipo_ajuste`, `valor`, `cantidad_productos`
+                FROM `historial_ajuste_precio`
+                ORDER BY `id_ajuste` DESC
+                LIMIT 100
+            ");
+            $history = array_map(static function (array $row): array {
+                return [
+                    'fecha' => date('c', strtotime((string)$row['fecha'])),
+                    'usuario' => (string)$row['usuario'],
+                    'alcance' => (string)$row['alcance'],
+                    'categoria' => $row['categoria'],
+                    'tipo' => $row['tipo'],
+                    'nombre' => $row['nombre_producto'],
+                    'tipo_ajuste' => (string)$row['tipo_ajuste'],
+                    'valor' => (float)$row['valor'],
+                    'cantidad' => (int)$row['cantidad_productos']
+                ];
+            }, $historyStmt->fetchAll());
+            sendJson(['ok' => true, 'history' => $history]);
+        } catch (Exception $e) {
+            error_log('Error al consultar el historial de ajustes de precios: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo cargar el historial de ajustes.'], 500);
+        }
+    }
+
     if (($_GET['action'] ?? '') === 'audit') {
         requireSuperAdminApi();
         if ($db === null) {
@@ -79,7 +113,7 @@ if ($method === 'GET') {
                 COALESCE(c.nombre, 'General') AS categoria,
                 p.ID_categoria,
                 " . ($superAdmin ? "COALESCE(p.fase, 'habilitado') AS fase," : "") . "
-                NULL AS subcategoria
+                p.subcategoria
             FROM `producto` p
             LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
             " . ($superAdmin ? "" : "WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'") . "
@@ -100,7 +134,7 @@ if ($method === 'GET') {
                 'total'        => (float)$p['total'],
                 'categoria'    => (string)$p['categoria'],
                 'ID_categoria' => $p['ID_categoria'] !== null ? (int)$p['ID_categoria'] : null,
-                'subcategoria' => null
+                'subcategoria' => $p['subcategoria'] !== null ? (string)$p['subcategoria'] : null
             ];
 
             if ($superAdmin) {
@@ -138,10 +172,172 @@ if ($method === 'GET') {
 
 // POST: Agregar un nuevo producto al inventario en MySQL (o rehabilitar si se especifica action=rehabilitar)
 if ($method === 'POST') {
-    requireStockRegistrationApi();
     $body = getJsonBody();
     $action = $_GET['action'] ?? ($body['action'] ?? 'create');
 
+    if ($action === 'adjust_prices') {
+        requireAdminApi();
+        if ($db === null) {
+            sendJson(['ok' => false, 'message' => 'Los ajustes de precios requieren conexión a la base de datos.'], 503);
+        }
+        if (!is_array($body)) {
+            sendJson(['ok' => false, 'message' => 'La solicitud de ajuste no es válida.'], 400);
+        }
+
+        $scope = (string)($body['scope'] ?? '');
+        $adjustmentType = (string)($body['adjustmentType'] ?? '');
+        $adjustmentValue = filter_var($body['adjustmentValue'] ?? null, FILTER_VALIDATE_FLOAT);
+        $categoryId = filter_var($body['categoryId'] ?? null, FILTER_VALIDATE_INT);
+        $type = trim((string)($body['type'] ?? ''));
+        $name = trim((string)($body['name'] ?? ''));
+        $validScopes = ['category', 'type', 'name', 'selected'];
+        if ($adjustmentValue !== false) {
+            $adjustmentValue = round((float)$adjustmentValue, 2);
+        }
+
+        if (!in_array($scope, $validScopes, true)
+            || !in_array($adjustmentType, ['percentage', 'fixed'], true)
+            || $adjustmentValue === false
+            || !is_finite((float)$adjustmentValue)
+            || (float)$adjustmentValue === 0.0
+            || ($adjustmentType === 'percentage' && (float)$adjustmentValue <= -100)
+            || abs((float)$adjustmentValue) > 100000000) {
+            sendJson(['ok' => false, 'message' => 'El tipo o valor del ajuste no es válido.'], 400);
+        }
+        if (in_array($scope, ['category', 'type'], true) && (!$categoryId || $categoryId < 1)) {
+            sendJson(['ok' => false, 'message' => 'Seleccioná una categoría válida.'], 400);
+        }
+        if ($scope === 'type' && $type === '') {
+            sendJson(['ok' => false, 'message' => 'Seleccioná un tipo de producto.'], 400);
+        }
+        if ($scope === 'name' && $name === '') {
+            sendJson(['ok' => false, 'message' => 'Ingresá el nombre exacto del producto.'], 400);
+        }
+
+        $where = [];
+        $params = [];
+        if ($scope === 'category' || $scope === 'type') {
+            $where[] = 'p.`ID_categoria` = :category_id';
+            $params[':category_id'] = $categoryId;
+        }
+        if ($scope === 'type') {
+            $where[] = 'p.`subcategoria` = :subcategory';
+            $params[':subcategory'] = $type;
+        } elseif ($scope === 'name') {
+            $where[] = 'LOWER(TRIM(p.`nombre`)) = LOWER(TRIM(:product_name))';
+            $params[':product_name'] = $name;
+        } elseif ($scope === 'selected') {
+            $productIds = $body['productIds'] ?? null;
+            if (!is_array($productIds) || count($productIds) === 0 || count($productIds) > 500) {
+                sendJson(['ok' => false, 'message' => 'Seleccioná entre 1 y 500 productos.'], 400);
+            }
+            foreach ($productIds as $productId) {
+                if (filter_var($productId, FILTER_VALIDATE_INT) === false || (int)$productId < 1) {
+                    sendJson(['ok' => false, 'message' => 'La selección contiene un identificador de producto no válido.'], 400);
+                }
+            }
+            $productIds = array_values(array_unique(array_map('intval', $productIds)));
+            if (count($productIds) === 0) {
+                sendJson(['ok' => false, 'message' => 'La selección no contiene productos válidos.'], 400);
+            }
+            $placeholders = [];
+            foreach ($productIds as $index => $id) {
+                $placeholder = ':product_id_' . $index;
+                $placeholders[] = $placeholder;
+                $params[$placeholder] = (int)$id;
+            }
+            $where[] = 'p.`ID_stock` IN (' . implode(', ', $placeholders) . ')';
+        }
+
+        try {
+            $db->beginTransaction();
+            $selectSql = "
+                SELECT p.`ID_stock`, p.`nombre`, p.`precio`, p.`subcategoria`,
+                       COALESCE(c.`nombre`, 'Sin categoría') AS categoria
+                FROM `producto` p
+                LEFT JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY p.`ID_stock`
+                FOR UPDATE
+            ";
+            $selectStmt = $db->prepare($selectSql);
+            $selectStmt->execute($params);
+            $products = $selectStmt->fetchAll();
+            if ($scope === 'selected' && count($products) !== count($productIds)) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'message' => 'Uno o más productos seleccionados ya no existen. No se modificó ningún precio.'], 409);
+            }
+            if (!$products) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'message' => 'No se encontraron productos para aplicar el ajuste.'], 404);
+            }
+
+            $updateStmt = $db->prepare("UPDATE `producto` SET `precio` = :precio WHERE `ID_stock` = :id");
+            $categories = [];
+            $types = [];
+            foreach ($products as $product) {
+                $oldPrice = (float)$product['precio'];
+                $newPrice = $adjustmentType === 'percentage'
+                    ? round($oldPrice * (1 + (float)$adjustmentValue / 100), 2)
+                    : round($oldPrice + (float)$adjustmentValue, 2);
+                if ($newPrice < 0 || $newPrice > 99999999.99) {
+                    $db->rollBack();
+                    sendJson(['ok' => false, 'message' => 'El ajuste produciría un precio negativo o fuera del rango permitido. No se modificó ningún precio.'], 422);
+                }
+                $updateStmt->execute([':precio' => number_format($newPrice, 2, '.', ''), ':id' => (int)$product['ID_stock']]);
+                $categories[(string)$product['categoria']] = true;
+                if (!empty($product['subcategoria'])) {
+                    $types[(string)$product['subcategoria']] = true;
+                }
+            }
+
+            $currentUser = getApiUser();
+            $historyStmt = $db->prepare("
+                INSERT INTO `historial_ajuste_precio`
+                    (`usuario`, `alcance`, `categoria`, `tipo`, `nombre_producto`, `tipo_ajuste`, `valor`, `cantidad_productos`)
+                VALUES (:usuario, :alcance, :categoria, :tipo, :nombre, :tipo_ajuste, :valor, :cantidad)
+            ");
+            $historyStmt->execute([
+                ':usuario' => (string)($currentUser['usuario'] ?? $currentUser['nombre'] ?? 'Administrador'),
+                ':alcance' => $scope,
+                ':categoria' => implode(', ', array_keys($categories)),
+                ':tipo' => $scope === 'type' ? $type : implode(', ', array_keys($types)),
+                ':nombre' => $scope === 'name' ? $name : null,
+                ':tipo_ajuste' => $adjustmentType,
+                ':valor' => number_format((float)$adjustmentValue, 2, '.', ''),
+                ':cantidad' => count($products)
+            ]);
+            $db->commit();
+
+            $inventory = readJsonFile($file);
+            $updatedById = [];
+            foreach ($products as $product) {
+                $updatedById[(int)$product['ID_stock']] = true;
+            }
+            foreach ($inventory as &$item) {
+                $id = (int)($item['ID_stock'] ?? ($item['id'] ?? 0));
+                if (isset($updatedById[$id])) {
+                    $oldPrice = (float)($item['precio'] ?? 0);
+                    $item['precio'] = $adjustmentType === 'percentage'
+                        ? round($oldPrice * (1 + (float)$adjustmentValue / 100), 2)
+                        : round($oldPrice + (float)$adjustmentValue, 2);
+                    $item['total'] = $item['precio'] * (int)($item['cantidad'] ?? $item['stock'] ?? 0);
+                }
+            }
+            unset($item);
+            writeJsonFile($file, $inventory);
+
+            sendJson(['ok' => true, 'updated' => count($products)]);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('Error al aplicar ajuste de precios: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo aplicar el ajuste de precios.'], 500);
+        }
+    }
+
+    requireStockRegistrationApi();
     if ($action !== 'create' && !isAdminApi()) {
         sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Este permiso solo permite registrar productos nuevos.'], 403);
     }
@@ -262,11 +458,12 @@ if ($method === 'POST') {
                 if (!isAdminApi()) {
                     sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo un administrador puede rehabilitar productos deshabilitados.'], 403);
                 }
-                $updRehab = $db->prepare("UPDATE `producto` SET `nombre` = :nom, `cantTotal` = :cant, `precio` = :prec, `fase` = 'habilitado' WHERE `ID_stock` = :id");
+                $updRehab = $db->prepare("UPDATE `producto` SET `nombre` = :nom, `cantTotal` = :cant, `precio` = :prec, `subcategoria` = :subcategoria, `fase` = 'habilitado' WHERE `ID_stock` = :id");
                 $updRehab->execute([
                     ':nom'  => $nombre,
                     ':cant' => $cantidad,
                     ':prec' => $precio,
+                    ':subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null,
                     ':id'   => (int)$existing['ID_stock']
                 ]);
 
@@ -276,6 +473,7 @@ if ($method === 'POST') {
                         $item['nombre'] = $nombre;
                         $item['precio'] = $precio;
                         $item['cantidad'] = $cantidad;
+                        $item['subcategoria'] = !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null;
                         $item['fase'] = 'habilitado';
                     }
                 }
@@ -302,14 +500,15 @@ if ($method === 'POST') {
 
         // Insertar en tabla producto con fase habilitado
         $insertProd = $db->prepare("
-            INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `precio`, `fase`)
-            VALUES (:nombre, :codigo, :cantTotal, 0, :ID_categoria, :precio, 'habilitado')
+            INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `subcategoria`, `precio`, `fase`)
+            VALUES (:nombre, :codigo, :cantTotal, 0, :ID_categoria, :subcategoria, :precio, 'habilitado')
         ");
         $insertProd->execute([
             ':nombre'       => $nombre,
             ':codigo'       => $codigo,
             ':cantTotal'    => $cantidad,
             ':ID_categoria' => $catId,
+            ':subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null,
             ':precio'       => $precio
         ]);
 
@@ -366,7 +565,8 @@ if ($method === 'PUT') {
         if (isset($payload[0]) || empty($payload)) {
             $updateStmt = $db->prepare("
                 UPDATE `producto` 
-                SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre, `fase` = COALESCE(:fase, `fase`, 'habilitado')
+                SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre, `subcategoria` = :subcategoria,
+                    `fase` = COALESCE(:fase, `fase`, 'habilitado')
                 WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id
             ");
 
@@ -378,6 +578,7 @@ if ($method === 'PUT') {
                 $precio = (float)($item['precio'] ?? 0);
                 $cantidad = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
                 $nombre = trim((string)($item['nombre'] ?? ''));
+                $subcategoria = !empty($item['subcategoria']) ? trim((string)$item['subcategoria']) : null;
                 $id = (int)($item['ID_stock'] ?? ($item['id'] ?? 0));
                 $faseItem = isset($item['fase']) ? strtolower(trim((string)$item['fase'])) : null;
 
@@ -385,6 +586,7 @@ if ($method === 'PUT') {
                     ':cant'   => $cantidad,
                     ':precio' => $precio,
                     ':nombre' => $nombre,
+                    ':subcategoria' => $subcategoria,
                     ':codigo' => $codigo,
                     ':id'     => $id,
                     ':fase'   => $faseItem
@@ -401,6 +603,9 @@ if ($method === 'PUT') {
         $precio = (float)($payload['precio'] ?? 0);
         $cantidad = (int)($payload['cantidad'] ?? ($payload['stock'] ?? 0));
         $nombre = trim((string)($payload['nombre'] ?? ''));
+        $subcategoria = array_key_exists('subcategoria', $payload)
+            ? (trim((string)$payload['subcategoria']) !== '' ? trim((string)$payload['subcategoria']) : null)
+            : null;
         $fase = isset($payload['fase']) ? strtolower(trim((string)$payload['fase'])) : null;
 
         $updates = [];
@@ -409,6 +614,10 @@ if ($method === 'PUT') {
         if ($nombre !== '') {
             $updates[] = "`nombre` = :nombre";
             $params[':nombre'] = $nombre;
+        }
+        if (array_key_exists('subcategoria', $payload)) {
+            $updates[] = "`subcategoria` = :subcategoria";
+            $params[':subcategoria'] = $subcategoria;
         }
         if (isset($payload['precio'])) {
             $updates[] = "`precio` = :precio";
@@ -436,6 +645,7 @@ if ($method === 'PUT') {
             $matchId = isset($item['ID_stock']) && $id > 0 && (int)$item['ID_stock'] === $id;
             if ($matchCode || $matchId) {
                 if ($nombre !== '') $item['nombre'] = $nombre;
+                if (array_key_exists('subcategoria', $payload)) $item['subcategoria'] = $subcategoria;
                 if (isset($payload['precio'])) $item['precio'] = $precio;
                 if (isset($payload['cantidad']) || isset($payload['stock'])) $item['cantidad'] = $cantidad;
                 if ($fase !== null) $item['fase'] = $fase;

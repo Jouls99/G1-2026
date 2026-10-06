@@ -82,6 +82,56 @@ require_once __DIR__ . '/includes/navbar.php';
     <div id="stock-workspace" hidden>
     <input type="text" id="globalSearch" class="search-box" placeholder="🔍 Buscar producto por nombre o código...">
 
+    <?php if (!$soloLectura): ?>
+    <section class="price-adjustment-panel">
+        <div>
+            <h2>Edición de precios por lote</h2>
+            <p>Filtrá por categoría y tipo, o aplicá un ajuste a productos con el mismo nombre o seleccionados.</p>
+        </div>
+        <div class="price-adjustment-grid">
+            <div>
+                <label for="priceCategory">Categoría</label>
+                <select id="priceCategory"></select>
+            </div>
+            <div>
+                <label for="priceType">Tipo / subcategoría</label>
+                <select id="priceType">
+                    <option value="">Todos los tipos</option>
+                </select>
+            </div>
+            <div>
+                <label for="priceScope">Aplicar a</label>
+                <select id="priceScope">
+                    <option value="category">Toda la categoría</option>
+                    <option value="type">Tipo de la categoría</option>
+                    <option value="name">Productos con el mismo nombre</option>
+                    <option value="selected">Productos seleccionados</option>
+                </select>
+            </div>
+            <div>
+                <label for="priceAdjustmentType">Tipo de ajuste</label>
+                <select id="priceAdjustmentType">
+                    <option value="percentage">Porcentaje (%)</option>
+                    <option value="fixed">Valor fijo ($)</option>
+                </select>
+            </div>
+            <div>
+                <label for="priceAdjustmentValue">Ajuste (+ sube / - baja)</label>
+                <input id="priceAdjustmentValue" type="number" step="0.01" required placeholder="Ej: 10 o 200">
+            </div>
+            <div id="priceNameField" hidden>
+                <label for="priceProductName">Nombre exacto del producto</label>
+                <input id="priceProductName" type="text" placeholder="Ej: Crema hidratante">
+            </div>
+        </div>
+        <div class="price-adjustment-actions">
+            <button class="btn btn-success" type="button" id="applyPriceAdjustment">Aplicar ajuste</button>
+            <button class="stock-nav-btn" type="button" id="togglePriceHistory">Ver historial de ajustes</button>
+        </div>
+        <div id="priceHistory" class="price-history" hidden></div>
+    </section>
+    <?php endif; ?>
+
     <div class="dashboard">
         <div class="sidebar">
             <h3>Categorías</h3>

@@ -2074,5 +2074,19 @@
             "nuevo_rol": "vendedor"
         },
         "fecha": "2026-10-05T21:39:34+02:00"
+    },
+    {
+        "id": "1791247305833",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "stock_modificar",
+        "descripcion": "Stock modificado para producto 'Crema Hidratante' (Cód: SKN-002) [Fase: habilitado]",
+        "detalles": {
+            "codigo": "SKN-002",
+            "cantidad": 5,
+            "precio": 15000,
+            "fase": "habilitado"
+        },
+        "fecha": "2026-10-06T02:41:45+02:00"
     }
 ]

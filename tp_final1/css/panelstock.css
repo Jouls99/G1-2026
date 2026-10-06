@@ -378,6 +378,83 @@ th {
     margin-top: 0;
 }
 
+.price-adjustment-panel {
+    margin: 18px 0;
+    padding: 18px;
+    border: 1px solid #d8b4fe;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.price-adjustment-panel h2,
+.price-adjustment-panel h3 {
+    margin: 0 0 6px;
+    color: #6b21a8;
+}
+
+.price-adjustment-panel p {
+    margin: 0 0 14px;
+    color: #6b7280;
+}
+
+.price-adjustment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.price-adjustment-grid label {
+    display: block;
+    margin-bottom: 5px;
+    color: #6b21a8;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.price-adjustment-grid input,
+.price-adjustment-grid select {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+    box-sizing: border-box;
+    background: #fff;
+}
+
+.price-adjustment-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.price-adjustment-actions .btn {
+    width: auto;
+    margin: 0;
+    text-align: center;
+}
+
+.price-history {
+    margin-top: 16px;
+}
+
+.price-history-table-wrap {
+    overflow-x: auto;
+}
+
+.price-history-error {
+    color: #b91c1c !important;
+}
+
+#mainContent input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
 .stock-empty-state {
     min-height: 260px;
     display: grid;
