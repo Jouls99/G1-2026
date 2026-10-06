@@ -2088,5 +2088,55 @@
             "fase": "habilitado"
         },
         "fecha": "2026-10-06T02:41:45+02:00"
+    },
+    {
+        "id": "1791254145383",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #31 (rastrillo hombre) eliminada por gomez11. 16 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "31",
+            "producto": "rastrillo hombre",
+            "unidades_devueltas": 16
+        },
+        "fecha": "2026-10-06T04:35:45+02:00"
+    },
+    {
+        "id": "1791254152918",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #30 (Crema Hidratante) eliminada por gomez11. 15 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "30",
+            "producto": "Crema Hidratante",
+            "unidades_devueltas": 15
+        },
+        "fecha": "2026-10-06T04:35:52+02:00"
+    },
+    {
+        "id": "1791254159390",
+        "id_usuario": 1,
+        "usuario": "gomez11",
+        "tipo_accion": "venta_eliminada",
+        "descripcion": "Venta #29 (base matte) eliminada por gomez11. 25 unidades devueltas al inventario.",
+        "detalles": {
+            "id_factura": "29",
+            "producto": "base matte",
+            "unidades_devueltas": 25
+        },
+        "fecha": "2026-10-06T04:35:59+02:00"
+    },
+    {
+        "id": "1791303495512",
+        "id_usuario": 4010,
+        "usuario": "gomez11",
+        "tipo_accion": "usuario_modificado",
+        "descripcion": "Datos del usuario 'vendedor_demo' actualizados por el Super Admin gomez11",
+        "detalles": {
+            "usuario": "vendedor_demo"
+        },
+        "fecha": "2026-10-06T18:18:15+02:00"
     }
 ]

@@ -83,8 +83,10 @@ require_once __DIR__ . '/includes/navbar.php';
                 <ul id="productList" class="product-list"></ul>
             </aside>
         </div>
+        <button type="button" id="btn-despliegueventas" aria-controls="seccion-ventas" aria-expanded="false">Desplegar Ventas</button>
+        <button type="button" id="btn-despliegueresumen" aria-controls="seccion-resumen" aria-expanded="false">Desplegar Resumen</button>
 
-        <section class="panel sales-history-panel">
+        <section id="seccion-ventas" class="panel sales-history-panel" hidden>
             <div class="sales-history-header">
                 <h3>Historial de ventas registradas</h3>
                 <span id="salesCount">0 ventas</span>
@@ -106,7 +108,7 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
         </section>
 
-        <div class="table-wrapper summary-table-wrapper">
+        <div id="seccion-resumen" class="table-wrapper summary-table-wrapper" hidden>
             <table border="1">
                 <thead>
                     <tr>

@@ -217,5 +217,8 @@ require_once __DIR__ . '/includes/navbar.php';
     window.usuarioPuedeRegistrarStock = <?= $puedeCargarStock ? 'true' : 'false' ?>;
     window.usuarioEsSuperAdmin = <?= isSuperAdmin() ? 'true' : 'false' ?>;
 </script>
-<script src="scrits/panelGestión.js"></script>
+<script src="scrits/gestionStock/inventario.js"></script>
+<script src="scrits/gestionStock/productos.js"></script>
+<script src="scrits/gestionStock/precios.js"></script>
+<script src="scrits/gestionStock/panelGestión.js"></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

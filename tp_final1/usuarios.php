@@ -303,6 +303,8 @@ require_once __DIR__ . '/includes/navbar.php';
     <span id="toast-message">Acción realizada.</span>
 </div>
 
-<script src="scrits/usuarios.js"></script>
+<script src="scrits/gestionUsuarios/registro_actividades.js"></script>
+<script src="scrits/gestionUsuarios/monitoreo_login.js"></script>
+<script src="scrits/gestionUsuarios/usuarios.js"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

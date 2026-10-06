@@ -10,5 +10,17 @@
         "fecha": "2026-10-03T01:06:59+02:00",
         "ventana_minutos": 15,
         "id": "bc0b5165bb6ddce99dbaa6434c7c7765a47e2eab8eded80a14aa4c7c5bddb5ad"
+    },
+    {
+        "regla": "fallos_cuenta_ip",
+        "clave": "::1|santiago admin",
+        "titulo": "Múltiples fallos para la misma cuenta",
+        "descripcion": "5 intentos fallidos para SANTIAGO ADMIN desde ::1.",
+        "usuario": "SANTIAGO ADMIN",
+        "ip": "::1",
+        "intentos": 5,
+        "fecha": "2026-10-06T15:55:46+02:00",
+        "ventana_minutos": 15,
+        "id": "85ce46448f30929ff210ae1f3afaf70f1aadaadeb1d4281edf83902dd0a0c8d3"
     }
 ]

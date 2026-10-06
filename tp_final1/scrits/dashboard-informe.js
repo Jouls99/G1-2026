@@ -363,6 +363,27 @@ async function loadInventory() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  const salesToggle = document.getElementById('btn-despliegueventas');
+  const summaryToggle = document.getElementById('btn-despliegueresumen');
+  const salesSection = document.getElementById('seccion-ventas');
+  const summarySection = document.getElementById('seccion-resumen');
+
+  salesToggle?.addEventListener('click', () => {
+    if (!salesSection || !summarySection || !summaryToggle) return;
+    salesSection.hidden = !salesSection.hidden;
+    summarySection.hidden = true;
+    salesToggle.setAttribute('aria-expanded', String(!salesSection.hidden));
+    summaryToggle.setAttribute('aria-expanded', 'false');
+  });
+
+  summaryToggle?.addEventListener('click', () => {
+    if (!salesSection || !summarySection || !salesToggle) return;
+    summarySection.hidden = !summarySection.hidden;
+    salesSection.hidden = true;
+    summaryToggle.setAttribute('aria-expanded', String(!summarySection.hidden));
+    salesToggle.setAttribute('aria-expanded', 'false');
+  });
+
   loadInventory();
   setInterval(updateClock, 1000);
 });
