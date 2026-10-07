@@ -4,7 +4,7 @@ Endpoint de consulta de auditoría y registro de eventos. Usa las funciones comu
 
 ## Acceso
 
-- `GET`: requiere sesión de Super Administrador.
+- `GET`: requiere sesión de Administrador o Super Administrador.
 - `POST`: no aplica una comprobación explícita de sesión ni de rol en este archivo. Acepta el usuario y los datos de actividad enviados por el cliente; no debe considerarse un endpoint público confiable sin protección adicional.
 - `OPTIONS`: responde al preflight CORS a través de `handleOptions()`.
 
@@ -59,7 +59,7 @@ Invoca `logActivity()`, que intenta insertar el registro en MySQL y escribe adem
 
 ## Códigos y notas
 
-- `403`: usuario sin rol Super Administrador al consultar por `GET`.
+- `403`: usuario sin rol administrativo al consultar por `GET`.
 - `405`: método no soportado.
 - Las amenazas se leen de `data/amenazas.json`; su evaluación se realiza al registrar ciertos eventos de inicio de sesión fallido.
 

@@ -8,6 +8,7 @@ let listaUsuarios = [];
 
 let filtroRolActual = 'todos';
 let usuarioSeleccionado = null;
+const usuarioEsSuperAdmin = window.usuarioEsSuperAdmin === true;
 
 // Elementos del DOM
 const tbodyUsuarios = document.getElementById('tbody-usuarios');
@@ -200,7 +201,7 @@ function renderTablaUsuarios() {
     if (filtrados.length === 0) {
         tbodyUsuarios.innerHTML = `
             <tr>
-                <td colspan="8" style="text-align: center; padding: 36px 16px; color: #6b7280;">
+                    <td colspan="${usuarioEsSuperAdmin ? 8 : 6}" style="text-align: center; padding: 36px 16px; color: #6b7280;">
                     <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
                     <strong>No se encontraron usuarios que coincidan con los filtros.</strong>
                 </td>
@@ -259,7 +260,7 @@ function renderTablaUsuarios() {
                         ${formatDate(u.fecha_creacion || u.createdAt)}
                     </span>
                 </td>
-                <td>
+                ${usuarioEsSuperAdmin ? `<td>
                     <div style="font-size: 0.88rem; font-weight: 600; color: ${lastLoginStr ? '#1e1b4b' : '#9ca3af'};">
                         ${formatDate(lastLoginStr)}
                     </div>
@@ -269,7 +270,7 @@ function renderTablaUsuarios() {
                     <div class="login-count-badge" title="Total de inicios de sesión registrados">
                         🔑 <strong>${u.total_logins || 0}</strong> accesos
                     </div>
-                </td>
+                </td>` : ''}
                 <td>
                     <div style="font-weight: 700; color: #166534;">
                         ${formatMoney(u.total_facturado)}
@@ -278,9 +279,9 @@ function renderTablaUsuarios() {
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="btn-action-sm btn-inspect" onclick="verDetalleUsuario('${escapeHtml(u.usuario)}')" title="Ver detalle, historial de logins y ventas">
+                        ${usuarioEsSuperAdmin ? `<button type="button" class="btn-action-sm btn-inspect" onclick="verDetalleUsuario('${escapeHtml(u.usuario)}')" title="Ver detalle, historial de logins y ventas">
                             🔍 Inspeccionar
-                        </button>
+                        </button>` : ''}
                         <button type="button" class="btn-action-sm btn-edit" onclick="abrirModalEditar(${u.id}, '${escapeHtml(u.usuario)}', '${u.role}')" title="Editar credenciales">
                             ✏️
                         </button>

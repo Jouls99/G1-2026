@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
-// Proteger exclusivamente para Super Administrador
-requireSuperAdmin('venta.php');
+$esSuperAdmin = isSuperAdmin();
+requireAdmin('venta.php');
 
-$pageTitle = 'Consola Super Admin - Gestión de Usuarios y Logins';
+$pageTitle = $esSuperAdmin ? 'Consola Super Admin - Gestión de Usuarios y Logins' : 'Gestión de Usuarios y Actividades';
 $customCss = 'css/usuarios.css';
 $activePage = 'usuarios';
 
@@ -18,12 +18,12 @@ require_once __DIR__ . '/includes/navbar.php';
 <main class="usuarios-container">
     <header class="usuarios-header superadmin-header">
         <div class="title-area">
-            <h1>👑 Consola Super Admin</h1>
-            <p>Control central de cuentas, asignación de roles y monitoreo en tiempo real de inicios de sesión de usuarios.</p>
+            <h1><?= $esSuperAdmin ? '👑 Consola Super Admin' : '🛡️ Gestión de Usuarios' ?></h1>
+            <p><?= $esSuperAdmin ? 'Control central de cuentas, asignación de roles y monitoreo en tiempo real de inicios de sesión de usuarios.' : 'Administración de cuentas y consulta del registro de actividades del sistema.' ?></p>
         </div>
 
         <div class="header-actions">
-            <span class="admin-security-badge superadmin-badge">👑 Super Administrador</span>
+            <span class="admin-security-badge <?= $esSuperAdmin ? 'superadmin-badge' : '' ?>"><?= $esSuperAdmin ? '👑 Super Administrador' : '🛡️ Administrador' ?></span>
             <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
             <a href="informe.php" class="btn-secondary">📊 Ver informe</a>
             <button type="button" class="btn-primary btn-superadmin" onclick="abrirModalNuevoUsuario()">＋ Nuevo usuario</button>
@@ -55,6 +55,7 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
         </article>
 
+        <?php if ($esSuperAdmin): ?>
         <article class="kpi-card">
             <div class="kpi-icon amber">🔑</div>
             <div class="kpi-data">
@@ -62,6 +63,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <span class="kpi-value" id="kpi-logins-hoy">0</span>
             </div>
         </article>
+        <?php endif; ?>
 
         <article class="kpi-card">
             <div class="kpi-icon rose">💰</div>
@@ -74,7 +76,9 @@ require_once __DIR__ . '/includes/navbar.php';
 
     <div class="tabs-container" role="tablist" aria-label="Paneles de administración">
         <button type="button" class="tab-btn active" data-tab="tab-usuarios" role="tab" aria-selected="true">👥 Gestión de Usuarios</button>
+        <?php if ($esSuperAdmin): ?>
         <button type="button" class="tab-btn" data-tab="tab-logins" role="tab" aria-selected="false">🔑 Monitoreo de Logins</button>
+        <?php endif; ?>
         <button type="button" class="tab-btn" data-tab="tab-actividades" role="tab" aria-selected="false">⚡ Registro de Actividades</button>
     </div>
 
@@ -103,15 +107,17 @@ require_once __DIR__ . '/includes/navbar.php';
                             <th>Rol actual</th>
                             <th>Cambiar rol</th>
                             <th>Creado</th>
+                            <?php if ($esSuperAdmin): ?>
                             <th>Último login</th>
                             <th>Total Logins</th>
+                            <?php endif; ?>
                             <th>Ventas</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-usuarios">
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 32px; color: #6b7280;">
+                            <td colspan="<?= $esSuperAdmin ? '8' : '6' ?>" style="text-align: center; padding: 32px; color: #6b7280;">
                                 Cargando usuarios...
                             </td>
                         </tr>
@@ -121,6 +127,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </section>
 
+    <?php if ($esSuperAdmin): ?>
     <!-- PESTAÑA 2: MONITOREO DE LOGINS (EXCLUSIVO SUPER ADMIN) -->
     <section id="tab-logins" class="tab-content" role="tabpanel" aria-hidden="true">
         <div class="panel-layout">
@@ -163,6 +170,7 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
         </div>
     </section>
+    <?php endif; ?>
 
     <!-- PESTAÑA 3: TODAS LAS ACTIVIDADES DEL SISTEMA -->
     <section id="tab-actividades" class="tab-content" role="tabpanel" aria-hidden="true">
@@ -305,6 +313,7 @@ require_once __DIR__ . '/includes/navbar.php';
 
 <script src="scrits/gestionUsuarios/registro_actividades.js"></script>
 <script src="scrits/gestionUsuarios/monitoreo_login.js"></script>
+<script>window.usuarioEsSuperAdmin = <?= $esSuperAdmin ? 'true' : 'false' ?>;</script>
 <script src="scrits/gestionUsuarios/usuarios.js"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

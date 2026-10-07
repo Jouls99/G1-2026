@@ -24,12 +24,14 @@ $userInitial = strtoupper(substr($userName, 0, 1));
         <li class="nav-item <?= $activePage === 'informe' ? 'active' : '' ?>">
             <a href="informe.php">📊 Informes & Métricas</a>
         </li>
-        <?php if (isSuperAdmin()): ?>
+        <?php if (isAdmin()): ?>
         <li class="nav-item <?= $activePage === 'usuarios' ? 'active' : '' ?>">
-            <a href="usuarios.php" style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(217, 119, 6, 0.2)); border: 1px solid #f59e0b; color: #fff;">
-                👑 Gestión Usuarios <span style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; margin-left: 4px; font-weight: 800; letter-spacing: 0.5px;">SUPER ADMIN</span>
+            <a href="usuarios.php" style="<?= isSuperAdmin() ? 'background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(217, 119, 6, 0.2)); border: 1px solid #f59e0b; color: #fff;' : '' ?>">
+                <?= isSuperAdmin() ? '👑' : '🛡️' ?> Gestión Usuarios <span style="background: <?= isSuperAdmin() ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#4f46e5' ?>; color: #fff; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; margin-left: 4px; font-weight: 800; letter-spacing: 0.5px;"><?= isSuperAdmin() ? 'SUPER ADMIN' : 'ADMIN' ?></span>
             </a>
         </li>
+        <?php endif; ?>
+        <?php if (isSuperAdmin()): ?>
         <li class="nav-item <?= $activePage === 'configuracion' ? 'active' : '' ?>">
             <a href="Auditoria.php">Auditoria</a>
         </li>

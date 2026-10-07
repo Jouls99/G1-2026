@@ -83,16 +83,17 @@ require_once __DIR__ . '/includes/navbar.php';
     <input type="text" id="globalSearch" class="search-box" placeholder="🔍 Buscar producto por nombre o código...">
 
     <?php if (!$soloLectura): ?>
-    <section class="price-adjustment-panel">
+    <div class="price-category-control">
+        <label for="priceCategory">Categoría</label>
+        <select id="priceCategory"></select>
+        <button type="button" class="stock-nav-btn" id="btn-toggle-price-adjustment" aria-controls="price-adjustment-panel" aria-expanded="false">💲 Actualizar precios</button>
+    </div>
+    <section id="price-adjustment-panel" class="price-adjustment-panel" hidden>
         <div>
-            <h2>Edición de precios por lote</h2>
+            <h2>Actualizar precios</h2>
             <p>Filtrá por categoría y tipo, o aplicá un ajuste a productos con el mismo nombre o seleccionados.</p>
         </div>
         <div class="price-adjustment-grid">
-            <div>
-                <label for="priceCategory">Categoría</label>
-                <select id="priceCategory"></select>
-            </div>
             <div>
                 <label for="priceType">Tipo / subcategoría</label>
                 <select id="priceType">

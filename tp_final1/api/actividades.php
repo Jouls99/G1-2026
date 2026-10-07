@@ -9,8 +9,8 @@ $method = requestMethod();
 $currentUser = getApiUser();
 
 if ($method === 'GET') {
-    // Solo Super Administradores pueden auditar el registro completo de actividades y logins
-    requireSuperAdminApi();
+    // Administradores pueden consultar el registro general de actividades.
+    requireAdminApi();
 
     $db = getDBConnection();
     $filtroUsuario = trim((string)($_GET['usuario'] ?? ''));

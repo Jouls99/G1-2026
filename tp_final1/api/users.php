@@ -10,8 +10,8 @@ $method = requestMethod();
 $db = getDBConnection();
 $currentUser = getApiUser();
 
-// Solo el Super Admin puede acceder a la API de gestión de usuarios y auditoría de logins
-requireSuperAdminApi();
+// Administradores y Super Administradores pueden gestionar cuentas.
+requireAdminApi();
 
 function roleHasOccupant(PDO $db, string $role, int $exceptUserId = 0): bool
 {
@@ -37,6 +37,7 @@ if ($method === 'GET') {
     
     // Si se solicita el detalle de interacción y logins de un usuario específico
     if ($action === 'detail') {
+        requireSuperAdminApi();
         $targetUser = trim((string)($_GET['usuario'] ?? ''));
         if ($targetUser === '') {
             sendJson(['ok' => false, 'message' => 'Usuario no especificado.'], 400);
@@ -175,36 +176,44 @@ if ($method === 'GET') {
         $usersDb = $stmt->fetchAll();
 
         $result = [];
+        $includeLoginMetrics = isSuperAdminApi();
         foreach ($usersDb as $u) {
-            $result[] = [
+            $user = [
                 'id'                => (int)$u['id_usuario'],
                 'usuario'           => (string)$u['usuario'],
                 'role'              => (string)($u['role'] ?? 'vendedor'),
-                'ultimo_acceso'     => $u['ultimo_acceso'] ? date('c', strtotime((string)$u['ultimo_acceso'])) : null,
                 'fecha_creacion'    => $u['fecha_creacion'] ? date('c', strtotime((string)$u['fecha_creacion'])) : null,
                 'total_ventas'      => (int)$u['total_ventas'],
                 'total_facturado'   => (float)$u['total_facturado'],
-                'total_actividades' => (int)$u['total_actividades'],
-                'total_logins'      => (int)$u['total_logins']
+                'total_actividades' => (int)$u['total_actividades']
             ];
+            if ($includeLoginMetrics) {
+                $user['ultimo_acceso'] = $u['ultimo_acceso'] ? date('c', strtotime((string)$u['ultimo_acceso'])) : null;
+                $user['total_logins'] = (int)$u['total_logins'];
+            }
+            $result[] = $user;
         }
 
         sendJson($result);
     } catch (Exception $e) {
         // Fallback a JSON
         $users = readJsonFile($file);
-        $safeUsers = array_map(function ($u) {
-            return [
+        $includeLoginMetrics = isSuperAdminApi();
+        $safeUsers = array_map(function ($u) use ($includeLoginMetrics) {
+            $user = [
                 'id'                => $u['id'] ?? 1,
                 'usuario'           => $u['usuario'] ?? '',
                 'role'              => $u['role'] ?? 'vendedor',
-                'ultimo_acceso'     => $u['lastLogin'] ?? null,
                 'fecha_creacion'    => $u['createdAt'] ?? null,
                 'total_ventas'      => 0,
                 'total_facturado'   => 0,
-                'total_actividades' => 0,
-                'total_logins'      => 0
+                'total_actividades' => 0
             ];
+            if ($includeLoginMetrics) {
+                $user['ultimo_acceso'] = $u['lastLogin'] ?? null;
+                $user['total_logins'] = 0;
+            }
+            return $user;
         }, $users);
         sendJson($safeUsers);
     }
@@ -317,6 +326,7 @@ if ($method === 'PUT') {
         $targetId = (int)$target['id_usuario'];
         $targetName = (string)$target['nombre'];
         $currentRole = (string)$target['rol'];
+        $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
 
         // Protección: Si el Super Admin intenta cambiarse de rol a sí mismo, verificar que quede al menos otro Super Admin
         if ($newPassword !== null) {
@@ -403,7 +413,6 @@ if ($method === 'PUT') {
         unset($u);
         writeJsonFile($file, $users);
 
-        $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
         if ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
             logActivity(
                 $superAdminName,

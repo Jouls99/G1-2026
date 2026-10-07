@@ -105,8 +105,8 @@ La autorización se comprueba tanto en las páginas como en los endpoints:
 | Rol o permiso | Capacidades generales |
 | --- | --- |
 | Vendedor | Operación habitual de ventas y acceso a páginas protegidas para usuarios autenticados. |
-| Administrador | Administración de inventario y capacidad de modificar informes, además de las funciones generales. |
-| Super Administrador | Funciones de administrador, gestión de usuarios y acceso al centro de auditoría. |
+| Administrador | Administración de inventario, capacidad de modificar informes y gestión completa de usuarios; puede consultar el registro de actividades, pero no el monitoreo de logins. |
+| Super Administrador | Funciones de administrador, gestión de usuarios, monitoreo de logins y acceso al centro de auditoría. |
 | `puede_registrar_stock` | Permiso delegable que habilita el registro de stock a un usuario autorizado. |
 | `puede_modificar_informes` | Permiso delegable para las modificaciones de informes permitidas por la aplicación. |
 

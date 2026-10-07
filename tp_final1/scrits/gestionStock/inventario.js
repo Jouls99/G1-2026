@@ -236,6 +236,8 @@ function renderTable(categoria) {
     const productosVisibles = typeFilter
         ? productosActivos.filter(product => String(product.subcategoria || '') === typeFilter)
         : productosActivos;
+    const mostrarSeleccionPrecios = usuarioEsAdmin
+        && !document.getElementById('price-adjustment-panel')?.hidden;
 
     let totalValorizado = 0;
     let rowsHTML = productosVisibles.map(p => {
@@ -248,7 +250,7 @@ function renderTable(categoria) {
                 onclick="selectProduct('${p.codigo}', '${categoria.id}')" 
                 oncontextmenu="showProductContextMenu(event, '${p.codigo}', '${categoria.id}')" 
                 title="Click izquierdo: ver detalles • Click derecho: eliminar producto">
-                ${usuarioEsAdmin ? `<td><input class="price-product-checkbox" data-product-id="${productId}" type="checkbox" aria-label="Seleccionar ${escapeHtml(p.nombre)}" onclick="event.stopPropagation()" onchange="togglePriceProduct(${productId}, this.checked)" ${productosPrecioSeleccionados.has(productId) ? 'checked' : ''}></td>` : ''}
+                ${mostrarSeleccionPrecios ? `<td><input class="price-product-checkbox" data-product-id="${productId}" type="checkbox" aria-label="Seleccionar ${escapeHtml(p.nombre)}" onclick="event.stopPropagation()" onchange="togglePriceProduct(${productId}, this.checked)" ${productosPrecioSeleccionados.has(productId) ? 'checked' : ''}></td>` : ''}
                 <td><strong>${escapeHtml(p.nombre)}</strong></td>
                 <td><code>${escapeHtml(p.codigo)}</code></td>
                 <td>$${p.precio.toLocaleString()}</td>
@@ -264,7 +266,7 @@ function renderTable(categoria) {
         <table>
             <thead>
                 <tr>
-                    ${usuarioEsAdmin ? '<th><input type="checkbox" aria-label="Seleccionar todos los productos visibles" onclick="event.stopPropagation()" onchange="toggleVisiblePriceProducts(this.checked)"></th>' : ''}
+                    ${mostrarSeleccionPrecios ? '<th><input type="checkbox" aria-label="Seleccionar todos los productos visibles" onclick="event.stopPropagation()" onchange="toggleVisiblePriceProducts(this.checked)"></th>' : ''}
                     <th>Producto</th>
                     <th>Código</th>
                     <th>Precio</th>
@@ -274,9 +276,9 @@ function renderTable(categoria) {
                 </tr>
             </thead>
             <tbody>
-                ${rowsHTML || `<tr><td colspan="${(usuarioEsSuperAdmin ? 6 : 5) + (usuarioEsAdmin ? 1 : 0)}" style="text-align:center; padding: 24px; color: #6b7280;">No hay productos que coincidan con este filtro.</td></tr>`}
+                ${rowsHTML || `<tr><td colspan="${(usuarioEsSuperAdmin ? 6 : 5) + (mostrarSeleccionPrecios ? 1 : 0)}" style="text-align:center; padding: 24px; color: #6b7280;">No hay productos que coincidan con este filtro.</td></tr>`}
                 <tr class="total-row">
-                    <td colspan="${(usuarioEsAdmin ? 1 : 0) + 4}">TOTAL VALORIZADO</td>
+                    <td colspan="${(mostrarSeleccionPrecios ? 1 : 0) + 4}">TOTAL VALORIZADO</td>
                     <td>$${totalValorizado.toLocaleString()}</td>
                     ${usuarioEsSuperAdmin ? '<td></td>' : ''}
                 </tr>
@@ -376,4 +378,3 @@ function exportarJSON() {
     dlAnchor.click();
     dlAnchor.remove();
 }
-

@@ -11,14 +11,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnVerStock = document.getElementById('btn-ver-stock');
     const stockWorkspace = document.getElementById('stock-workspace');
     const stockEmptyState = document.getElementById('stock-empty-state');
+    const mostrarWorkspaceStock = () => {
+        stockWorkspace.hidden = false;
+        stockEmptyState.hidden = true;
+        if (btnVerStock) btnVerStock.hidden = true;
+        renderCategories();
+        if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
+        renderDetailPanel();
+    };
     if (btnVerStock) {
         btnVerStock.addEventListener('click', () => {
-            stockWorkspace.hidden = false;
-            stockEmptyState.hidden = true;
-            btnVerStock.hidden = true;
-            renderCategories();
+            mostrarWorkspaceStock();
+        });
+    }
+    const btnTogglePriceAdjustment = document.getElementById('btn-toggle-price-adjustment');
+    const priceAdjustmentPanel = document.getElementById('price-adjustment-panel');
+    if (btnTogglePriceAdjustment && priceAdjustmentPanel) {
+        btnTogglePriceAdjustment.addEventListener('click', () => {
+            priceAdjustmentPanel.hidden = !priceAdjustmentPanel.hidden;
+            const isExpanded = !priceAdjustmentPanel.hidden;
+            if (!isExpanded) productosPrecioSeleccionados.clear();
+            btnTogglePriceAdjustment.setAttribute('aria-expanded', String(isExpanded));
+            btnTogglePriceAdjustment.textContent = isExpanded
+                ? '✖ Cerrar actualización de precios'
+                : '💲 Actualizar precios';
             if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
-            renderDetailPanel();
         });
     }
 
