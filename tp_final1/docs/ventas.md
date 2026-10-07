@@ -1,12 +1,16 @@
 # API de ventas (`api/ventas.php`)
 
-Permite consultar el historial, registrar ventas, ajustar cantidades y eliminar facturas. Requiere una sesión activa. Usa `facturacion` y `producto` en MySQL, con sincronización/alternativa de archivos `data/ventas.json` e `data/inventario.json`.
+Permite consultar el historial, registrar ventas, ajustar cantidades y eliminar ventas activas. Requiere una sesión activa. `ventas`, `ventas_historial` y `producto` en MySQL son las fuentes de persistencia. Cada línea conserva el nombre del producto vendido en `nombre_producto`, incluso si posteriormente se elimina el producto del inventario.
 
 ## `GET`: listar ventas
 
 `GET api/ventas.php`
 
-Devuelve las ventas de MySQL, con cada línea de factura representada como producto. Si la consulta no produce resultados y existe `ventas.json` con registros, devuelve ese respaldo. La ruta no aplica filtro por rol más allá de exigir sesión.
+`GET api/ventas.php` devuelve las ventas disponibles en el día para los vendedores, y las últimas cuatro semanas para administradores. Cada línea incluye fecha, nombre, nombre secundario, subcategoría, categoría, marca y cantidad. El historial gráfico de informes no expone códigos de producto.
+
+Los administradores pueden filtrar con `GET api/ventas.php?semana=AAAA-MM-DD`, donde la fecha debe ser el lunes de la semana, o consultar un día exacto con `GET api/ventas.php?fecha=AAAA-MM-DD`. Ambas consultas se limitan a la semana actual y las tres anteriores; la consulta general usa `semana_inicio` y la puntual usa `fecha`.
+
+Las nuevas ventas se guardan en `ventas`. Al finalizar la última sesión activa desde las 22:30 de Argentina, el proceso copia las filas de la jornada a `ventas_historial` (incluyendo fecha y lunes de la semana) y después las elimina de `ventas`, en lotes transaccionales de hasta 200. Poda las semanas anteriores a las cuatro semanas calendario retenidas y registra el resultado en `cierre_jornada`. Archivar no modifica el stock.
 
 ## `POST`: registrar venta
 
@@ -14,7 +18,7 @@ Devuelve las ventas de MySQL, con cada línea de factura representada como produ
 
 El cuerpo JSON debe incluir una lista no vacía `productos`. Cada producto normalmente contiene `codigo`, `nombre`, `ID_stock` o `id`, `cantidad`, `precio` y `categoria`. Cantidad y precio negativos se rechazan con `400 invalid_payload`. La fecha puede enviarse como `fecha` o `fecha_hora`; se usa la fecha válida reconocida por PHP.
 
-El endpoint intenta registrar las facturas en MySQL dentro de una transacción y ajustar existencias. Si no se procesan productos en MySQL, construye el resultado con el cuerpo recibido. En ambos casos actualiza el respaldo del inventario y agrega el comprobante a `ventas.json`. Finalmente llama a `logActivity()` con tipo `venta_registrada`.
+El endpoint registra las ventas en `ventas`, guarda el nombre vigente del producto en `nombre_producto` y ajusta existencias dentro de una transacción MySQL. Los productos sin código válido se rechazan. Finalmente llama a `logActivity()` con tipo `venta_registrada`.
 
 La respuesta incluye `ok`, `venta` y `totalVenta`. En `venta`, el total puede provenir del campo `total` enviado por el cliente; si no está, se calcula sumando precio por cantidad.
 
@@ -24,20 +28,20 @@ La respuesta incluye `ok`, `venta` y `totalVenta`. En `venta`, el total puede pr
 
 Hay dos modos:
 
-1. Un usuario con rol Administrador puede reemplazar el array de ventas o combinar un objeto con la venta de ID coincidente. Se persiste en `ventas.json` y se registra la modificación.
-2. Un usuario no administrador necesita el permiso `puede_modificar_informes` y `?action=editar_informe`. El cuerpo debe incluir `id` de factura, `codigo` de producto y `cantidad` nueva mayor que cero. Ajusta la diferencia de stock y la cantidad facturada, y actualiza los respaldos. Si el aumento supera el stock disponible, responde `409`.
+La actualización de una sola venta activa requiere el permiso `puede_modificar_informes`. El cuerpo debe incluir `id` de venta, `codigo` de producto y `cantidad` nueva mayor que cero. Ajusta la diferencia de stock y la cantidad en una transacción MySQL. Si el aumento supera el stock disponible, responde `409`. Las ventas archivadas son de solo lectura. El reemplazo masivo de todo el historial no está permitido; cada venta debe modificarse o eliminarse por ID.
 
-La modificación de una línea valida coincidencia entre venta y código de producto y responde `404` si no existe. El historial enviado como array es una operación administrativa que reemplaza el respaldo completo.
+La modificación de una línea valida coincidencia entre venta y código de producto y responde `404` si no existe.
 
 ## `DELETE`: eliminar venta
 
 `DELETE api/ventas.php?id=ID`
 
-Requiere rol Administrador o Super Administrador. Acepta el ID en query string o en el cuerpo JSON. Intenta borrar la fila de `facturacion`, elimina del historial JSON la venta cuyo `id` coincida y registra `venta_eliminada`. Devuelve confirmación JSON.
+Requiere rol Administrador o Super Administrador. Acepta el ID en query string o en el cuerpo JSON. Elimina una fila de `ventas`, restaura el stock del producto en MySQL y registra `venta_eliminada`. Las filas de `ventas_historial` no se modifican ni se eliminan mediante este endpoint.
 
 ## Códigos relevantes
 
 - `401`: no hay sesión.
+- `503`: base de datos no disponible.
 - `403`: rol/permisos insuficientes.
 - `400`: cuerpo de venta inválido o campos obligatorios faltantes.
 - `404`: venta/producto indicados no encontrados.

@@ -5,15 +5,106 @@ require_once __DIR__ . '/helpers.php';
 
 handleOptions();
 
-$file = dataPath('inventario.json');
 $method = requestMethod();
-$db = getDBConnection();
+$db = requireApiDatabase();
 $superAdmin = isSuperAdminApi();
 
 requireApiAuth();
 
-// GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`) o fallback a JSON
+function isValidProductName(string $name): bool
+{
+    return preg_match('/\A[A-Za-z]+(?: [A-Za-z]+)*\z/', $name) === 1;
+}
+
+function isValidProductCode(string $code): bool
+{
+    return preg_match('/\A[0-9]+\z/', $code) === 1;
+}
+
+function isValidProductPrice(mixed $price): bool
+{
+    return is_scalar($price) && preg_match('/\A[0-9]+(?:\.[0-9]{1,2})?\z/', (string)$price) === 1;
+}
+
+function isReservedCategoryName(string $name): bool
+{
+    $name = trim($name);
+    return strcasecmp($name, 'General') === 0
+        || preg_match('/\As[ií]n categor[ií]a\z/iu', $name) === 1;
+}
+
+function findOrCreateSubcategory(PDO $db, ?int $categoryId, ?string $name): ?int
+{
+    $name = $name !== null ? trim($name) : '';
+    if ($categoryId === null || $categoryId < 1 || $name === '') {
+        return null;
+    }
+
+    $insert = $db->prepare("
+        INSERT IGNORE INTO `sub_categoria` (`ID_categoria`, `nombre`)
+        VALUES (:category_id, :name)
+    ");
+    $insert->execute([':category_id' => $categoryId, ':name' => $name]);
+    $find = $db->prepare("
+        SELECT `ID_sub_categoria`
+        FROM `sub_categoria`
+        WHERE `ID_categoria` = :category_id AND LOWER(`nombre`) = LOWER(:name)
+        LIMIT 1
+    ");
+    $find->execute([':category_id' => $categoryId, ':name' => $name]);
+    $id = $find->fetchColumn();
+    return $id !== false ? (int)$id : null;
+}
+
+function findProductCategoryId(PDO $db, string $code, int $productId): ?int
+{
+    $stmt = $db->prepare("
+        SELECT `ID_categoria`
+        FROM `producto`
+        WHERE LOWER(`codigo`) = LOWER(:code) OR `ID_stock` = :id
+        LIMIT 1
+    ");
+    $stmt->execute([':code' => $code, ':id' => $productId]);
+    $categoryId = $stmt->fetchColumn();
+    return $categoryId !== false && $categoryId !== null ? (int)$categoryId : null;
+}
+
+// GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`)
 if ($method === 'GET') {
+    if (($_GET['action'] ?? '') === 'categories') {
+        try {
+            $stmt = $db->query("
+                SELECT c.`ID_categoria`, c.`nombre`,
+                       sc.`ID_sub_categoria`, sc.`nombre` AS `subcategoria`
+                FROM `categoria` c
+                LEFT JOIN `sub_categoria` sc ON sc.`ID_categoria` = c.`ID_categoria`
+                WHERE LOWER(TRIM(c.`nombre`)) NOT IN ('general', 'sin categoría', 'sin categoria')
+                ORDER BY c.`nombre` ASC, sc.`nombre` ASC
+            ");
+            $categories = [];
+            foreach ($stmt->fetchAll() as $row) {
+                $categoryId = (int)$row['ID_categoria'];
+                if (!isset($categories[$categoryId])) {
+                    $categories[$categoryId] = [
+                        'ID_categoria' => $categoryId,
+                        'nombre' => (string)$row['nombre'],
+                        'subcategorias' => []
+                    ];
+                }
+                if ($row['ID_sub_categoria'] !== null) {
+                    $categories[$categoryId]['subcategorias'][] = [
+                        'ID_sub_categoria' => (int)$row['ID_sub_categoria'],
+                        'nombre' => (string)$row['subcategoria']
+                    ];
+                }
+            }
+            sendJson(['ok' => true, 'categorias' => array_values($categories)]);
+        } catch (Exception $e) {
+            error_log('Error al consultar categorías: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudieron cargar las categorías.'], 500);
+        }
+    }
+
     if (($_GET['action'] ?? '') === 'price_history') {
         requireAdminApi();
         if ($db === null) {
@@ -79,28 +170,26 @@ if ($method === 'GET') {
             }, $auditStmt->fetchAll());
             sendJson(['ok' => true, 'auditoria' => $audit]);
         } catch (Exception $e) {
-            error_log('Auditoría MySQL no disponible, se usa actividades.json: ' . $e->getMessage());
-            $events = readJsonFile(dataPath('actividades.json'));
-            $audit = [];
-            foreach (array_reverse($events) as $event) {
-                if (!in_array((string)($event['tipo_accion'] ?? ''), ['stock_habilitar', 'stock_deshabilitar'], true)) {
-                    continue;
-                }
-                $audit[] = [
-                    'id' => (int)($event['id'] ?? 0),
-                    'usuario' => (string)($event['usuario'] ?? 'Sistema'),
-                    'tipo' => (string)$event['tipo_accion'],
-                    'descripcion' => (string)($event['descripcion'] ?? ''),
-                    'detalles' => is_array($event['detalles'] ?? null) ? $event['detalles'] : null,
-                    'fecha' => (string)($event['fecha'] ?? '')
-                ];
-                if (count($audit) >= 250) break;
-            }
-            sendJson(['ok' => true, 'auditoria' => $audit, 'fuente' => 'respaldo']);
+            error_log('Error al consultar auditoría de stock: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo cargar la auditoría.'], 500);
         }
     }
 
     try {
+        $invalidCategoryCount = (int)$db->query("
+            SELECT COUNT(*)
+            FROM `producto` p
+            LEFT JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
+            WHERE c.`ID_categoria` IS NULL
+               OR LOWER(TRIM(c.`nombre`)) IN ('general', 'sin categoría', 'sin categoria')
+        ")->fetchColumn();
+        if ($invalidCategoryCount > 0) {
+            sendJson([
+                'ok' => false,
+                'error' => 'product_category_required',
+                'message' => 'Hay productos sin una categoría válida. Reasignalos antes de continuar.'
+            ], 409);
+        }
         $stmt = $db->query("
             SELECT 
                 p.ID_stock,
@@ -110,12 +199,16 @@ if ($method === 'GET') {
                 COALESCE(p.cantVendida, 0) AS cantVendida,
                 CAST(COALESCE(p.precio, 0) AS DECIMAL(10,2)) AS precio,
                 ROUND(COALESCE(p.cantTotal, 0) * COALESCE(p.precio, 0), 2) AS total,
-                COALESCE(c.nombre, 'General') AS categoria,
+                c.nombre AS categoria,
                 p.ID_categoria,
                 " . ($superAdmin ? "COALESCE(p.fase, 'habilitado') AS fase," : "") . "
-                p.subcategoria
+                p.marca,
+                p.sub_nombre,
+                p.ID_sub_categoria,
+                COALESCE(sc.nombre, p.subcategoria) AS subcategoria
             FROM `producto` p
-            LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
+            INNER JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
+            LEFT JOIN `sub_categoria` sc ON p.ID_sub_categoria = sc.ID_sub_categoria
             " . ($superAdmin ? "" : "WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'") . "
             ORDER BY p.ID_stock ASC
         ");
@@ -134,7 +227,10 @@ if ($method === 'GET') {
                 'total'        => (float)$p['total'],
                 'categoria'    => (string)$p['categoria'],
                 'ID_categoria' => $p['ID_categoria'] !== null ? (int)$p['ID_categoria'] : null,
-                'subcategoria' => $p['subcategoria'] !== null ? (string)$p['subcategoria'] : null
+                'ID_sub_categoria' => $p['ID_sub_categoria'] !== null ? (int)$p['ID_sub_categoria'] : null,
+                'subcategoria' => $p['subcategoria'] !== null ? (string)$p['subcategoria'] : null,
+                'marca' => $p['marca'] !== null ? (string)$p['marca'] : null,
+                'sub_nombre' => $p['sub_nombre'] !== null ? (string)$p['sub_nombre'] : null
             ];
 
             if ($superAdmin) {
@@ -145,28 +241,10 @@ if ($method === 'GET') {
             return $producto;
         }, $productos);
 
-        // Guardar copia de seguridad en JSON
-        writeJsonFile($file, $normalized);
-
         sendJson($normalized);
     } catch (Exception $e) {
-        // Fallback a JSON si hubiese algún problema temporal
-        $inventario = readJsonFile($file);
-        if (!$superAdmin) {
-            $inventario = array_values(array_filter($inventario, static function ($p) {
-                return ($p['fase'] ?? 'habilitado') !== 'deshabilitado';
-            }));
-        }
-        $safe = array_map(function ($p) use ($superAdmin) {
-            if ($superAdmin) {
-                $p['fase'] = strtolower(trim((string)($p['fase'] ?? 'habilitado')));
-                if ($p['fase'] === '') $p['fase'] = 'habilitado';
-            } else {
-                unset($p['fase']);
-            }
-            return $p;
-        }, $inventario);
-        sendJson($safe);
+        error_log('Error al consultar inventario: ' . $e->getMessage());
+        sendJson(['ok' => false, 'message' => 'No se pudo cargar el inventario.'], 500);
     }
 }
 
@@ -174,6 +252,33 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $body = getJsonBody();
     $action = $_GET['action'] ?? ($body['action'] ?? 'create');
+
+    if ($action === 'create_category') {
+        requireAdminApi();
+        $name = trim((string)($body['nombre'] ?? ''));
+        if ($name === '') {
+            sendJson(['ok' => false, 'message' => 'El nombre de la categoría es obligatorio.'], 400);
+        }
+        if (isReservedCategoryName($name)) {
+            sendJson(['ok' => false, 'error' => 'reserved_category', 'message' => 'Ese nombre está reservado y no está disponible como categoría.'], 400);
+        }
+        try {
+            $find = $db->prepare("SELECT `ID_categoria`, `nombre` FROM `categoria` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
+            $find->execute([':nombre' => $name]);
+            if ($existing = $find->fetch()) {
+                sendJson(['ok' => false, 'error' => 'category_exists', 'message' => 'Ya existe una categoría con ese nombre.'], 409);
+            }
+            $insert = $db->prepare("INSERT INTO `categoria` (`nombre`) VALUES (:nombre)");
+            $insert->execute([':nombre' => $name]);
+            sendJson([
+                'ok' => true,
+                'categoria' => ['ID_categoria' => (int)$db->lastInsertId(), 'nombre' => $name]
+            ], 201);
+        } catch (Exception $e) {
+            error_log('Error al crear categoría: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo crear la categoría.'], 500);
+        }
+    }
 
     if ($action === 'adjust_prices') {
         requireAdminApi();
@@ -253,9 +358,9 @@ if ($method === 'POST') {
             $db->beginTransaction();
             $selectSql = "
                 SELECT p.`ID_stock`, p.`nombre`, p.`precio`, p.`subcategoria`,
-                       COALESCE(c.`nombre`, 'Sin categoría') AS categoria
+                       c.`nombre` AS categoria
                 FROM `producto` p
-                LEFT JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
+                INNER JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY p.`ID_stock`
                 FOR UPDATE
@@ -309,24 +414,6 @@ if ($method === 'POST') {
             ]);
             $db->commit();
 
-            $inventory = readJsonFile($file);
-            $updatedById = [];
-            foreach ($products as $product) {
-                $updatedById[(int)$product['ID_stock']] = true;
-            }
-            foreach ($inventory as &$item) {
-                $id = (int)($item['ID_stock'] ?? ($item['id'] ?? 0));
-                if (isset($updatedById[$id])) {
-                    $oldPrice = (float)($item['precio'] ?? 0);
-                    $item['precio'] = $adjustmentType === 'percentage'
-                        ? round($oldPrice * (1 + (float)$adjustmentValue / 100), 2)
-                        : round($oldPrice + (float)$adjustmentValue, 2);
-                    $item['total'] = $item['precio'] * (int)($item['cantidad'] ?? $item['stock'] ?? 0);
-                }
-            }
-            unset($item);
-            writeJsonFile($file, $inventory);
-
             sendJson(['ok' => true, 'updated' => count($products)]);
         } catch (Exception $e) {
             if ($db->inTransaction()) {
@@ -348,30 +435,15 @@ if ($method === 'POST') {
         if ($codigo === '') {
             sendJson(['error' => 'missing_code', 'message' => 'Se requiere el código del producto.'], 400);
         }
-
-        if ($db !== null) {
-            try {
-                $updStmt = $db->prepare("UPDATE `producto` SET `fase` = 'habilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
-                $updStmt->execute([
-                    ':codigo' => $codigo,
-                    ':id'     => is_numeric($codigo) ? (int)$codigo : 0
-                ]);
-            } catch (Exception $e) {
-                // Ignorar
-            }
+        if (!isValidProductCode($codigo)) {
+            sendJson(['ok' => false, 'error' => 'invalid_code', 'message' => 'El código solo puede contener números del 0 al 9.'], 400);
         }
 
-        // Sincronizar en JSON
-        $inventario = readJsonFile($file);
-        foreach ($inventario as &$item) {
-            $matchCode = strcasecmp((string)($item['codigo'] ?? ''), $codigo) === 0;
-            $matchId = isset($item['ID_stock']) && is_numeric($codigo) && (int)$item['ID_stock'] === (int)$codigo;
-            if ($matchCode || $matchId) {
-                $item['fase'] = 'habilitado';
-            }
-        }
-        unset($item);
-        writeJsonFile($file, $inventario);
+        $updStmt = $db->prepare("UPDATE `producto` SET `fase` = 'habilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
+        $updStmt->execute([
+            ':codigo' => $codigo,
+            ':id'     => is_numeric($codigo) ? (int)$codigo : 0
+        ]);
 
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
@@ -392,64 +464,30 @@ if ($method === 'POST') {
 
     $nombre = trim((string)$body['nombre']);
     $codigo = trim((string)$body['codigo']);
-    $precio = (float)($body['precio'] ?? 0);
+    $precioRaw = $body['precio'] ?? 0;
+    if (!isValidProductName($nombre)) {
+        sendJson(['ok' => false, 'error' => 'invalid_name', 'message' => 'El nombre solo puede contener letras de la A a la Z y espacios entre palabras.'], 400);
+    }
+    if (!isValidProductCode($codigo)) {
+        sendJson(['ok' => false, 'error' => 'invalid_code', 'message' => 'El código solo puede contener números del 0 al 9.'], 400);
+    }
+    if (!isValidProductPrice($precioRaw)) {
+        sendJson(['ok' => false, 'error' => 'invalid_price', 'message' => 'El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.'], 400);
+    }
+    $precio = (float)$precioRaw;
     $cantidad = (int)($body['cantidad'] ?? ($body['stock'] ?? 0));
-    $categoriaName = trim((string)($body['categoria'] ?? 'General'));
+    $categoriaName = trim((string)($body['categoria'] ?? ''));
     $fase = 'habilitado';
     if ($categoriaName === '') {
-        $categoriaName = 'General';
+        sendJson(['ok' => false, 'error' => 'category_required', 'message' => 'Seleccioná una categoría para el producto.'], 400);
     }
-
-    if ($db === null) {
-        $inventory = readJsonFile($file);
-        foreach ($inventory as &$item) {
-            if (strcasecmp((string)($item['codigo'] ?? ''), $codigo) !== 0) continue;
-            if (strtolower((string)($item['fase'] ?? 'habilitado')) !== 'deshabilitado') {
-                unset($item);
-                sendJson(['error' => 'item_exists', 'message' => 'Ya existe un producto activo con este código.'], 409);
-            }
-            if (!isAdminApi()) {
-                unset($item);
-                sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo un administrador puede rehabilitar productos deshabilitados.'], 403);
-            }
-            $item['nombre'] = $nombre;
-            $item['precio'] = $precio;
-            $item['cantidad'] = $cantidad;
-            $item['fase'] = 'habilitado';
-            writeJsonFile($file, $inventory);
-            sendJson(['ok' => true, 'message' => 'Producto existente rehabilitado y actualizado.', 'item' => $item]);
-        }
-        unset($item);
-
-        $newId = 1;
-        foreach ($inventory as $item) {
-            $newId = max($newId, (int)($item['ID_stock'] ?? ($item['id'] ?? 0)) + 1);
-        }
-        $newItem = [
-            'id' => $newId,
-            'ID_stock' => $newId,
-            'categoria' => $categoriaName,
-            'nombre' => $nombre,
-            'codigo' => $codigo,
-            'precio' => $precio,
-            'cantidad' => $cantidad,
-            'cantVendida' => 0,
-            'total' => $precio * $cantidad,
-            'fase' => 'habilitado',
-            'subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null
-        ];
-        $inventory[] = $newItem;
-        writeJsonFile($file, $inventory);
-
-        $currentUser = getApiUser();
-        $userName = (string)($currentUser['usuario'] ?? 'Administrador');
-        logActivity($userName, 'stock_crear', "Nuevo producto '{$nombre}' (Cód: {$codigo}) agregado con stock {$cantidad}, precio {$precio}", $newItem, isset($currentUser['id']) ? (int)$currentUser['id'] : null);
-        sendJson(['ok' => true, 'item' => $newItem]);
+    if (isReservedCategoryName($categoriaName)) {
+        sendJson(['ok' => false, 'error' => 'reserved_category', 'message' => 'Ese nombre está reservado y no está disponible como categoría.'], 400);
     }
 
     try {
         // Verificar si el código ya existe
-        $checkStmt = $db->prepare("SELECT `ID_stock`, `fase` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) LIMIT 1");
+        $checkStmt = $db->prepare("SELECT `ID_stock`, `ID_categoria`, `fase` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) LIMIT 1");
         $checkStmt->execute([':codigo' => $codigo]);
         $existing = $checkStmt->fetch();
         if ($existing) {
@@ -458,27 +496,29 @@ if ($method === 'POST') {
                 if (!isAdminApi()) {
                     sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo un administrador puede rehabilitar productos deshabilitados.'], 403);
                 }
-                $updRehab = $db->prepare("UPDATE `producto` SET `nombre` = :nom, `cantTotal` = :cant, `precio` = :prec, `subcategoria` = :subcategoria, `fase` = 'habilitado' WHERE `ID_stock` = :id");
+                $subcategoryName = !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null;
+                $subcategoryId = findOrCreateSubcategory(
+                    $db,
+                    $existing['ID_categoria'] !== null ? (int)$existing['ID_categoria'] : null,
+                    $subcategoryName
+                );
+                $updRehab = $db->prepare("
+                    UPDATE `producto`
+                    SET `nombre` = :nom, `marca` = :marca, `sub_nombre` = :sub_nombre,
+                        `cantTotal` = :cant, `precio` = :prec, `subcategoria` = :subcategoria,
+                        `ID_sub_categoria` = :subcategory_id, `fase` = 'habilitado'
+                    WHERE `ID_stock` = :id
+                ");
                 $updRehab->execute([
                     ':nom'  => $nombre,
+                    ':marca' => trim((string)($body['marca'] ?? '')) ?: null,
+                    ':sub_nombre' => trim((string)($body['sub_nombre'] ?? '')) ?: null,
                     ':cant' => $cantidad,
                     ':prec' => $precio,
-                    ':subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null,
+                    ':subcategoria' => $subcategoryName,
+                    ':subcategory_id' => $subcategoryId,
                     ':id'   => (int)$existing['ID_stock']
                 ]);
-
-                $inventario = readJsonFile($file);
-                foreach ($inventario as &$item) {
-                    if (strcasecmp((string)($item['codigo'] ?? ''), $codigo) === 0) {
-                        $item['nombre'] = $nombre;
-                        $item['precio'] = $precio;
-                        $item['cantidad'] = $cantidad;
-                        $item['subcategoria'] = !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null;
-                        $item['fase'] = 'habilitado';
-                    }
-                }
-                unset($item);
-                writeJsonFile($file, $inventario);
 
                 sendJson(['ok' => true, 'message' => 'Producto existente rehabilitado y actualizado.', 'item' => ['codigo' => $codigo, 'fase' => 'habilitado']]);
             }
@@ -498,17 +538,27 @@ if ($method === 'POST') {
             $catId = (int)$catId;
         }
 
+        $subcategoryName = !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null;
+        $subcategoryId = findOrCreateSubcategory($db, $catId, $subcategoryName);
+        $brand = trim((string)($body['marca'] ?? '')) ?: null;
+        $secondaryName = trim((string)($body['sub_nombre'] ?? '')) ?: null;
+
         // Insertar en tabla producto con fase habilitado
         $insertProd = $db->prepare("
-            INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `subcategoria`, `precio`, `fase`)
-            VALUES (:nombre, :codigo, :cantTotal, 0, :ID_categoria, :subcategoria, :precio, 'habilitado')
+            INSERT INTO `producto`
+                (`nombre`, `marca`, `sub_nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `subcategoria`, `ID_sub_categoria`, `precio`, `fase`)
+            VALUES
+                (:nombre, :marca, :sub_nombre, :codigo, :cantTotal, 0, :ID_categoria, :subcategoria, :subcategory_id, :precio, 'habilitado')
         ");
         $insertProd->execute([
             ':nombre'       => $nombre,
+            ':marca' => $brand,
+            ':sub_nombre' => $secondaryName,
             ':codigo'       => $codigo,
             ':cantTotal'    => $cantidad,
             ':ID_categoria' => $catId,
-            ':subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null,
+            ':subcategoria' => $subcategoryName,
+            ':subcategory_id' => $subcategoryId,
             ':precio'       => $precio
         ]);
 
@@ -520,19 +570,17 @@ if ($method === 'POST') {
             'categoria'    => $categoriaName,
             'ID_categoria' => $catId,
             'nombre'       => $nombre,
+            'marca' => $brand,
+            'sub_nombre' => $secondaryName,
             'codigo'       => $codigo,
             'precio'       => $precio,
             'cantidad'     => $cantidad,
             'cantVendida'  => 0,
             'total'        => $precio * $cantidad,
             'fase'         => 'habilitado',
-            'subcategoria' => !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null
+            'subcategoria' => $subcategoryName,
+            'ID_sub_categoria' => $subcategoryId
         ];
-
-        // Sincronizar archivo JSON
-        $inventario = readJsonFile($file);
-        $inventario[] = $nuevoItem;
-        writeJsonFile($file, $inventario);
 
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
@@ -565,48 +613,73 @@ if ($method === 'PUT') {
         if (isset($payload[0]) || empty($payload)) {
             $updateStmt = $db->prepare("
                 UPDATE `producto` 
-                SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre, `subcategoria` = :subcategoria,
+                SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre,
+                    `marca` = COALESCE(:marca, `marca`),
+                    `sub_nombre` = COALESCE(:sub_nombre, `sub_nombre`),
+                    `subcategoria` = :subcategoria,
+                    `ID_sub_categoria` = :subcategory_id,
                     `fase` = COALESCE(:fase, `fase`, 'habilitado')
                 WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id
             ");
 
             foreach ($payload as $item) {
                 if (!is_array($item) || empty($item['codigo'])) {
-                    continue;
+                    sendJson(['ok' => false, 'error' => 'invalid_payload', 'message' => 'Cada producto debe incluir un código válido.'], 400);
                 }
                 $codigo = trim((string)$item['codigo']);
-                $precio = (float)($item['precio'] ?? 0);
-                $cantidad = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
                 $nombre = trim((string)($item['nombre'] ?? ''));
+                $precioRaw = $item['precio'] ?? 0;
+                if (!isValidProductName($nombre)) {
+                    sendJson(['ok' => false, 'error' => 'invalid_name', 'message' => 'El nombre solo puede contener letras de la A a la Z y espacios entre palabras.'], 400);
+                }
+                if (!isValidProductPrice($precioRaw)) {
+                    sendJson(['ok' => false, 'error' => 'invalid_price', 'message' => 'El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.'], 400);
+                }
+                $precio = (float)$precioRaw;
+                $cantidad = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
                 $subcategoria = !empty($item['subcategoria']) ? trim((string)$item['subcategoria']) : null;
                 $id = (int)($item['ID_stock'] ?? ($item['id'] ?? 0));
                 $faseItem = isset($item['fase']) ? strtolower(trim((string)$item['fase'])) : null;
+                $categoryId = findProductCategoryId($db, $codigo, $id);
+                $subcategoryId = findOrCreateSubcategory($db, $categoryId, $subcategoria);
 
                 $updateStmt->execute([
                     ':cant'   => $cantidad,
                     ':precio' => $precio,
                     ':nombre' => $nombre,
+                    ':marca' => isset($item['marca']) ? (trim((string)$item['marca']) ?: null) : null,
+                    ':sub_nombre' => isset($item['sub_nombre']) ? (trim((string)$item['sub_nombre']) ?: null) : null,
                     ':subcategoria' => $subcategoria,
+                    ':subcategory_id' => $subcategoryId,
                     ':codigo' => $codigo,
                     ':id'     => $id,
                     ':fase'   => $faseItem
                 ]);
             }
 
-            writeJsonFile($file, $payload);
             sendJson(['ok' => true, 'count' => count($payload)]);
         }
 
         // Si es un solo producto
         $codigo = trim((string)($payload['codigo'] ?? ''));
         $id = (int)($payload['ID_stock'] ?? ($payload['id'] ?? 0));
-        $precio = (float)($payload['precio'] ?? 0);
+        $precioRaw = $payload['precio'] ?? null;
         $cantidad = (int)($payload['cantidad'] ?? ($payload['stock'] ?? 0));
         $nombre = trim((string)($payload['nombre'] ?? ''));
         $subcategoria = array_key_exists('subcategoria', $payload)
             ? (trim((string)$payload['subcategoria']) !== '' ? trim((string)$payload['subcategoria']) : null)
             : null;
         $fase = isset($payload['fase']) ? strtolower(trim((string)$payload['fase'])) : null;
+        $brand = array_key_exists('marca', $payload) ? (trim((string)$payload['marca']) ?: null) : null;
+        $secondaryName = array_key_exists('sub_nombre', $payload) ? (trim((string)$payload['sub_nombre']) ?: null) : null;
+
+        if ($nombre !== '' && !isValidProductName($nombre)) {
+            sendJson(['ok' => false, 'error' => 'invalid_name', 'message' => 'El nombre solo puede contener letras de la A a la Z y espacios entre palabras.'], 400);
+        }
+        if (array_key_exists('precio', $payload) && !isValidProductPrice($precioRaw)) {
+            sendJson(['ok' => false, 'error' => 'invalid_price', 'message' => 'El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.'], 400);
+        }
+        $precio = $precioRaw !== null ? (float)$precioRaw : 0.0;
 
         $updates = [];
         $params = [':codigo' => $codigo, ':id' => $id];
@@ -618,6 +691,17 @@ if ($method === 'PUT') {
         if (array_key_exists('subcategoria', $payload)) {
             $updates[] = "`subcategoria` = :subcategoria";
             $params[':subcategoria'] = $subcategoria;
+            $categoryId = findProductCategoryId($db, $codigo, $id);
+            $updates[] = "`ID_sub_categoria` = :subcategory_id";
+            $params[':subcategory_id'] = findOrCreateSubcategory($db, $categoryId, $subcategoria);
+        }
+        if (array_key_exists('marca', $payload)) {
+            $updates[] = "`marca` = :marca";
+            $params[':marca'] = $brand;
+        }
+        if (array_key_exists('sub_nombre', $payload)) {
+            $updates[] = "`sub_nombre` = :sub_nombre";
+            $params[':sub_nombre'] = $secondaryName;
         }
         if (isset($payload['precio'])) {
             $updates[] = "`precio` = :precio";
@@ -637,22 +721,6 @@ if ($method === 'PUT') {
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
         }
-
-        // Sincronizar en JSON
-        $inventario = readJsonFile($file);
-        foreach ($inventario as &$item) {
-            $matchCode = strcasecmp((string)($item['codigo'] ?? ''), $codigo) === 0;
-            $matchId = isset($item['ID_stock']) && $id > 0 && (int)$item['ID_stock'] === $id;
-            if ($matchCode || $matchId) {
-                if ($nombre !== '') $item['nombre'] = $nombre;
-                if (array_key_exists('subcategoria', $payload)) $item['subcategoria'] = $subcategoria;
-                if (isset($payload['precio'])) $item['precio'] = $precio;
-                if (isset($payload['cantidad']) || isset($payload['stock'])) $item['cantidad'] = $cantidad;
-                if ($fase !== null) $item['fase'] = $fase;
-            }
-        }
-        unset($item);
-        writeJsonFile($file, $inventario);
 
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
@@ -674,6 +742,82 @@ if ($method === 'PUT') {
 // DELETE: Deshabilitar producto (Baja lógica / Soft-delete a fase = 'deshabilitado')
 if ($method === 'DELETE') {
     requireAdminApi();
+    if (($_GET['action'] ?? '') === 'delete_category') {
+        $body = getJsonBody();
+        $categoryId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+        if ($categoryId === false || $categoryId < 1) {
+            sendJson(['ok' => false, 'message' => 'Se requiere un identificador de categoría válido.'], 400);
+        }
+        $destinationId = filter_var($body['destination_id'] ?? null, FILTER_VALIDATE_INT);
+        if ($destinationId === false || $destinationId < 1 || $destinationId === $categoryId) {
+            sendJson(['ok' => false, 'error' => 'invalid_destination', 'message' => 'Seleccioná una categoría destino válida y distinta.'], 400);
+        }
+
+        try {
+            $db->beginTransaction();
+            $find = $db->prepare("SELECT `ID_categoria`, `nombre` FROM `categoria` WHERE `ID_categoria` IN (:source, :destination) FOR UPDATE");
+            $find->execute([':source' => $categoryId, ':destination' => $destinationId]);
+            $lockedCategories = $find->fetchAll(PDO::FETCH_KEY_PAIR);
+            $categoryName = $lockedCategories[$categoryId] ?? false;
+            if ($categoryName === false) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la categoría.'], 404);
+            }
+            $destinationName = $lockedCategories[$destinationId] ?? false;
+            if ($destinationName === false || isReservedCategoryName((string)$destinationName)) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'invalid_destination', 'message' => 'La categoría destino no está disponible.'], 400);
+            }
+
+            $copySubcategories = $db->prepare("
+                INSERT INTO `sub_categoria` (`ID_categoria`, `nombre`)
+                SELECT DISTINCT :destination, TRIM(COALESCE(sc.`nombre`, p.`subcategoria`))
+                FROM `producto` p
+                LEFT JOIN `sub_categoria` sc ON sc.`ID_sub_categoria` = p.`ID_sub_categoria`
+                WHERE p.`ID_categoria` = :source
+                  AND COALESCE(sc.`nombre`, p.`subcategoria`) IS NOT NULL
+                  AND TRIM(COALESCE(sc.`nombre`, p.`subcategoria`)) <> ''
+                ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`)
+            ");
+            $copySubcategories->execute([':destination' => $destinationId, ':source' => $categoryId]);
+            $moveProducts = $db->prepare("
+                UPDATE `producto` p
+                LEFT JOIN `sub_categoria` source_sub ON source_sub.`ID_sub_categoria` = p.`ID_sub_categoria`
+                LEFT JOIN `sub_categoria` destination_sub
+                    ON destination_sub.`ID_categoria` = :destination_join
+                   AND LOWER(destination_sub.`nombre`) = LOWER(TRIM(COALESCE(source_sub.`nombre`, p.`subcategoria`)))
+                SET p.`ID_categoria` = :destination_set,
+                    p.`ID_sub_categoria` = destination_sub.`ID_sub_categoria`
+                WHERE p.`ID_categoria` = :source
+            ");
+            $moveProducts->execute([
+                ':destination_join' => $destinationId,
+                ':destination_set' => $destinationId,
+                ':source' => $categoryId
+            ]);
+            $affectedProducts = $moveProducts->rowCount();
+            $delete = $db->prepare("DELETE FROM `categoria` WHERE `ID_categoria` = :id");
+            $delete->execute([':id' => $categoryId]);
+            $db->commit();
+
+            $user = getApiUser();
+            logActivity(
+                (string)($user['usuario'] ?? 'Administrador'),
+                'categoria_eliminada',
+                "Categoría '{$categoryName}' eliminada; {$affectedProducts} productos fueron reasignados a '{$destinationName}'.",
+                ['id_categoria' => $categoryId, 'id_categoria_destino' => $destinationId, 'productos_reasignados' => $affectedProducts],
+                isset($user['id']) ? (int)$user['id'] : null
+            );
+            sendJson(['ok' => true, 'message' => "Categoría '{$categoryName}' eliminada y sus productos reasignados a '{$destinationName}'."]);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('Error al eliminar categoría: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo eliminar la categoría.'], 500);
+        }
+    }
+
     $codigo = $_GET['codigo'] ?? null;
     if (!$codigo) {
         $body = getJsonBody();
@@ -684,55 +828,25 @@ if ($method === 'DELETE') {
         sendJson(['error' => 'missing_code', 'message' => 'Se requiere el parámetro codigo.'], 400);
     }
 
-    $updatedInDb = false;
-    $updatedInJson = false;
     $productName = (string)$codigo;
 
-    // 1. Marcar como deshabilitado en MySQL
-    if ($db !== null) {
-        try {
-            // Obtener el nombre del producto antes de deshabilitar
-            $getName = $db->prepare("SELECT `nombre` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id LIMIT 1");
-            $getName->execute([
-                ':codigo' => (string)$codigo,
-                ':id'     => is_numeric($codigo) ? (int)$codigo : 0
-            ]);
-            $foundRow = $getName->fetch();
-            if ($foundRow && !empty($foundRow['nombre'])) {
-                $productName = (string)$foundRow['nombre'];
-            }
-
-            $stmt = $db->prepare("UPDATE `producto` SET `fase` = 'deshabilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
-            $stmt->execute([
-                ':codigo' => (string)$codigo,
-                ':id'     => is_numeric($codigo) ? (int)$codigo : 0
-            ]);
-            if ($stmt->rowCount() > 0) {
-                $updatedInDb = true;
-            }
-        } catch (Exception $e) {
-            // Continuar con JSON si hay error en DB
-        }
+    $getName = $db->prepare("SELECT `nombre` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id LIMIT 1");
+    $getName->execute([
+        ':codigo' => (string)$codigo,
+        ':id'     => is_numeric($codigo) ? (int)$codigo : 0
+    ]);
+    $foundRow = $getName->fetch();
+    if (!$foundRow) {
+        sendJson(['error' => 'not_found', 'message' => 'Producto no encontrado en la base de datos.'], 404);
     }
+    $productName = (string)$foundRow['nombre'];
 
-    // 2. Marcar como deshabilitado en archivo JSON (el producto no se elimina, conserva su historial)
-    $inventario = readJsonFile($file);
-    foreach ($inventario as &$p) {
-        $matchCode = strcasecmp((string)($p['codigo'] ?? ''), (string)$codigo) === 0;
-        $matchId = isset($p['ID_stock']) && is_numeric($codigo) && (int)$p['ID_stock'] === (int)$codigo;
-        if ($matchCode || $matchId) {
-            $p['fase'] = 'deshabilitado';
-            $productName = (string)($p['nombre'] ?? $productName);
-            $updatedInJson = true;
-        }
-    }
-    unset($p);
-
-    if ($updatedInJson) {
-        writeJsonFile($file, $inventario);
-    }
-
-    if ($updatedInDb || $updatedInJson) {
+    $stmt = $db->prepare("UPDATE `producto` SET `fase` = 'deshabilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
+    $stmt->execute([
+        ':codigo' => (string)$codigo,
+        ':id'     => is_numeric($codigo) ? (int)$codigo : 0
+    ]);
+    if ($stmt->rowCount() > 0) {
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
         logActivity(
@@ -742,19 +856,14 @@ if ($method === 'DELETE') {
             ['codigo' => $codigo, 'fase' => 'deshabilitado'],
             $currentUser['id'] ?? null
         );
-
-        sendJson([
-            'ok'            => true,
-            'message'       => "El producto '{$productName}' fue deshabilitado correctamente y permanece en la base de datos con fase 'deshabilitado'.",
-            'fase'          => 'deshabilitado',
-            'codigo'        => $codigo,
-            'nombre'        => $productName,
-            'updatedInDb'   => $updatedInDb,
-            'updatedInJson' => $updatedInJson
-        ]);
-    } else {
-        sendJson(['error' => 'not_found', 'message' => 'Producto no encontrado en la base de datos ni en el inventario.'], 404);
     }
+    sendJson([
+        'ok' => true,
+        'message' => "El producto '{$productName}' fue deshabilitado correctamente y permanece en la base de datos con fase 'deshabilitado'.",
+        'fase' => 'deshabilitado',
+        'codigo' => $codigo,
+        'nombre' => $productName
+    ]);
 }
 
 sendJson(['error' => 'method_not_allowed'], 405);

@@ -42,7 +42,7 @@ require_once __DIR__ . '/includes/navbar.php';
         <article class="kpi-card">
             <div class="kpi-icon gold">👑</div>
             <div class="kpi-data">
-                <span class="kpi-label">Super Admins / Admins</span>
+                <span class="kpi-label"><?= $esSuperAdmin ? 'Super Admins / Admins' : 'Administradores' ?></span>
                 <span class="kpi-value" id="kpi-admins">0</span>
             </div>
         </article>
@@ -93,7 +93,9 @@ require_once __DIR__ . '/includes/navbar.php';
 
                 <div class="chip-group" aria-label="Filtrar por rol">
                     <button type="button" class="chip-filter active" data-filter-role="todos">Todos</button>
+                    <?php if ($esSuperAdmin): ?>
                     <button type="button" class="chip-filter" data-filter-role="superadmin">👑 Super Admins</button>
+                    <?php endif; ?>
                     <button type="button" class="chip-filter" data-filter-role="administrador">🛡️ Administradores</button>
                     <button type="button" class="chip-filter" data-filter-role="vendedor">🛒 Vendedores</button>
                 </div>
@@ -213,10 +215,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <input id="new-username" type="text" name="usuario" placeholder="Ej: vendedora01" required autocomplete="off">
             </div>
 
-            <div class="field-group">
-                <label for="new-password">Contraseña</label>
-                <input id="new-password" type="password" name="password" placeholder="Asignar contraseña segura" required autocomplete="new-password">
-            </div>
+            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria para la nueva cuenta y la mostrará una sola vez al terminar.</p>
 
             <div class="field-group">
                 <label>Asignar Rol</label>
@@ -229,10 +228,12 @@ require_once __DIR__ . '/includes/navbar.php';
                         <input type="radio" name="new-role" id="role-new-admin" value="administrador">
                         <span>🛡️ Admin</span>
                     </label>
-                    <label class="role-radio-card"> <!-- esta rol solo aparece cuándo se inicia el usuario como super admin,  -->
+                    <?php if ($esSuperAdmin): ?>
+                    <label class="role-radio-card">
                         <input type="radio" name="new-role" id="role-new-superadmin" value="superadmin">
                         <span>👑 Super Admin</span>
                     </label>
+                    <?php endif; ?>
                 </div>
             </div>
             <!-- La actividad de todos los usuarios independientemente del rol, su actividad será guardada por seguridad -->
@@ -242,6 +243,22 @@ require_once __DIR__ . '/includes/navbar.php';
                 <button type="submit" class="btn-primary btn-superadmin">Guardar usuario</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div id="modal-credenciales-generadas" class="modal-overlay" aria-hidden="true">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>🔑 Usuario creado</h3>
+            <button type="button" class="modal-close" data-modal-close aria-label="Cerrar">×</button>
+        </div>
+        <p id="generated-credential-user" style="margin-bottom:12px;"></p>
+        <p style="color:#6b7280; margin-bottom:8px;">Compartí esta contraseña con el usuario. No se volverá a mostrar:</p>
+        <code id="generated-credential-password" style="display:block; padding:14px; margin-bottom:16px; background:#f3f4f6; border-radius:8px; text-align:center; font-size:1.1rem; font-weight:700; overflow-wrap:anywhere;"></code>
+        <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="copy-generated-credential">Copiar contraseña</button>
+            <button type="button" class="btn-primary" data-modal-close>Listo</button>
+        </div>
     </div>
 </div>
 
@@ -277,10 +294,12 @@ require_once __DIR__ . '/includes/navbar.php';
                         <input type="radio" name="edit-role" id="role-edit-admin" value="administrador">
                         <span>🛡️ Admin</span>
                     </label>
+                    <?php if ($esSuperAdmin): ?>
                     <label class="role-radio-card">
                         <input type="radio" name="edit-role" id="role-edit-superadmin" value="superadmin">
                         <span>👑 Super Admin</span>
                     </label>
+                    <?php endif; ?>
                 </div>
             </div>
 

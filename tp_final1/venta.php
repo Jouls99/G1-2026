@@ -20,6 +20,16 @@ $errorDB = null;
 try {
     $db = getDBConnection();
     if ($db !== null) {
+        $invalidCategoryCount = (int)$db->query("
+            SELECT COUNT(*)
+            FROM `producto` p
+            LEFT JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
+            WHERE c.`ID_categoria` IS NULL
+               OR LOWER(TRIM(c.`nombre`)) IN ('general', 'sin categoría', 'sin categoria')
+        ")->fetchColumn();
+        if ($invalidCategoryCount > 0) {
+            throw new RuntimeException('Hay productos sin una categoría válida. Reasignalos antes de continuar.');
+        }
         $stmt = $db->query("
             SELECT 
                 p.ID_stock,
@@ -28,10 +38,10 @@ try {
                 COALESCE(p.cantTotal, 0) AS cantidad,
                 COALESCE(p.cantVendida, 0) AS cantVendida,
                 CAST(COALESCE(p.precio, 0) AS DECIMAL(10,2)) AS precio,
-                COALESCE(c.nombre, 'General') AS categoria,
+                c.nombre AS categoria,
                 COALESCE(p.fase, 'habilitado') AS fase
             FROM `producto` p
-            LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
+            INNER JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
             WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'
             ORDER BY p.nombre ASC
         ");
@@ -50,27 +60,6 @@ try {
     }
 } catch (Exception $e) {
     $errorDB = $e->getMessage();
-    $jsonPath = __DIR__ . '/data/inventario.json';
-    if (file_exists($jsonPath)) {
-        $json = json_decode(file_get_contents($jsonPath) ?: '[]', true);
-        if (is_array($json)) {
-            $habilitadosJson = array_filter($json, function($item) {
-                return ($item['fase'] ?? 'habilitado') !== 'deshabilitado';
-            });
-            $productosDB = array_map(function($item) {
-                return [
-                    'ID_stock'    => $item['id'] ?? $item['ID_stock'] ?? 0,
-                    'nombre'      => $item['nombre'] ?? '',
-                    'codigo'      => $item['codigo'] ?? '',
-                    'cantidad'    => $item['cantidad'] ?? $item['stock'] ?? 0,
-                    'cantVendida' => $item['cantVendida'] ?? 0,
-                    'precio'      => $item['precio'] ?? 0,
-                    'categoria'   => $item['categoria'] ?? 'General',
-                    'fase'        => $item['fase'] ?? 'habilitado'
-                ];
-            }, array_values($habilitadosJson));
-        }
-    }
 }
 
 require_once __DIR__ . '/includes/header.php';

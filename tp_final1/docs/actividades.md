@@ -20,7 +20,7 @@ Parámetros opcionales:
 | `tipo` | Filtra por tipo de acción. Reconoce `venta`, `login`, `stock`, `roles`/`rol`; cualquier otro valor se compara como tipo exacto. `todas` no filtra. |
 | `limit` | Cantidad máxima de eventos. Predeterminado: 200; rango efectivo: 1–500. |
 
-Cuando MySQL está disponible, consulta `actividad_usuario`, agrega el rol del usuario, interpreta `detalles` como JSON si puede y devuelve estadísticas globales. La respuesta exitosa contiene:
+Consulta `actividad_usuario` y `amenaza` en MySQL, agrega el rol del usuario e interpreta `detalles` como JSON si puede. Para Administradores, el servidor excluye de la lista y de las métricas todas las actividades atribuibles a cuentas Super Admin; los eventos de vendedores y demás usuarios siguen visibles. El Super Administrador conserva acceso a toda la actividad. La respuesta exitosa contiene:
 
 ```json
 {
@@ -40,7 +40,7 @@ Cuando MySQL está disponible, consulta `actividad_usuario`, agrega el rol del u
 }
 ```
 
-Si la consulta falla, combina `data/actividad_ventas.json`, `data/actividad_usuarios.json` y `data/actividades.json`, ordena por fecha y devuelve `fuente: "json"`. El filtro de tipo y las estadísticas del respaldo se calculan sobre esos registros locales.
+Si no se puede conectar a MySQL, responde `503 database_unavailable`; si falla la consulta, informa `500`. No lee archivos JSON como alternativa.
 
 ## `POST`: registrar evento
 
@@ -55,12 +55,14 @@ Acepta un cuerpo JSON opcional:
 | `descripcion` | Descripción; valor predeterminado `Actividad registrada`. |
 | `detalles` | Objeto JSON opcional. |
 
-Invoca `logActivity()`, que intenta insertar el registro en MySQL y escribe además el respaldo JSON correspondiente. Devuelve `ok` y un mensaje de confirmación.
+Invoca `logActivity()`, que inserta el registro en `actividad_usuario`. Devuelve `ok` y un mensaje de confirmación.
 
 ## Códigos y notas
 
 - `403`: usuario sin rol administrativo al consultar por `GET`.
+- `503`: base de datos no disponible.
 - `405`: método no soportado.
-- Las amenazas se leen de `data/amenazas.json`; su evaluación se realiza al registrar ciertos eventos de inicio de sesión fallido.
+- Las alertas se leen de `amenaza`; la detección se realiza al registrar ciertos eventos de inicio de sesión fallido.
+- Los archivos históricos de actividad se importan una sola vez a `actividad_usuario`.
 
 Relacionado: [helpers.md](./helpers.md), [auth.md](./auth.md).

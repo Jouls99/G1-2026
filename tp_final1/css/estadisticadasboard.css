@@ -123,6 +123,15 @@ p {
     margin-bottom: 20px;
 }
 
+.dashboard-load-error {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid #fca5a5;
+    border-radius: 10px;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
 .dashboard-header h2 {
     color: var(--color-secondary);
     margin-bottom: 6px;
@@ -276,6 +285,29 @@ th {
     gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 10px;
+}
+
+.sales-history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.sales-history-filters label {
+    color: #6b4d64;
+    font-weight: 600;
+}
+
+.sales-history-filters select,
+.sales-history-filters input {
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 1px solid #dabad3;
+    border-radius: 8px;
+    background: #fff;
+    color: #490633;
 }
 
 .table-wrapper {
@@ -435,6 +467,77 @@ th {
     margin-bottom: 18px;
 }
 
+.report-pdf-only {
+    display: none;
+}
+
+@page {
+    size: A4 landscape;
+    margin: 12mm;
+}
+
+@media print {
+    :root {
+        color-scheme: light;
+    }
+
+    body {
+        min-height: 0;
+        background: #fff;
+        color: #1f2937;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
+    .app-navbar,
+    .header-actions,
+    .sales-history-filters,
+    .report-header,
+    #dashboard-informe,
+    .modal {
+        display: none !important;
+    }
+
+    .report-pdf-only {
+        display: block !important;
+    }
+
+    .report-container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .pdf-report-heading {
+        margin-bottom: 14px;
+    }
+
+    .pdf-category-report {
+        margin-bottom: 20px;
+    }
+
+    .pdf-category-report > h3 {
+        margin-bottom: 10px;
+        color: #581c87;
+        font-size: 18px;
+        break-after: avoid;
+    }
+
+    .pdf-sales-table {
+        font-size: 10px;
+    }
+
+    .pdf-sales-table th,
+    .pdf-sales-table td {
+        padding: 6px;
+    }
+
+    .pdf-sales-table tr {
+        break-inside: avoid;
+    }
+}
+
 .switch-user-input {
     width: 100%;
     padding: 10px;
@@ -554,4 +657,3 @@ th {
         width: 100%;
     }
 }
-

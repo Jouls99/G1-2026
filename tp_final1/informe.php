@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/auth.php';
 requireAuth('registroinicio.php');
 
 $pageTitle = 'Informe de Stock y Métricas';
-$customCss = 'css/estadisticadasboard.css';
+$customCss = 'css/estadisticadasboard.css?v=' . filemtime(__DIR__ . '/css/estadisticadasboard.css');
 $activePage = 'informe';
 $puedeModificarInforme = canModifyReports();
 
@@ -23,10 +23,11 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
 
         <div class="header-actions">
+            <button type="button" class="btn-secondary" id="exportReportPdfBtn">📄 Exportar informe PDF</button>
             <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
             <a href="venta.php" class="btn-secondary">🛒 Ir a Ventas</a>
-            <button type="button" class="btn-secondary" id="openSwitchUserBtn">🔄 Cambiar usuario</button>
             <?php if (isSuperAdmin()): ?>
+                <button type="button" class="btn-secondary" id="openSwitchUserBtn">🔄 Cambiar usuario</button>
                 <a href="usuarios.php" class="btn-secondary" style="background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Gestión de Usuarios</a>
             <?php endif; ?>
         </div>
@@ -37,6 +38,7 @@ require_once __DIR__ . '/includes/navbar.php';
             <h2>Dashboard dinámico</h2>
             <p>Seleccioná una categoría y un periodo para ver el comportamiento del inventario.</p>
         </div>
+        <p id="dashboardLoadError" class="dashboard-load-error" role="alert" hidden></p>
 
         <div class="dashboard-controls">
             <div>
@@ -91,6 +93,14 @@ require_once __DIR__ . '/includes/navbar.php';
                 <h3>Historial de ventas registradas</h3>
                 <span id="salesCount">0 ventas</span>
             </div>
+            <?php if (isAdmin()): ?>
+            <div class="sales-history-filters">
+                <label for="historyWeekSelect">Semana</label>
+                <select id="historyWeekSelect"></select>
+                <label for="historyDateSelect">Día exacto</label>
+                <input type="date" id="historyDateSelect">
+            </div>
+            <?php endif; ?>
             <div class="table-wrapper">
                 <table class="sales-table">
                     <thead>
@@ -131,8 +141,11 @@ require_once __DIR__ . '/includes/navbar.php';
             </table>
         </div>
     </section>
+
+    <section id="reportPdfContent" class="report-pdf-only" aria-hidden="true"></section>
 </main>
 
+<?php if (isSuperAdmin()): ?>
 <div id="switchUserModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="switchUserTitle">
     <div class="modal-content switch-user-modal-content">
         <button type="button" class="close-btn" id="closeSwitchUserBtn" aria-label="Cerrar">&times;</button>
@@ -155,6 +168,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </form>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Modal de Edición de Venta -->
 <div id="editSaleModal" class="modal" style="display: none;">
@@ -192,5 +206,5 @@ require_once __DIR__ . '/includes/navbar.php';
     window.puedeModificarInforme = <?= $puedeModificarInforme ? 'true' : 'false' ?>;
     window.usuarioEsAdminInforme = <?= isAdmin() ? 'true' : 'false' ?>;
 </script>
-<script src="scrits/dashboard-informe.js"></script>
+<script src="scrits/dashboard-informe.js?v=<?= filemtime(__DIR__ . '/scrits/dashboard-informe.js') ?>"></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

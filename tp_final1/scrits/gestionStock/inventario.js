@@ -7,46 +7,7 @@
  * Manejo de eliminación con confirmación y marcado deshabilitado en base de datos SQL
  */
 
-let inventario = [
-  {
-    id: "cat-1",
-    nombre: "Maquillaje",
-    productos: [
-      { codigo: "MQL-001", nombre: "Base Matte", precio: 18000, stock: 15, subcategoria: "Bases", fase: "habilitado" },
-      { codigo: "MQL-002", nombre: "Rubor Cream", precio: 9500, stock: 22, subcategoria: "Color", fase: "habilitado" }
-    ],
-    subcategorias: [
-      { id: "sub-1-1", nombre: "Bases", productos: [
-        { codigo: "BS-001", nombre: "Base Líquida Nude", precio: 16000, stock: 8, fase: "habilitado" }
-      ] },
-      { id: "sub-1-2", nombre: "Ojos", productos: [
-        { codigo: "OJ-001", nombre: "Sombras Compactas", precio: 12000, stock: 10, fase: "habilitado" }
-      ] }
-    ]
-  },
-  {
-    id: "cat-2",
-    nombre: "Skincare",
-    productos: [
-      { codigo: "SKN-001", nombre: "Serum Vitamina C", precio: 24000, stock: 9, subcategoria: "Tratamientos", fase: "habilitado" },
-      { codigo: "SKN-002", nombre: "Crema Hidratante", precio: 15000, stock: 14, subcategoria: "Hidratación", fase: "habilitado" }
-    ],
-    subcategorias: [
-      { id: "sub-2-1", nombre: "Tratamientos", productos: [
-        { codigo: "TRT-001", nombre: "Ampolla Vitamina C", precio: 9000, stock: 7, fase: "habilitado" }
-      ] }
-    ]
-  },
-  {
-    id: "cat-3",
-    nombre: "Fragancias",
-    productos: [
-      { codigo: "FRG-001", nombre: "Perfume Floral", precio: 32000, stock: 6, subcategoria: "Femeninas", fase: "habilitado" }
-    ],
-    subcategorias: []
-  }
-];
-
+let inventario = [];
 let categoriaSeleccionada = inventario[0];
 let categoriaFiltro = '';
 let productoSeleccionado = null;
@@ -59,103 +20,65 @@ const usuarioPuedeRegistrarStock = window.usuarioPuedeRegistrarStock === true;
 const usuarioEsSuperAdmin = window.usuarioEsSuperAdmin === true;
 
 /**
- * Guardar inventario plano en la base de datos MySQL (y respaldo JSON)
- */
-async function guardarInventario() {
-    if (!usuarioEsAdmin) return;
-    const flat = [];
-    inventario.forEach(cat => {
-        (cat.productos || []).forEach(p => {
-            flat.push({
-                categoria: cat.nombre,
-                nombre: p.nombre,
-                codigo: p.codigo,
-                subcategoria: p.subcategoria || null,
-                precio: p.precio,
-                cantidad: p.stock,
-                fase: p.fase || 'habilitado',
-                total: p.precio * p.stock
-            });
-        });
-        (cat.subcategorias || []).forEach(sub => {
-            (sub.productos || []).forEach(p => {
-                flat.push({
-                    categoria: cat.nombre,
-                    nombre: p.nombre,
-                    codigo: p.codigo,
-                    subcategoria: p.subcategoria || sub.nombre || null,
-                    precio: p.precio,
-                    cantidad: p.stock,
-                    fase: p.fase || 'habilitado',
-                    total: p.precio * p.stock
-                });
-            });
-        });
-    });
-
-    try {
-        const res = await fetch('api/inventario.php', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(flat)
-        });
-        if (!res.ok) throw new Error('no_server');
-        localStorage.setItem('inventarioCosmetica', JSON.stringify(inventario));
-    } catch (e) {
-        localStorage.setItem('inventarioCosmetica', JSON.stringify(inventario));
-    }
-}
-
-/**
- * Cargar inventario desde la API (MySQL / inventario.json)
+ * Cargar inventario desde la API MySQL.
  */
 async function cargarInventario() {
     try {
-        const res = await fetch('api/inventario.php', { cache: 'no-store' });
-        if (!res.ok) throw new Error('no_server');
-        const flat = await res.json();
-        if (Array.isArray(flat) && flat.length > 0) {
-            const map = new Map();
-            flat.forEach(item => {
-                const catName = item.categoria || 'Sin categoría';
-                if (!map.has(catName)) {
-                    map.set(catName, {
-                        id: `cat-${catName.replace(/\s+/g,'-').toLowerCase()}`,
-                        ID_categoria: item.ID_categoria || null,
-                        nombre: catName,
-                        productos: [],
-                        subcategorias: []
-                    });
-                }
-                const cat = map.get(catName);
-                cat.productos.push({ 
-                    ID_stock: item.ID_stock || item.id,
-                    codigo: item.codigo, 
-                    nombre: item.nombre, 
-                    precio: item.precio, 
-                    stock: item.cantidad,
-                    fase: item.fase || 'habilitado',
-                    subcategoria: item.subcategoria || undefined 
-                });
-            });
-            inventario = Array.from(map.values());
-            categoriaSeleccionada = inventario[0] || null;
-            return;
+        const [inventoryResponse, categoriesResponse] = await Promise.all([
+            fetch('api/inventario.php', { cache: 'no-store' }),
+            fetch('api/inventario.php?action=categories', { cache: 'no-store' })
+        ]);
+        const [products, categories] = await Promise.all([
+            inventoryResponse.json(),
+            categoriesResponse.json()
+        ]);
+        if (!inventoryResponse.ok || !Array.isArray(products)) {
+            throw new Error(products.message || 'No se pudo cargar el inventario desde la base de datos.');
         }
-    } catch (e) {
-        // Fallback a localStorage
-    }
+        if (!categoriesResponse.ok || categories.ok !== true || !Array.isArray(categories.categorias)) {
+            throw new Error(categories.message || 'No se pudieron cargar las categorías desde la base de datos.');
+        }
 
-    const guardado = localStorage.getItem('inventarioCosmetica');
-    if (guardado) {
-        inventario = JSON.parse(guardado);
-        if (!usuarioEsSuperAdmin) {
-            inventario.forEach(cat => {
-                (cat.productos || []).forEach(p => delete p.fase);
-                (cat.subcategorias || []).forEach(sub => (sub.productos || []).forEach(p => delete p.fase));
+        const map = new Map();
+        categories.categorias.forEach(category => {
+            const id = Number(category.ID_categoria);
+            map.set(String(id), {
+                id: `cat-${id}`,
+                ID_categoria: id,
+                nombre: category.nombre,
+                productos: [],
+                subcategorias: category.subcategorias || []
             });
+        });
+        if (products.some(item => !item.categoria || !item.ID_categoria || !map.has(String(item.ID_categoria)))) {
+            throw new Error('Hay productos sin una categoría válida. Reasignalos antes de continuar.');
         }
+        products.forEach(item => {
+            const categoryId = item.ID_categoria ? String(item.ID_categoria) : null;
+            const catName = item.categoria;
+            let cat = categoryId ? map.get(categoryId) : null;
+            cat.productos.push({
+                ID_stock: item.ID_stock || item.id,
+                codigo: item.codigo,
+                nombre: item.nombre,
+                marca: item.marca || undefined,
+                sub_nombre: item.sub_nombre || undefined,
+                precio: item.precio,
+                stock: item.cantidad,
+                fase: item.fase || 'habilitado',
+                subcategoria: item.subcategoria || undefined
+            });
+        });
+        inventario = Array.from(map.values());
         categoriaSeleccionada = inventario[0] || null;
+    } catch (error) {
+        console.error('Error al cargar inventario desde MySQL:', error);
+        inventario = [];
+        categoriaSeleccionada = null;
+        const content = document.getElementById('mainContent');
+        if (content) {
+            content.innerHTML = '<p role="alert">No se pudo cargar el inventario. Verificá la conexión con la base de datos e intentá nuevamente.</p>';
+        }
     }
 }
 
@@ -174,7 +97,9 @@ function renderCategories() {
         btn.innerText = cat.nombre;
         btn.onclick = () => selectCategory(cat.id);
         btn.oncontextmenu = (event) => showCategoryContextMenu(event, cat);
-        btn.title = 'Click para abrir • Click derecho para eliminar categoría';
+        btn.title = cat.ID_categoria
+            ? 'Click para abrir • Click derecho para eliminar categoría'
+            : 'Click para abrir';
         container.appendChild(btn);
         });
 }
@@ -251,7 +176,10 @@ function renderTable(categoria) {
                 oncontextmenu="showProductContextMenu(event, '${p.codigo}', '${categoria.id}')" 
                 title="Click izquierdo: ver detalles • Click derecho: eliminar producto">
                 ${mostrarSeleccionPrecios ? `<td><input class="price-product-checkbox" data-product-id="${productId}" type="checkbox" aria-label="Seleccionar ${escapeHtml(p.nombre)}" onclick="event.stopPropagation()" onchange="togglePriceProduct(${productId}, this.checked)" ${productosPrecioSeleccionados.has(productId) ? 'checked' : ''}></td>` : ''}
-                <td><strong>${escapeHtml(p.nombre)}</strong></td>
+                <td>
+                    <strong>${escapeHtml(p.nombre)}</strong>
+                    ${(p.marca || p.sub_nombre) ? `<small style="display:block;color:#6b7280;">${[p.marca, p.sub_nombre].filter(Boolean).map(escapeHtml).join(' · ')}</small>` : ''}
+                </td>
                 <td><code>${escapeHtml(p.codigo)}</code></td>
                 <td>$${p.precio.toLocaleString()}</td>
                 <td>${p.stock}</td>
@@ -317,6 +245,8 @@ function renderDetailPanel() {
     panel.innerHTML = `
         <h3>${escapeHtml(productoSeleccionado.nombre)}</h3>
         <p><strong>Código:</strong> <code>${escapeHtml(productoSeleccionado.codigo)}</code></p>
+        ${productoSeleccionado.marca ? `<p><strong>Marca:</strong> ${escapeHtml(productoSeleccionado.marca)}</p>` : ''}
+        ${productoSeleccionado.sub_nombre ? `<p><strong>Nombre secundario:</strong> ${escapeHtml(productoSeleccionado.sub_nombre)}</p>` : ''}
         <p><strong>Precio:</strong> $${productoSeleccionado.precio.toLocaleString()}</p>
         <p><strong>Stock:</strong> ${productoSeleccionado.stock}</p>
         <p><strong>Subcategoría:</strong> ${escapeHtml(productoSeleccionado.subcategoria || 'Sin subcategoría')}</p>
@@ -348,33 +278,4 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return String(text).replace(/[&<>"']/g, m => map[m]);
-}
-
-/**
- * Exportar archivo JSON
- */
-function exportarJSON() {
-    const flat = [];
-    inventario.forEach(cat => {
-        (cat.productos || []).forEach(p => {
-            if ((p.fase || 'habilitado') !== 'deshabilitado') {
-                flat.push({
-                    ID_stock: p.ID_stock || p.id,
-                    categoria: cat.nombre,
-                    nombre: p.nombre,
-                    codigo: p.codigo,
-                    precio: p.precio,
-                    cantidad: p.stock,
-                    total: p.precio * p.stock
-                });
-            }
-        });
-    });
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(flat, null, 2));
-    const dlAnchor = document.createElement('a');
-    dlAnchor.setAttribute("href", dataStr);
-    dlAnchor.setAttribute("download", `inventario_completo_${new Date().toISOString().slice(0,10)}.json`);
-    dlAnchor.click();
-    dlAnchor.remove();
 }

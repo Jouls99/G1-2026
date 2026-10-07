@@ -15,7 +15,7 @@ const DB_PASS = '';
 /**
  * Obtiene o crea la conexión PDO con MySQL.
  * Si la base de datos no existe, la inicializa automáticamente con su esquema.
- * Si MySQL no responde, retorna null de forma segura permitiendo el respaldo JSON.
+ * Si MySQL no responde, retorna null para que la API informe que la base de datos no está disponible.
  */
 function getDBConnection(): ?PDO
 {
@@ -53,12 +53,432 @@ function getDBConnection(): ?PDO
 
     ensureProductPhaseColumn($pdo);
     ensureProductSubcategoryColumn($pdo);
+    ensureProductCatalogFields($pdo);
     ensurePriceAdjustmentHistoryTable($pdo);
     ensureUserPermissionColumns($pdo);
     ensureUniqueAdministrativeRoles($pdo);
+    ensureThreatTable($pdo);
+    ensureSessionTrackingTables($pdo);
+    ensureFacturacionDateIndex($pdo);
+    ensureSalesLedgerTables($pdo);
+    importLegacyActivityFiles($pdo);
+    importLegacyThreatFile($pdo);
     syncDefaultUsers($pdo);
 
     return $pdo;
+}
+
+function ensureFacturacionDateIndex(PDO $pdo): void
+{
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM `information_schema`.`statistics`
+        WHERE `table_schema` = DATABASE()
+          AND `table_name` = 'facturacion'
+          AND `index_name` = 'idx_facturacion_fecha_id'
+    ");
+    $stmt->execute();
+    if ((int)$stmt->fetchColumn() === 0) {
+        $pdo->exec("ALTER TABLE `facturacion` ADD INDEX `idx_facturacion_fecha_id` (`fecha`, `ID_factura`)");
+    }
+}
+
+function ensureSalesLedgerTables(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `ventas` (
+            `ID_factura` int(11) NOT NULL AUTO_INCREMENT,
+            `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `cantidadVendida` int(11) NOT NULL,
+            `precioFinal` decimal(10,2) NOT NULL,
+            `ganancia` decimal(10,2) GENERATED ALWAYS AS (`cantidadVendida` * `precioFinal`) STORED,
+            `ID_stock` int(11) DEFAULT NULL,
+            `nombre_producto` varchar(100) DEFAULT NULL,
+            `usuario` varchar(100) DEFAULT 'gomez11',
+            PRIMARY KEY (`ID_factura`),
+            KEY `fk_ventas_producto` (`ID_stock`),
+            KEY `idx_ventas_fecha_id` (`fecha`, `ID_factura`),
+            CONSTRAINT `fk_ventas_producto`
+                FOREIGN KEY (`ID_stock`) REFERENCES `producto` (`ID_stock`)
+                ON DELETE SET NULL ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `ventas_historial` (
+            `ID_factura` int(11) NOT NULL,
+            `fecha` datetime NOT NULL,
+            `cantidadVendida` int(11) NOT NULL,
+            `precioFinal` decimal(10,2) NOT NULL,
+            `ganancia` decimal(10,2) GENERATED ALWAYS AS (`cantidadVendida` * `precioFinal`) STORED,
+            `ID_stock` int(11) DEFAULT NULL,
+            `nombre_producto` varchar(100) DEFAULT NULL,
+            `usuario` varchar(100) DEFAULT 'gomez11',
+            `semana_inicio` date NOT NULL,
+            PRIMARY KEY (`ID_factura`),
+            KEY `idx_ventas_historial_semana_fecha` (`semana_inicio`, `fecha`),
+            KEY `idx_ventas_historial_fecha_id` (`fecha`, `ID_factura`),
+            CONSTRAINT `fk_ventas_historial_producto`
+                FOREIGN KEY (`ID_stock`) REFERENCES `producto` (`ID_stock`)
+                ON DELETE SET NULL ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `migracion_datos` (
+            `archivo` varchar(100) NOT NULL,
+            `migrado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`archivo`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $migrationName = 'facturacion_a_ventas_historial_v1';
+    $check = $pdo->prepare("SELECT 1 FROM `migracion_datos` WHERE `archivo` = :name");
+    $check->execute([':name' => $migrationName]);
+    if ($check->fetchColumn()) {
+        ensureSalesProductNameSnapshots($pdo);
+        ensureSalesAutoIncrement($pdo);
+        return;
+    }
+
+    $lock = $pdo->query("SELECT GET_LOCK('sos_cosmeticos_cierre_jornada', 5)")->fetchColumn();
+    if ((int)$lock !== 1) {
+        throw new RuntimeException('No se pudo bloquear la migración del historial de ventas.');
+    }
+    try {
+        $check->execute([':name' => $migrationName]);
+        if ($check->fetchColumn()) {
+            ensureSalesProductNameSnapshots($pdo);
+            return;
+        }
+
+        $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
+        $today = new DateTimeImmutable('today', $timezone);
+        $todayStart = $today->format('Y-m-d 00:00:00');
+        $weekStart = $today->modify('monday this week')->modify('-3 weeks')->format('Y-m-d');
+        $pdo->beginTransaction();
+        $migrateCurrent = $pdo->prepare("
+            INSERT IGNORE INTO `ventas`
+                (`ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`)
+            SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`precioFinal`, f.`ID_stock`, p.`nombre`, f.`usuario`
+            FROM `facturacion` f
+            LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
+            WHERE f.`fecha` >= :today_start
+        ");
+        $migrateCurrent->execute([':today_start' => $todayStart]);
+        $migrateHistory = $pdo->prepare("
+            INSERT IGNORE INTO `ventas_historial`
+                (`ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`, `semana_inicio`)
+            SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`precioFinal`, f.`ID_stock`, p.`nombre`, f.`usuario`,
+                   DATE_SUB(DATE(f.`fecha`), INTERVAL WEEKDAY(f.`fecha`) DAY)
+            FROM `facturacion` f
+            LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
+            WHERE f.`fecha` >= :history_start AND f.`fecha` < :today_start
+        ");
+        $migrateHistory->execute([':history_start' => $weekStart, ':today_start' => $todayStart]);
+        $mark = $pdo->prepare("INSERT INTO `migracion_datos` (`archivo`) VALUES (:name)");
+        $mark->execute([':name' => $migrationName]);
+        $pdo->commit();
+        ensureSalesProductNameSnapshots($pdo);
+        ensureSalesAutoIncrement($pdo);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    } finally {
+        $pdo->query("SELECT RELEASE_LOCK('sos_cosmeticos_cierre_jornada')");
+    }
+}
+
+function ensureSalesProductNameSnapshots(PDO $pdo): void
+{
+    foreach (['ventas', 'ventas_historial'] as $table) {
+        if (!$pdo->query("SHOW COLUMNS FROM `{$table}` LIKE 'nombre_producto'")->fetch()) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `nombre_producto` varchar(100) DEFAULT NULL AFTER `ID_stock`");
+        }
+    }
+
+    $migrationName = 'sales_product_name_snapshot_v1';
+    $check = $pdo->prepare("SELECT 1 FROM `migracion_datos` WHERE `archivo` = :name");
+    $check->execute([':name' => $migrationName]);
+    if ($check->fetchColumn()) {
+        return;
+    }
+
+    $pdo->beginTransaction();
+    try {
+        foreach (['ventas', 'ventas_historial'] as $table) {
+            $pdo->exec("
+                UPDATE `{$table}` s
+                INNER JOIN `producto` p ON p.`ID_stock` = s.`ID_stock`
+                SET s.`nombre_producto` = p.`nombre`
+                WHERE s.`nombre_producto` IS NULL OR TRIM(s.`nombre_producto`) = ''
+            ");
+        }
+
+        if ($pdo->query("SHOW TABLES LIKE 'actividad_usuario'")->fetchColumn()) {
+            $activities = $pdo->query("
+                SELECT `detalles`
+                FROM `actividad_usuario`
+                WHERE `tipo_accion` = 'venta_registrada' AND `detalles` IS NOT NULL
+                ORDER BY `id_actividad` DESC
+            ");
+            $updateActive = $pdo->prepare("
+                UPDATE `ventas`
+                SET `nombre_producto` = :name
+                WHERE `ID_factura` = :id AND (`nombre_producto` IS NULL OR TRIM(`nombre_producto`) = '')
+            ");
+            $updateHistory = $pdo->prepare("
+                UPDATE `ventas_historial`
+                SET `nombre_producto` = :name
+                WHERE `ID_factura` = :id AND (`nombre_producto` IS NULL OR TRIM(`nombre_producto`) = '')
+            ");
+            foreach ($activities->fetchAll(PDO::FETCH_COLUMN) as $detailsJson) {
+                $details = json_decode((string)$detailsJson, true);
+                if (!is_array($details) || !is_array($details['factura_ids'] ?? null) || !is_array($details['productos'] ?? null)) {
+                    continue;
+                }
+                foreach ($details['factura_ids'] as $index => $invoiceId) {
+                    $productDescription = $details['productos'][$index] ?? null;
+                    if (!is_scalar($productDescription)
+                        || !preg_match('/\A(.+?)\s+\(x\d+\)\z/u', trim((string)$productDescription), $matches)) {
+                        continue;
+                    }
+                    $name = trim($matches[1]);
+                    if ($name === '' || !filter_var($invoiceId, FILTER_VALIDATE_INT)) {
+                        continue;
+                    }
+                    $params = [':name' => $name, ':id' => (int)$invoiceId];
+                    $updateActive->execute($params);
+                    $updateHistory->execute($params);
+                }
+            }
+        }
+
+        $mark = $pdo->prepare("INSERT INTO `migracion_datos` (`archivo`) VALUES (:name)");
+        $mark->execute([':name' => $migrationName]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function ensureSalesAutoIncrement(PDO $pdo): void
+{
+    $maxId = (int)$pdo->query("
+        SELECT GREATEST(
+            COALESCE((SELECT MAX(`ID_factura`) FROM `ventas`), 0),
+            COALESCE((SELECT MAX(`ID_factura`) FROM `ventas_historial`), 0),
+            COALESCE((SELECT MAX(`ID_factura`) FROM `facturacion`), 0)
+        )
+    ")->fetchColumn();
+    $currentNextId = $pdo->query("
+        SELECT `AUTO_INCREMENT`
+        FROM `information_schema`.`tables`
+        WHERE `table_schema` = DATABASE() AND `table_name` = 'ventas'
+    ")->fetchColumn();
+    if ($maxId > 0 && ($currentNextId === null || (int)$currentNextId <= $maxId)) {
+        $nextId = $maxId + 1;
+        $pdo->exec("ALTER TABLE `ventas` AUTO_INCREMENT = {$nextId}");
+    }
+}
+
+function ensureSessionTrackingTables(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `sesion_activa` (
+            `token_sesion` char(64) NOT NULL,
+            `id_usuario` int(11) DEFAULT NULL,
+            `usuario` varchar(100) NOT NULL,
+            `iniciada_en` datetime NOT NULL,
+            `ultima_actividad` datetime NOT NULL,
+            `activa` tinyint(1) NOT NULL DEFAULT 1,
+            `cerrada_en` datetime DEFAULT NULL,
+            PRIMARY KEY (`token_sesion`),
+            KEY `idx_sesion_activa_ultima_actividad` (`activa`, `ultima_actividad`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `cierre_jornada` (
+            `id_cierre` bigint(20) NOT NULL AUTO_INCREMENT,
+            `fecha_jornada` date NOT NULL,
+            `fecha_cierre` datetime NOT NULL,
+            `usuario` varchar(100) NOT NULL,
+            `registros_eliminados` int(11) NOT NULL DEFAULT 0,
+            `registros_archivados` int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id_cierre`),
+            KEY `idx_cierre_jornada_fecha` (`fecha_jornada`, `fecha_cierre`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $archiveColumn = $pdo->query("SHOW COLUMNS FROM `cierre_jornada` LIKE 'registros_archivados'")->fetch();
+    if (!$archiveColumn) {
+        $pdo->exec("ALTER TABLE `cierre_jornada` ADD COLUMN `registros_archivados` int(11) NOT NULL DEFAULT 0 AFTER `registros_eliminados`");
+    }
+}
+
+/** Persiste las alertas de seguridad generadas a partir de inicios de sesión fallidos. */
+function ensureThreatTable(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `amenaza` (
+            `id_amenaza` char(64) NOT NULL,
+            `regla` varchar(50) NOT NULL,
+            `clave` varchar(255) NOT NULL,
+            `titulo` varchar(150) NOT NULL,
+            `descripcion` text NOT NULL,
+            `usuario` varchar(100) DEFAULT NULL,
+            `ip` varchar(45) DEFAULT NULL,
+            `intentos` int(11) NOT NULL,
+            `fecha` datetime NOT NULL,
+            `ventana_minutos` int(11) NOT NULL,
+            PRIMARY KEY (`id_amenaza`),
+            KEY `idx_amenaza_fecha` (`fecha`),
+            KEY `idx_amenaza_regla_clave_fecha` (`regla`, `clave`, `fecha`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+}
+
+/** Importa una sola vez los registros de auditoría históricos de los archivos JSON. */
+function importLegacyActivityFiles(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `migracion_datos` (
+            `archivo` varchar(100) NOT NULL,
+            `migrado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`archivo`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $check = $pdo->prepare("SELECT 1 FROM `migracion_datos` WHERE `archivo` = :archivo");
+    $mark = $pdo->prepare("INSERT INTO `migracion_datos` (`archivo`) VALUES (:archivo)");
+    $exists = $pdo->prepare("
+        SELECT 1 FROM `actividad_usuario`
+        WHERE `id_usuario` <=> :id_usuario
+          AND `usuario` = :usuario
+          AND `tipo_accion` = :tipo
+          AND `descripcion` = :descripcion
+          AND `detalles` <=> :detalles
+          AND `fecha` = :fecha
+        LIMIT 1
+    ");
+    $insert = $pdo->prepare("
+        INSERT INTO `actividad_usuario`
+            (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
+        VALUES (:id_usuario, :usuario, :tipo, :descripcion, :detalles, :fecha)
+    ");
+
+    foreach (['actividad_usuarios.json', 'actividad_ventas.json', 'actividades.json'] as $filename) {
+        $check->execute([':archivo' => $filename]);
+        if ($check->fetchColumn()) {
+            continue;
+        }
+
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . $filename;
+        $records = [];
+        if (is_file($path)) {
+            $contents = file_get_contents($path);
+            $decoded = $contents === false ? null : json_decode($contents, true);
+            if (!is_array($decoded)) {
+                throw new RuntimeException("No se pudo leer el archivo histórico {$filename}.");
+            }
+            $records = $decoded;
+        }
+
+        $pdo->beginTransaction();
+        try {
+                foreach ($records as $record) {
+                    if (!is_array($record)) {
+                        continue;
+                    }
+                    $date = strtotime((string)($record['fecha'] ?? ''));
+                    $fecha = date('Y-m-d H:i:s', $date === false ? time() : $date);
+                    $details = $record['detalles'] ?? null;
+                    $detailsJson = $details === null
+                        ? null
+                        : (is_string($details) ? $details : json_encode($details, JSON_UNESCAPED_UNICODE));
+                    $params = [
+                        ':id_usuario' => isset($record['id_usuario']) ? (int)$record['id_usuario'] : null,
+                        ':usuario' => (string)($record['usuario'] ?? 'Sistema'),
+                        ':tipo' => (string)($record['tipo_accion'] ?? 'actividad'),
+                        ':descripcion' => (string)($record['descripcion'] ?? ''),
+                        ':detalles' => $detailsJson,
+                        ':fecha' => $fecha
+                    ];
+                    $exists->execute($params);
+                    if (!$exists->fetchColumn()) {
+                        $insert->execute($params);
+                    }
+                }
+                $mark->execute([':archivo' => $filename]);
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $e;
+        }
+    }
+}
+
+/** Importa una sola vez las alertas de seguridad históricas del archivo JSON. */
+function importLegacyThreatFile(PDO $pdo): void
+{
+    $filename = 'amenazas.json';
+    $check = $pdo->prepare("SELECT 1 FROM `migracion_datos` WHERE `archivo` = :archivo");
+    $check->execute([':archivo' => $filename]);
+    if ($check->fetchColumn()) {
+        return;
+    }
+
+    $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . $filename;
+    $records = [];
+    if (is_file($path)) {
+        $contents = file_get_contents($path);
+        $decoded = $contents === false ? null : json_decode($contents, true);
+        if (!is_array($decoded)) {
+            throw new RuntimeException("No se pudo leer el archivo histórico {$filename}.");
+        }
+        $records = $decoded;
+    }
+
+    $insert = $pdo->prepare("
+        INSERT IGNORE INTO `amenaza`
+            (`id_amenaza`, `regla`, `clave`, `titulo`, `descripcion`, `usuario`, `ip`, `intentos`, `fecha`, `ventana_minutos`)
+        VALUES (:id, :regla, :clave, :titulo, :descripcion, :usuario, :ip, :intentos, :fecha, :ventana)
+    ");
+    $mark = $pdo->prepare("INSERT INTO `migracion_datos` (`archivo`) VALUES (:archivo)");
+    $pdo->beginTransaction();
+    try {
+        foreach ($records as $record) {
+            if (!is_array($record)) {
+                continue;
+            }
+            $timestamp = strtotime((string)($record['fecha'] ?? ''));
+            $id = (string)($record['id'] ?? '');
+            if (strlen($id) !== 64) {
+                $id = hash('sha256', json_encode($record, JSON_UNESCAPED_UNICODE) ?: serialize($record));
+            }
+            $insert->execute([
+                ':id' => $id,
+                ':regla' => (string)($record['regla'] ?? 'legacy'),
+                ':clave' => (string)($record['clave'] ?? $id),
+                ':titulo' => (string)($record['titulo'] ?? 'Alerta histórica'),
+                ':descripcion' => (string)($record['descripcion'] ?? ''),
+                ':usuario' => isset($record['usuario']) ? (string)$record['usuario'] : null,
+                ':ip' => isset($record['ip']) ? (string)$record['ip'] : null,
+                ':intentos' => (int)($record['intentos'] ?? 0),
+                ':fecha' => date('Y-m-d H:i:s', $timestamp === false ? time() : $timestamp),
+                ':ventana' => (int)($record['ventana_minutos'] ?? 15)
+            ]);
+        }
+        $mark->execute([':archivo' => $filename]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 /** Asegura que los permisos delegables existan en cuentas de usuario. */
@@ -160,6 +580,92 @@ function ensureProductSubcategoryColumn(PDO $pdo): void
     }
 }
 
+/** Adds brand/secondary name fields and normalizes product subcategories by category. */
+function ensureProductCatalogFields(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `sub_categoria` (
+            `ID_sub_categoria` int(11) NOT NULL AUTO_INCREMENT,
+            `ID_categoria` int(11) NOT NULL,
+            `nombre` varchar(100) NOT NULL,
+            PRIMARY KEY (`ID_sub_categoria`),
+            UNIQUE KEY `uq_sub_categoria_nombre` (`ID_categoria`, `nombre`),
+            CONSTRAINT `fk_sub_categoria_categoria`
+                FOREIGN KEY (`ID_categoria`) REFERENCES `categoria` (`ID_categoria`)
+                ON DELETE CASCADE ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+
+    $columns = [
+        'marca' => "ALTER TABLE `producto` ADD COLUMN `marca` varchar(100) DEFAULT NULL AFTER `nombre`",
+        'sub_nombre' => "ALTER TABLE `producto` ADD COLUMN `sub_nombre` varchar(100) DEFAULT NULL AFTER `marca`",
+        'ID_sub_categoria' => "ALTER TABLE `producto` ADD COLUMN `ID_sub_categoria` int(11) DEFAULT NULL AFTER `subcategoria`"
+    ];
+    foreach ($columns as $column => $sql) {
+        if (!$pdo->query("SHOW COLUMNS FROM `producto` LIKE '{$column}'")->fetch()) {
+            $pdo->exec($sql);
+        }
+    }
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `migracion_datos` (
+            `archivo` varchar(100) NOT NULL,
+            `migrado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`archivo`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
+    $migrationName = 'producto_subcategorias_v1';
+    $migrationCheck = $pdo->prepare("SELECT 1 FROM `migracion_datos` WHERE `archivo` = :archivo");
+    $migrationCheck->execute([':archivo' => $migrationName]);
+    if (!$migrationCheck->fetchColumn()) {
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec("
+                INSERT IGNORE INTO `sub_categoria` (`ID_categoria`, `nombre`)
+                SELECT DISTINCT `ID_categoria`, TRIM(`subcategoria`)
+                FROM `producto`
+                WHERE `ID_categoria` IS NOT NULL
+                  AND `subcategoria` IS NOT NULL
+                  AND TRIM(`subcategoria`) <> ''
+            ");
+            $pdo->exec("
+                UPDATE `producto` p
+                INNER JOIN `sub_categoria` sc
+                    ON sc.`ID_categoria` = p.`ID_categoria`
+                   AND LOWER(sc.`nombre`) = LOWER(TRIM(p.`subcategoria`))
+                SET p.`ID_sub_categoria` = sc.`ID_sub_categoria`
+                WHERE p.`ID_sub_categoria` IS NULL
+            ");
+            $migrationMark = $pdo->prepare("INSERT IGNORE INTO `migracion_datos` (`archivo`) VALUES (:archivo)");
+            $migrationMark->execute([':archivo' => $migrationName]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    $foreignKey = $pdo->prepare("
+        SELECT 1
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'producto'
+          AND CONSTRAINT_NAME = 'fk_producto_sub_categoria'
+        LIMIT 1
+    ");
+    $foreignKey->execute();
+    if (!$foreignKey->fetchColumn()) {
+        $pdo->exec("
+            ALTER TABLE `producto`
+            ADD CONSTRAINT `fk_producto_sub_categoria`
+            FOREIGN KEY (`ID_sub_categoria`) REFERENCES `sub_categoria` (`ID_sub_categoria`)
+            ON DELETE SET NULL ON UPDATE CASCADE
+        ");
+    }
+}
+
 /** Crea el historial persistente de cambios de precios por lote. */
 function ensurePriceAdjustmentHistoryTable(PDO $pdo): void
 {
@@ -191,8 +697,7 @@ function syncDefaultUsers(PDO $pdo): void
 
         $seedUsers = [
             ['nombre' => 'gomez11', 'password' => 'santu99', 'rol' => 'superadmin'],
-            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador'],
-            ['nombre' => 'vendedor_demo', 'password' => '1234', 'rol' => 'vendedor']
+            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador']
         ];
         $seedStmt = $pdo->prepare("
             INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
@@ -207,7 +712,7 @@ function syncDefaultUsers(PDO $pdo): void
             ]);
         }
     } catch (Exception $e) {
-        // El respaldo JSON continúa disponible si MySQL no permite sincronizar.
+        error_log('No se pudieron sincronizar las cuentas iniciales en MySQL: ' . $e->getMessage());
     }
 }
 
@@ -264,21 +769,41 @@ function initDatabase(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
     ");
 
+    $pdoServer->exec("
+        CREATE TABLE IF NOT EXISTS `sub_categoria` (
+            `ID_sub_categoria` int(11) NOT NULL AUTO_INCREMENT,
+            `ID_categoria` int(11) NOT NULL,
+            `nombre` varchar(100) NOT NULL,
+            PRIMARY KEY (`ID_sub_categoria`),
+            UNIQUE KEY `uq_sub_categoria_nombre` (`ID_categoria`, `nombre`),
+            CONSTRAINT `fk_sub_categoria_categoria`
+                FOREIGN KEY (`ID_categoria`) REFERENCES `categoria` (`ID_categoria`)
+                ON DELETE CASCADE ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+    ");
+
     // 3. Tabla Producto
     $pdoServer->exec("
         CREATE TABLE IF NOT EXISTS `producto` (
             `ID_stock` int(11) NOT NULL AUTO_INCREMENT,
             `nombre` varchar(100) NOT NULL,
+            `marca` varchar(100) DEFAULT NULL,
+            `sub_nombre` varchar(100) DEFAULT NULL,
             `codigo` varchar(100) DEFAULT NULL,
             `cantTotal` int(11) DEFAULT 0,
             `cantVendida` int(11) DEFAULT 0,
             `ID_categoria` int(11) DEFAULT NULL,
             `subcategoria` varchar(100) DEFAULT NULL,
+            `ID_sub_categoria` int(11) DEFAULT NULL,
             `precio` decimal(10,2) DEFAULT 0.00,
             PRIMARY KEY (`ID_stock`),
             KEY `fk_producto_categoria` (`ID_categoria`),
+            KEY `fk_producto_sub_categoria` (`ID_sub_categoria`),
             CONSTRAINT `fk_producto_categoria`
                 FOREIGN KEY (`ID_categoria`) REFERENCES `categoria` (`ID_categoria`)
+                ON DELETE SET NULL ON UPDATE CASCADE,
+            CONSTRAINT `fk_producto_sub_categoria`
+                FOREIGN KEY (`ID_sub_categoria`) REFERENCES `sub_categoria` (`ID_sub_categoria`)
                 ON DELETE SET NULL ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
     ");
@@ -394,8 +919,12 @@ function initDatabase(): void
 
                 $catMap = [];
                 foreach ($jsonData as $item) {
-                    $catName = trim((string)($item['categoria'] ?? 'General'));
-                    if ($catName === '') $catName = 'General';
+                    $catName = trim((string)($item['categoria'] ?? ''));
+                    $reservedCategory = preg_match('/\Ageneral\z/iu', $catName) === 1
+                        || preg_match('/\As[ií]n categor[ií]a\z/iu', $catName) === 1;
+                    if ($catName === '' || $reservedCategory) {
+                        throw new RuntimeException('No se puede importar un producto sin una categoría válida.');
+                    }
 
                     if (!isset($catMap[$catName])) {
                         $getCatStmt->execute([':nombre' => $catName]);
@@ -493,7 +1022,6 @@ function initDatabase(): void
             }
         } else {
             $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (?, ?, 'superadmin', NOW())")->execute(['gomez11', password_hash('santu99', PASSWORD_DEFAULT)]);
-            $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (?, ?, 'vendedor', NOW())")->execute(['vendedor_demo', password_hash('1234', PASSWORD_DEFAULT)]);
         }
     }
 
@@ -501,8 +1029,7 @@ function initDatabase(): void
     try {
         $seedUsers = [
             ['nombre' => 'gomez11', 'password' => 'santu99', 'rol' => 'superadmin'],
-            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador'],
-            ['nombre' => 'vendedor_demo', 'password' => '1234', 'rol' => 'vendedor']
+            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador']
         ];
         $seedStmt = $pdoServer->prepare("
             INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)

@@ -1,22 +1,16 @@
 <?php
 declare(strict_types=1);
-
 require_once __DIR__ . '/includes/auth.php';
-
 // Requiere sesión activa
 requireAuth('registroinicio.php');
-
 $soloLectura = !isAdmin();
 $puedeCargarStock = canRegisterStock();
-
 $pageTitle = 'Control de Stock e Inventario';
 $customCss = 'css/panelstock.css';
 $activePage = 'stock';
-
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/navbar.php';
 ?>
-
 <div style="max-width: 1200px; margin: 20px auto 10px; padding: 0 15px;">
     <header class="stock-page-header">
         <div>
@@ -31,7 +25,6 @@ require_once __DIR__ . '/includes/navbar.php';
             <?php endif; ?>
         </div>
     </header>
-
     <?php if ($puedeCargarStock): ?>
     <section class="product-form stock-load-form">
         <h2>Cargar producto</h2>
@@ -39,15 +32,23 @@ require_once __DIR__ . '/includes/navbar.php';
             <div class="form-grid">
                 <div>
                     <label for="prodName">Nombre</label>
-                    <input id="prodName" required placeholder="Ej: Labial Matte">
+                    <input id="prodName" required pattern="[A-Za-z]+(?: [A-Za-z]+)*" title="Usá solo letras A-Z y espacios entre palabras." placeholder="Ej: Labial Matte">
+                </div>
+                <div>
+                    <label for="prodBrand">Marca</label>
+                    <input id="prodBrand" placeholder="Ej: Marca">
+                </div>
+                <div>
+                    <label for="prodSubName">Nombre secundario (opcional)</label>
+                    <input id="prodSubName" placeholder="Ej: Matte">
                 </div>
                 <div>
                     <label for="prodCode">Código</label>
-                    <input id="prodCode" required placeholder="Ej: LBL-001">
+                    <input id="prodCode" required inputmode="numeric" pattern="[0-9]+" title="Usá solo números del 0 al 9." placeholder="Ej: 001">
                 </div>
                 <div>
                     <label for="prodPrice">Precio</label>
-                    <input id="prodPrice" type="number" min="0" step="0.01" required placeholder="0.00">
+                    <input id="prodPrice" type="text" inputmode="decimal" pattern="[0-9]+(?:\.[0-9]{1,2})?" title="Usá números y, opcionalmente, punto con hasta dos decimales." required placeholder="0.00">
                 </div>
                 <div>
                     <label for="prodStock">Stock</label>
@@ -66,22 +67,18 @@ require_once __DIR__ . '/includes/navbar.php';
         </form>
     </section>
     <?php endif; ?>
-
     <div class="stock-entry-actions">
         <button type="button" class="stock-nav-btn" id="btn-ver-stock">📦 Ver stock por categoría</button>
         <?php if (isSuperAdmin()): ?>
         <button type="button" class="stock-nav-btn stock-nav-btn-admin" id="btn-auditoria-stock">🛡️ Auditoría de estados</button>
         <?php endif; ?>
     </div>
-
     <section id="stock-empty-state" class="stock-empty-state">
         <h2>Stock separado por categorías</h2>
         <p>Seleccioná “Ver stock por categoría” para consultar los productos.</p>
     </section>
-
     <div id="stock-workspace" hidden>
     <input type="text" id="globalSearch" class="search-box" placeholder="🔍 Buscar producto por nombre o código...">
-
     <?php if (!$soloLectura): ?>
     <div class="price-category-control">
         <label for="priceCategory">Categoría</label>
@@ -132,7 +129,6 @@ require_once __DIR__ . '/includes/navbar.php';
         <div id="priceHistory" class="price-history" hidden></div>
     </section>
     <?php endif; ?>
-
     <div class="dashboard">
         <div class="sidebar">
             <h3>Categorías</h3>
@@ -147,7 +143,6 @@ require_once __DIR__ . '/includes/navbar.php';
             <input type="text" id="newCatName" placeholder="Ej: Fragancias">
             <button class="btn btn-success" type="button" onclick="addCategory()">+ Agregar</button>
             <?php endif; ?>
-            <button class="btn btn-export" type="button" onclick="exportarJSON()">⬇ Exportar JSON</button>
             <br>
             <a href="venta.php" class="ver-stock" style="display:block; width:100%; box-sizing:border-box; margin-top:8px;">← Volver a Ventas</a>
             <?php if (isSuperAdmin()): ?>
@@ -173,7 +168,6 @@ require_once __DIR__ . '/includes/navbar.php';
     </div>
     </div>
 </div>
-
 <?php if (isSuperAdmin()): ?>
 <section id="auditoria-stock" class="audit-panel" hidden>
     <div class="audit-panel-header">
@@ -186,7 +180,6 @@ require_once __DIR__ . '/includes/navbar.php';
     <div id="auditoria-stock-content" class="audit-table-wrap">Cargando historial...</div>
 </section>
 <?php endif; ?>
-
 <!-- MODAL DE CONFIRMACIÓN PARA ELIMINAR PRODUCTO -->
 <div id="modal-confirmar-eliminar" class="modal-overlay" aria-hidden="true">
     <div class="modal-box">
@@ -202,7 +195,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <div id="modal-prod-nombre" class="prod-delete-title">Nombre del Producto</div>
                 <div class="prod-delete-meta">
                     <span>Código: <strong id="modal-prod-codigo">COD-000</strong></span>
-                    <span>Categoría: <strong id="modal-prod-categoria">General</strong></span>
+                    <span>Categoría: <strong id="modal-prod-categoria"></strong></span>
                 </div>
             </div>
         </div>
@@ -212,14 +205,13 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </div>
 </div>
-
 <script>
     window.usuarioEsAdmin = <?= $soloLectura ? 'false' : 'true' ?>;
     window.usuarioPuedeRegistrarStock = <?= $puedeCargarStock ? 'true' : 'false' ?>;
     window.usuarioEsSuperAdmin = <?= isSuperAdmin() ? 'true' : 'false' ?>;
 </script>
-<script src="scrits/gestionStock/inventario.js"></script>
-<script src="scrits/gestionStock/productos.js"></script>
-<script src="scrits/gestionStock/precios.js"></script>
-<script src="scrits/gestionStock/panelGestión.js"></script>
+<script src="scrits/gestionStock/inventario.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/inventario.js') ?>"></script>
+<script src="scrits/gestionStock/productos.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/productos.js') ?>"></script>
+<script src="scrits/gestionStock/precios.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/precios.js') ?>"></script>
+<script src="scrits/gestionStock/panelGestión.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/panelGestión.js') ?>"></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

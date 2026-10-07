@@ -1,10 +1,10 @@
 # API de autenticación (`api/auth.php`)
 
-Gestiona la consulta de sesión, el inicio de sesión, el registro público de vendedores y el cierre de sesión. Las credenciales se consultan primero en MySQL y, si hace falta, en `data/users.json`.
+Gestiona la consulta de sesión, el inicio y cierre de sesión. No existe registro público: las cuentas son creadas por un administrador desde Gestión de Usuarios y el sistema genera una contraseña temporal que se muestra una sola vez.
 
 ## Acceso y formato
 
-El endpoint inicia sesión PHP al cargar `api/helpers.php`, procesa `OPTIONS` y responde JSON. No requiere sesión previa para `check`, `login` ni `register`.
+El endpoint inicia sesión PHP al cargar `api/helpers.php`, procesa `OPTIONS` y responde JSON. No requiere sesión previa para `check` ni `login`.
 
 El cuerpo de `POST` se lee como JSON; si no es JSON válido, el helper también admite datos de formulario.
 
@@ -27,9 +27,10 @@ Con sesión activa, `loggedIn` es `true` y `user` contiene el identificador, el 
 Campos requeridos: `usuario` y `password`.
 
 1. Busca el usuario en MySQL y verifica la contraseña con `password_verify()`.
-2. Si no valida en MySQL, busca en `data/users.json`. El respaldo admite hashes y, para datos heredados, contraseñas en texto plano; cuando se encuentra una contraseña plana, intenta reemplazarla por un hash.
-3. Al autenticar, crea `$_SESSION['user']`, actualiza el último acceso cuando MySQL está disponible y sincroniza `lastLogin` en el archivo JSON.
-4. Registra `login_exitoso` o `login_fallido` mediante `logActivity()`. El evento contiene IP y agente de usuario; el fallo incluye también el motivo.
+2. Al autenticar, crea `$_SESSION['user']` y actualiza el último acceso en MySQL.
+3. Registra `login_exitoso` o `login_fallido` mediante `logActivity()`. El evento contiene IP y agente de usuario; el fallo incluye también el motivo.
+
+Si ya hay una sesión activa, solo el Super Administrador puede usar esta acción para cambiar a otra cuenta. Las sesiones de vendedores y administradores reciben `403 forbidden`.
 
 Respuestas relevantes:
 
@@ -37,25 +38,18 @@ Respuestas relevantes:
 - `401 invalid_credentials`: las credenciales no coinciden.
 - `200`: autenticación exitosa y objeto `user`.
 
-### `register`
-
-`POST api/auth.php?action=register`
-
-Campos requeridos: `usuario` y `password`. El rol se fija en `vendedor`; el cliente no puede escoger un rol administrativo desde esta acción. Comprueba duplicados, intenta crear la cuenta en MySQL y guarda un respaldo en `data/users.json`. Al completar el registro, inicia sesión automáticamente y registra `registro_usuario`.
-
-- `400 missing_fields`: faltan campos.
-- `409 user_exists`: el nombre ya está registrado.
-- `200`: usuario registrado y sesión iniciada.
+El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria, guarda únicamente su hash y devuelve `temporary_password` solo después de confirmar la creación. La contraseña no se vuelve a consultar desde la API.
 
 ### `logout`
 
 `GET` o `POST api/auth.php?action=logout`
 
-Registra `logout` si corresponde, limpia la sesión PHP, invalida la cookie de sesión y la destruye. Devuelve `ok: true` al finalizar.
+Cualquier usuario autenticado puede cerrar su propia sesión. La acción registra `logout`, marca la sesión como finalizada, limpia la sesión PHP, invalida la cookie y la destruye. Desde las 22:30 de Argentina, si esa era la última sesión activa del día, el sistema copia las ventas de la jornada a `ventas_historial`, luego borra las filas archivadas de `ventas` en lotes transaccionales de hasta 200 y poda semanas fuera del límite de cuatro. Si el cierre falla, la sesión se cierra igualmente y se informa el error. El cambio de usuario sigue siendo una opción exclusiva del Super Administrador en la interfaz.
 
 ## Errores
 
 - `400 invalid_action`: acción no reconocida.
-- El endpoint no convierte el cierre de sesión en un error si no había usuario activo.
+- El cierre de sesión por API requiere una sesión activa.
+- `500 day_close_failed`: la sesión se cerró, pero falló el archivado de jornada.
 
 Relacionado: [helpers.md](./helpers.md), [actividades.md](./actividades.md).

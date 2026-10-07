@@ -5,9 +5,8 @@ require_once __DIR__ . '/helpers.php';
 
 handleOptions();
 
-$file = dataPath('users.json');
 $method = requestMethod();
-$db = getDBConnection();
+$db = requireApiDatabase();
 $currentUser = getApiUser();
 
 // Administradores y Super Administradores pueden gestionar cuentas.
@@ -31,10 +30,29 @@ function roleHasOccupant(PDO $db, string $role, int $exceptUserId = 0): bool
     return (bool)$stmt->fetchColumn();
 }
 
+function isSuperAdminRole(string $role): bool
+{
+    return in_array(strtolower(trim($role)), ['superadmin', 'super administrador', 'super_admin', 'super-admin'], true);
+}
+
+function canManageUserTarget(array $target, ?array $currentUser): bool
+{
+    if (isSuperAdminApi()) {
+        return true;
+    }
+
+    if (isSuperAdminRole((string)$target['rol'])) {
+        return false;
+    }
+
+    return (int)$target['id_usuario'] === (int)($currentUser['id'] ?? 0)
+        || strtolower(trim((string)$target['rol'])) === 'vendedor';
+}
+
 // GET: Listar usuarios con métricas de ventas, logins e interacciones
 if ($method === 'GET') {
     $action = $_GET['action'] ?? 'list';
-    
+
     // Si se solicita el detalle de interacción y logins de un usuario específico
     if ($action === 'detail') {
         requireSuperAdminApi();
@@ -57,13 +75,18 @@ if ($method === 'GET') {
             $vStmt = $db->prepare("
                 SELECT 
                     f.`ID_factura`,
+                    f.`ID_stock`,
                     f.`fecha`,
                     f.`cantidadVendida`,
                     f.`precioFinal`,
                     f.`ganancia`,
-                    COALESCE(p.`nombre`, 'Producto') AS nombre_producto,
+                    COALESCE(NULLIF(f.`nombre_producto`, ''), p.`nombre`, 'Nombre no disponible') AS nombre_producto,
                     COALESCE(p.`codigo`, '---') AS codigo_producto
-                FROM `facturacion` f
+                FROM (
+                    SELECT `ID_factura`, `ID_stock`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `nombre_producto`, `usuario` FROM `ventas`
+                    UNION ALL
+                    SELECT `ID_factura`, `ID_stock`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `nombre_producto`, `usuario` FROM `ventas_historial`
+                ) f
                 LEFT JOIN `producto` p ON f.`ID_stock` = p.`ID_stock`
                 WHERE LOWER(f.`usuario`) = LOWER(:nombre)
                 ORDER BY f.`ID_factura` DESC
@@ -157,7 +180,10 @@ if ($method === 'GET') {
 
     // Listado general de usuarios (con métricas de ventas, logins e interacciones)
     try {
-        $stmt = $db->query("
+        $userVisibility = isSuperAdminApi()
+            ? ''
+            : 'WHERE LOWER(TRIM(u.`rol`)) = \'vendedor\' OR u.`id_usuario` = :current_user_id';
+        $stmt = $db->prepare("
             SELECT 
                 u.`id_usuario`,
                 u.`nombre` AS usuario,
@@ -169,10 +195,19 @@ if ($method === 'GET') {
                 (SELECT COUNT(*) FROM `actividad_usuario` a WHERE LOWER(a.`usuario`) = LOWER(u.`nombre`)) AS total_actividades,
                 (SELECT COUNT(*) FROM `actividad_usuario` a WHERE LOWER(a.`usuario`) = LOWER(u.`nombre`) AND a.`tipo_accion` LIKE 'login%') AS total_logins
             FROM `usuario` u
-            LEFT JOIN `facturacion` f ON LOWER(f.`usuario`) = LOWER(u.`nombre`)
+            LEFT JOIN (
+                SELECT `ID_factura`, `usuario`, `ganancia` FROM `ventas`
+                UNION ALL
+                SELECT `ID_factura`, `usuario`, `ganancia` FROM `ventas_historial`
+            ) f ON LOWER(f.`usuario`) = LOWER(u.`nombre`)
+            {$userVisibility}
             GROUP BY u.`id_usuario`, u.`nombre`, u.`rol`, u.`ultimo_acceso`, u.`fecha_creacion`
             ORDER BY u.`id_usuario` ASC
         ");
+        if (!isSuperAdminApi()) {
+            $stmt->bindValue(':current_user_id', (int)($currentUser['id'] ?? 0), PDO::PARAM_INT);
+        }
+        $stmt->execute();
         $usersDb = $stmt->fetchAll();
 
         $result = [];
@@ -196,26 +231,8 @@ if ($method === 'GET') {
 
         sendJson($result);
     } catch (Exception $e) {
-        // Fallback a JSON
-        $users = readJsonFile($file);
-        $includeLoginMetrics = isSuperAdminApi();
-        $safeUsers = array_map(function ($u) use ($includeLoginMetrics) {
-            $user = [
-                'id'                => $u['id'] ?? 1,
-                'usuario'           => $u['usuario'] ?? '',
-                'role'              => $u['role'] ?? 'vendedor',
-                'fecha_creacion'    => $u['createdAt'] ?? null,
-                'total_ventas'      => 0,
-                'total_facturado'   => 0,
-                'total_actividades' => 0
-            ];
-            if ($includeLoginMetrics) {
-                $user['ultimo_acceso'] = $u['lastLogin'] ?? null;
-                $user['total_logins'] = 0;
-            }
-            return $user;
-        }, $users);
-        sendJson($safeUsers);
+        error_log('Error al consultar usuarios: ' . $e->getMessage());
+        sendJson(['ok' => false, 'error' => 'query_error', 'message' => 'No se pudieron consultar los usuarios.'], 500);
     }
 }
 
@@ -223,18 +240,20 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     $body = getJsonBody();
     $usuario = trim((string) ($body['usuario'] ?? ''));
-    $password = (string) ($body['password'] ?? '');
     $role = trim((string) ($body['role'] ?? 'vendedor'));
 
-    if ($usuario === '' || $password === '') {
-        sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Completá todos los campos.'], 400);
+    if ($usuario === '') {
+        sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Ingresá el nombre de usuario.'], 400);
     }
 
     $validRoles = ['superadmin', 'administrador', 'vendedor'];
     if (!in_array(strtolower($role), $validRoles, true)) {
-        $role = 'vendedor';
-    } else {
-        $role = strtolower($role);
+        sendJson(['ok' => false, 'error' => 'invalid_role', 'message' => 'El rol seleccionado no es válido.'], 400);
+    }
+    $role = strtolower($role);
+
+    if ($role === 'superadmin' && !isSuperAdminApi()) {
+        sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo el Super Administrador puede asignar ese rol.'], 403);
     }
 
     try {
@@ -250,50 +269,56 @@ if ($method === 'POST') {
             sendJson(['ok' => false, 'error' => 'role_limit_reached', 'message' => "Ya existe una cuenta con el rol {$roleLabel}. No se puede asignar a otro usuario."], 409);
         }
 
+        $temporaryPassword = strtoupper(bin2hex(random_bytes(12)));
+        $db->beginTransaction();
         $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
         $insertStmt->execute([
             ':nombre' => $usuario,
-            ':pass'   => password_hash($password, PASSWORD_DEFAULT),
+            ':pass'   => password_hash($temporaryPassword, PASSWORD_DEFAULT),
             ':rol'    => $role
         ]);
         $newUserId = (int)$db->lastInsertId();
 
-        // Sincronizar archivo JSON como respaldo
-        $users = readJsonFile($file);
-        $users[] = [
-            'id'        => $newUserId,
-            'usuario'   => $usuario,
-            'password'  => password_hash($password, PASSWORD_DEFAULT),
-            'role'      => $role,
-            'createdAt' => date('c'),
-            'lastLogin' => null
-        ];
-        writeJsonFile($file, $users);
-
-        $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
-        logActivity(
-            $superAdminName,
-            'usuario_creado',
-            "Usuario '{$usuario}' creado exitosamente con rol '{$role}' por el Super Admin {$superAdminName}",
-            ['usuario' => $usuario, 'rol' => $role, 'creado_por' => $superAdminName],
-            $newUserId
-        );
+        $creatorName = (string)($currentUser['usuario'] ?? 'Administrador');
+        $activityStmt = $db->prepare("
+            INSERT INTO `actividad_usuario` (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
+            VALUES (:id_usuario, :usuario, 'usuario_creado', :descripcion, :detalles, NOW())
+        ");
+        $activityStmt->execute([
+            ':id_usuario' => (int)($currentUser['id'] ?? 0) ?: null,
+            ':usuario' => $creatorName,
+            ':descripcion' => "Usuario '{$usuario}' creado con rol '{$role}'.",
+            ':detalles' => json_encode(['usuario' => $usuario, 'rol' => $role, 'creado_por' => $creatorName], JSON_UNESCAPED_UNICODE)
+        ]);
+        $db->commit();
 
         sendJson([
             'ok'      => true,
-            'message' => "Usuario '{$usuario}' registrado con éxito con rol '{$role}'.",
+            'message' => "Usuario '{$usuario}' creado con rol '{$role}'.",
             'user'    => [
                 'id'      => $newUserId,
                 'usuario' => $usuario,
-                'role'    => $role
-            ]
+                'role'    => $role,
+            ],
+            'temporary_password' => $temporaryPassword
         ]);
     } catch (PDOException $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         if ($e->getCode() === '23000') {
+            $duplicateUser = $db->prepare("SELECT 1 FROM `usuario` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+            $duplicateUser->execute([':nombre' => $usuario]);
+            if ($duplicateUser->fetchColumn()) {
+                sendJson(['ok' => false, 'error' => 'user_exists', 'message' => 'Ese nombre de usuario ya está registrado.'], 409);
+            }
             sendJson(['ok' => false, 'error' => 'role_limit_reached', 'message' => 'Ese rol administrativo ya está asignado a otra cuenta.'], 409);
         }
         sendJson(['ok' => false, 'error' => 'save_error', 'message' => 'Error al guardar usuario: ' . $e->getMessage()], 500);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         sendJson(['ok' => false, 'error' => 'save_error', 'message' => 'Error al guardar usuario: ' . $e->getMessage()], 500);
     }
 }
@@ -320,6 +345,10 @@ if ($method === 'PUT') {
         $target = $findStmt->fetch();
 
         if (!$target) {
+            sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'Usuario no encontrado.'], 404);
+        }
+
+        if (!canManageUserTarget($target, $currentUser)) {
             sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'Usuario no encontrado.'], 404);
         }
 
@@ -373,6 +402,9 @@ if ($method === 'PUT') {
             } else {
                 $roleClean = 'vendedor';
             }
+            if ($roleClean === 'superadmin' && !isSuperAdminApi()) {
+                sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo el Super Administrador puede asignar ese rol.'], 403);
+            }
             $updates[] = "`rol` = :rol";
             $params[':rol'] = $roleClean;
             $newRole = $roleClean;
@@ -396,22 +428,6 @@ if ($method === 'PUT') {
         $sql = "UPDATE `usuario` SET " . implode(', ', $updates) . " WHERE `id_usuario` = :id";
         $updStmt = $db->prepare($sql);
         $updStmt->execute($params);
-
-        // Sincronizar en JSON
-        $users = readJsonFile($file);
-        foreach ($users as &$u) {
-            if ((isset($u['id']) && (int)$u['id'] === $targetId) || strcasecmp((string)($u['usuario'] ?? ''), $targetName) === 0) {
-                $u['usuario'] = $nombreFinal;
-                if ($newRole !== null) {
-                    $u['role'] = $newRole;
-                }
-                if ($newPassword !== null) {
-                    $u['password'] = password_hash($newPassword, PASSWORD_DEFAULT);
-                }
-            }
-        }
-        unset($u);
-        writeJsonFile($file, $users);
 
         if ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
             logActivity(
@@ -470,11 +486,15 @@ if ($method === 'DELETE') {
     }
 
     try {
-        $findStmt = $db->prepare("SELECT `nombre`, `rol` FROM `usuario` WHERE `id_usuario` = :id LIMIT 1");
+        $findStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol` FROM `usuario` WHERE `id_usuario` = :id LIMIT 1");
         $findStmt->execute([':id' => $idInt]);
         $target = $findStmt->fetch();
 
         if (!$target) {
+            sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'Usuario no encontrado.'], 404);
+        }
+
+        if (!canManageUserTarget($target, $currentUser)) {
             sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'Usuario no encontrado.'], 404);
         }
 
@@ -483,15 +503,6 @@ if ($method === 'DELETE') {
         // Eliminar en MySQL
         $delStmt = $db->prepare("DELETE FROM `usuario` WHERE `id_usuario` = :id");
         $delStmt->execute([':id' => $idInt]);
-
-        // Sincronizar en users.json
-        $users = readJsonFile($file);
-        $users = array_values(array_filter($users, function ($u) use ($idInt, $targetName) {
-            $matchId = isset($u['id']) && (int)$u['id'] === $idInt;
-            $matchName = strcasecmp((string)($u['usuario'] ?? ''), $targetName) === 0;
-            return !$matchId && !$matchName;
-        }));
-        writeJsonFile($file, $users);
 
         $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
         logActivity(

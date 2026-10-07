@@ -54,7 +54,7 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                 <span class="user-name"><?= htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="user-role <?= $roleClass ?>" style="<?= isSuperAdmin() ? 'background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-weight: 700;' : '' ?>"><?= htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
-            <a href="logout.php" class="btn-logout" title="Cerrar sesión segura de PHP">
+            <a href="logout.php" class="btn-logout" title="Cerrar sesión">
                 🚪 Salir
             </a>
         <?php else: ?>

@@ -204,7 +204,7 @@ formulario.addEventListener('submit', (e) => {
             codigo: item.codigo,
             cantidad,
             precio,
-            categoria: item.categoria || 'Sin categoría'
+            categoria: item.categoria
         });
     }
 
@@ -216,7 +216,7 @@ formulario.addEventListener('submit', (e) => {
     inputNombre.focus();
 });
 
-// 2. EVENTO: Registrar Venta en la Base de Datos MySQL (tabla `facturacion` y actualización en `producto`)
+// 2. EVENTO: Registrar Venta en MySQL (tabla `ventas` y actualización en `producto`)
 btnRegistrar.addEventListener('click', async () => {
     if (productosCargados.length === 0) {
         mostrarMensaje('❌ Agregá al menos un producto antes de registrar la venta.', 'error');

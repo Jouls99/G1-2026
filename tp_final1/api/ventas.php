@@ -5,19 +5,106 @@ require_once __DIR__ . '/helpers.php';
 
 handleOptions();
 
-$ventasFile = dataPath('ventas.json');
-$inventarioFile = dataPath('inventario.json');
 $method = requestMethod();
-$db = getDBConnection();
+$db = requireApiDatabase();
 
 requireApiAuth();
 
-// GET: Listar ventas desde la base de datos MySQL (tabla `facturacion` y `producto`) o fallback a ventas.json
+// GET: Listar ventas activas o consultar el historial semanal/de una fecha exacta.
 if ($method === 'GET') {
     $ventas = [];
-    if ($db !== null) {
-        try {
-            $stmt = $db->query("
+    try {
+        $historyDate = isset($_GET['fecha']) ? trim((string)$_GET['fecha']) : null;
+        $historyWeek = isset($_GET['semana']) ? trim((string)$_GET['semana']) : null;
+        $historyMode = $historyDate !== null || $historyWeek !== null;
+        $queryParams = [];
+        $sourceQuery = '';
+
+        if ($historyMode) {
+            if (!isAdminApi()) {
+                sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo la administradora puede consultar el historial semanal.'], 403);
+            }
+            if ($historyDate !== null && $historyWeek !== null) {
+                sendJson(['ok' => false, 'error' => 'invalid_filter', 'message' => 'Elegí una fecha exacta o una semana, no ambas.'], 400);
+            }
+
+            $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
+            $today = new DateTimeImmutable('today', $timezone);
+            $currentWeek = $today->modify('monday this week');
+            $oldestWeek = $currentWeek->modify('-3 weeks');
+            $selectedDate = null;
+
+            if ($historyDate !== null) {
+                $parsedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $historyDate, $timezone);
+                if (!$parsedDate || $parsedDate->format('Y-m-d') !== $historyDate) {
+                    sendJson(['ok' => false, 'error' => 'invalid_date', 'message' => 'La fecha debe tener el formato AAAA-MM-DD.'], 400);
+                }
+                $selectedDate = $parsedDate;
+                $selectedWeek = $parsedDate->modify('monday this week');
+            } else {
+                $parsedWeek = DateTimeImmutable::createFromFormat('!Y-m-d', (string)$historyWeek, $timezone);
+                if (!$parsedWeek || $parsedWeek->format('Y-m-d') !== $historyWeek || $parsedWeek->format('N') !== '1') {
+                    sendJson(['ok' => false, 'error' => 'invalid_week', 'message' => 'La semana debe indicarse con la fecha de su lunes (AAAA-MM-DD).'], 400);
+                }
+                $selectedWeek = $parsedWeek;
+            }
+
+            if ($selectedWeek < $oldestWeek || $selectedWeek > $currentWeek
+                || ($selectedDate !== null && $selectedDate > $today)) {
+                sendJson(['ok' => false, 'error' => 'outside_retention', 'message' => 'La fecha o semana solicitada está fuera de las últimas cuatro semanas disponibles.'], 400);
+            }
+
+            $rangeStart = $selectedDate ?? $selectedWeek;
+            $rangeEnd = $selectedDate
+                ? $selectedDate->modify('+1 day')
+                : $selectedWeek->modify('+1 week');
+            $startSql = $rangeStart->format('Y-m-d 00:00:00');
+            $endSql = $rangeEnd->format('Y-m-d 00:00:00');
+            $historyFilter = $selectedDate !== null
+                ? '`fecha` >= :history_start AND `fecha` < :history_end'
+                : '`semana_inicio` = :history_week';
+            $sourceQuery = "
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 0 AS archivada
+                FROM `ventas`
+                WHERE `fecha` >= :live_start AND `fecha` < :live_end
+                UNION ALL
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 1 AS archivada
+                FROM `ventas_historial`
+                WHERE {$historyFilter}
+            ";
+            $queryParams = [
+                ':live_start' => $startSql,
+                ':live_end' => $endSql
+            ];
+            if ($selectedDate !== null) {
+                $queryParams[':history_start'] = $startSql;
+                $queryParams[':history_end'] = $endSql;
+            } else {
+                $queryParams[':history_week'] = $selectedWeek->format('Y-m-d');
+            }
+        } else {
+            $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
+            $today = new DateTimeImmutable('today', $timezone);
+            $retentionStart = $today->modify('monday this week')->modify('-3 weeks')->format('Y-m-d 00:00:00');
+            $tomorrow = $today->modify('+1 day')->format('Y-m-d 00:00:00');
+            $sourceQuery = "
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 0 AS archivada
+                FROM `ventas`
+                WHERE `fecha` >= :live_start AND `fecha` < :live_end
+                UNION ALL
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 1 AS archivada
+                FROM `ventas_historial`
+                WHERE `fecha` >= :history_start AND `fecha` < :history_end
+            ";
+            $queryParams = [
+                ':live_start' => $retentionStart,
+                ':live_end' => $tomorrow,
+                ':history_start' => $retentionStart,
+                ':history_end' => $tomorrow
+            ];
+        }
+
+        $stmt = $db->prepare("
                 SELECT 
                     f.ID_factura,
                     f.fecha,
@@ -26,54 +113,62 @@ if ($method === 'GET') {
                     CAST(f.ganancia AS DECIMAL(10,2)) AS ganancia,
                     f.ID_stock,
                     COALESCE(f.usuario, 'gomez11') AS usuario,
-                    COALESCE(p.nombre, 'Producto') AS nombre_producto,
+                    COALESCE(NULLIF(f.nombre_producto, ''), p.nombre, 'Nombre no disponible') AS nombre_producto,
                     COALESCE(p.codigo, CONCAT('COD-', f.ID_stock)) AS codigo_producto,
-                    COALESCE(c.nombre, 'General') AS categoria
-                FROM `facturacion` f
-                LEFT JOIN `producto` p ON f.ID_stock = p.ID_stock
-                LEFT JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
-                ORDER BY f.ID_factura DESC
+                    p.marca,
+                    p.sub_nombre,
+                    COALESCE(sc.nombre, p.subcategoria) AS subcategoria,
+                    CASE
+                        WHEN c.nombre IS NULL OR LOWER(TRIM(c.nombre)) IN ('general', 'sin categoría', 'sin categoria') THEN NULL
+                        ELSE c.nombre
+                    END AS categoria,
+                    f.archivada
+                FROM ({$sourceQuery}) f
+                LEFT JOIN `producto` p ON f.`ID_stock` = p.`ID_stock`
+                LEFT JOIN `categoria` c ON p.`ID_categoria` = c.`ID_categoria`
+                LEFT JOIN `sub_categoria` sc ON p.`ID_sub_categoria` = sc.`ID_sub_categoria`
+                ORDER BY f.fecha DESC, f.ID_factura DESC
             ");
-            $rows = $stmt->fetchAll();
+        $stmt->execute($queryParams);
+        $rows = $stmt->fetchAll();
 
-            foreach ($rows as $row) {
-                $ventas[] = [
-                    'id'        => (string)$row['ID_factura'],
-                    'ID_factura'=> (int)$row['ID_factura'],
-                    'usuario'   => (string)$row['usuario'],
-                    'fecha'     => $row['fecha'] ? date('c', strtotime((string)$row['fecha'])) : date('c'),
-                    'total'     => (float)$row['ganancia'],
-                    'dinero'    => (float)$row['ganancia'],
-                    'productos' => [
-                        [
-                            'id'        => (int)$row['ID_stock'],
-                            'ID_stock'  => (int)$row['ID_stock'],
-                            'nombre'    => (string)$row['nombre_producto'],
-                            'codigo'    => (string)$row['codigo_producto'],
-                            'cantidad'  => (int)$row['cantidadVendida'],
-                            'precio'    => (float)$row['precioFinal'],
-                            'categoria' => (string)$row['categoria']
-                        ]
+        foreach ($rows as $row) {
+            $ventas[] = [
+                'id'        => (string)$row['ID_factura'],
+                'ID_factura'=> (int)$row['ID_factura'],
+                'usuario'   => (string)$row['usuario'],
+                'fecha'     => $row['fecha']
+                    ? (new DateTimeImmutable((string)$row['fecha'], new DateTimeZone('America/Argentina/Buenos_Aires')))->format('c')
+                    : (new DateTimeImmutable('now', new DateTimeZone('America/Argentina/Buenos_Aires')))->format('c'),
+                'total'     => (float)$row['ganancia'],
+                'dinero'    => (float)$row['ganancia'],
+                'archivada' => (bool)$row['archivada'],
+                'semana_inicio' => (new DateTimeImmutable((string)$row['fecha'], new DateTimeZone('America/Argentina/Buenos_Aires')))->modify('monday this week')->format('Y-m-d'),
+                'productos' => [
+                    [
+                        'id'        => (int)$row['ID_stock'],
+                        'ID_stock'  => (int)$row['ID_stock'],
+                        'nombre'    => (string)$row['nombre_producto'],
+                        'codigo'    => (string)$row['codigo_producto'],
+                        'sub_nombre' => $row['sub_nombre'] !== null ? (string)$row['sub_nombre'] : null,
+                        'subcategoria' => $row['subcategoria'] !== null ? (string)$row['subcategoria'] : null,
+                        'categoria' => (string)$row['categoria'],
+                        'marca' => $row['marca'] !== null ? (string)$row['marca'] : null,
+                        'cantidad'  => (int)$row['cantidadVendida'],
+                        'precio'    => (float)$row['precioFinal']
                     ]
-                ];
-            }
-        } catch (Exception $e) {
-            $ventas = [];
+                ]
+            ];
         }
-    }
-
-    // Si no hay ventas en DB pero sí en ventas.json, devolver las del JSON
-    if (empty($ventas) && file_exists($ventasFile)) {
-        $jsonVentas = readJsonFile($ventasFile);
-        if (!empty($jsonVentas)) {
-            sendJson($jsonVentas);
-        }
+    } catch (Exception $e) {
+        error_log('Error al consultar ventas: ' . $e->getMessage());
+        sendJson(['ok' => false, 'message' => 'No se pudieron cargar las ventas.'], 500);
     }
 
     sendJson($ventas);
 }
 
-// POST: Registrar una nueva venta (descuenta stock en MySQL y en inventario.json, registra factura y venta)
+// POST: Registrar una nueva venta y actualizar el stock en una transacción MySQL.
 if ($method === 'POST') {
     $payload = getJsonBody();
 
@@ -105,39 +200,39 @@ if ($method === 'POST') {
     $usuarioVendedor = $_SESSION['user']['usuario'] ?? 'gomez11';
     $userIdVendedor = $_SESSION['user']['id'] ?? null;
 
-    $fechaSql = date('Y-m-d H:i:s');
-    if (!empty($payload['fecha'])) {
-        $ts = strtotime((string)$payload['fecha']);
-        if ($ts !== false) {
-            $fechaSql = date('Y-m-d H:i:s', $ts);
+    $businessTimezone = new DateTimeZone('America/Argentina/Buenos_Aires');
+    $saleDate = new DateTimeImmutable('now', $businessTimezone);
+    foreach (['fecha', 'fecha_hora'] as $dateField) {
+        if (!empty($payload[$dateField])) {
+            try {
+                $saleDate = new DateTimeImmutable((string)$payload[$dateField], $businessTimezone);
+            } catch (Throwable $e) {
+                sendJson(['ok' => false, 'error' => 'invalid_date', 'message' => 'La fecha de venta no es válida.'], 400);
+            }
         }
     }
-    if (!empty($payload['fecha_hora'])) {
-        $ts = strtotime((string)$payload['fecha_hora']);
-        if ($ts !== false) {
-            $fechaSql = date('Y-m-d H:i:s', $ts);
-        }
-    }
+    $fechaSql = $saleDate->format('Y-m-d H:i:s');
 
     $totalCalculado = 0;
     $productosVenta = [];
     $facturasIds = [];
 
-    // 1. Descontar stock y registrar facturación en MySQL
-    if ($db !== null) {
-        try {
-            $db->beginTransaction();
+    try {
+        $db->beginTransaction();
 
             $stmtFindProd = $db->prepare("
-                SELECT `ID_stock`, `cantTotal`, `cantVendida`, `precio`, `nombre`, `ID_categoria`
-                FROM `producto`
-                WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id
+                SELECT p.`ID_stock`, p.`cantTotal`, p.`cantVendida`, p.`precio`, p.`nombre`,
+                       p.`ID_categoria`, c.`nombre` AS `categoria`
+                FROM `producto` p
+                INNER JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
+                WHERE (LOWER(p.`codigo`) = LOWER(:codigo) OR p.`ID_stock` = :id)
+                  AND LOWER(TRIM(c.`nombre`)) NOT IN ('general', 'sin categoría', 'sin categoria')
                 LIMIT 1
             ");
 
             $stmtInsertFactura = $db->prepare("
-                INSERT INTO `facturacion` (`fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `usuario`)
-                VALUES (:fecha, :cantidad, :precio, :id_stock, :usuario)
+                INSERT INTO `ventas` (`fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`)
+                VALUES (:fecha, :cantidad, :precio, :id_stock, :nombre_producto, :usuario)
             ");
 
             $stmtUpdateProd = $db->prepare("
@@ -156,9 +251,6 @@ if ($method === 'POST') {
                 $idProd = (int)($prod['ID_stock'] ?? ($prod['id'] ?? 0));
                 $cantidad = (int)($prod['cantidad'] ?? 1);
                 $precio = (float)($prod['precio'] ?? 0);
-                $nombre = trim((string)($prod['nombre'] ?? 'Producto'));
-                $categoria = trim((string)($prod['categoria'] ?? 'General'));
-
                 // Buscar en DB
                 $stmtFindProd->execute([
                     ':codigo' => $codigo,
@@ -166,20 +258,12 @@ if ($method === 'POST') {
                 ]);
                 $dbProd = $stmtFindProd->fetch();
 
-                if (!$dbProd) {
-                    $stmtNewProd = $db->prepare("
-                        INSERT INTO `producto` (`nombre`, `codigo`, `cantTotal`, `cantVendida`, `precio`)
-                        VALUES (:nombre, :codigo, 0, 0, :precio)
-                    ");
-                    $stmtNewProd->execute([
-                        ':nombre' => $nombre,
-                        ':codigo' => $codigo,
-                        ':precio' => $precio
-                    ]);
-                    $idStock = (int)$db->lastInsertId();
-                } else {
-                    $idStock = (int)$dbProd['ID_stock'];
+                if (!$dbProd || empty($dbProd['ID_categoria'])) {
+                    $db->rollBack();
+                    sendJson(['error' => 'product_category_required', 'message' => 'El producto no existe o no tiene una categoría asignada.'], 409);
                 }
+                $idStock = (int)$dbProd['ID_stock'];
+                $categoria = (string)$dbProd['categoria'];
 
                 // Insertar factura
                 $stmtInsertFactura->execute([
@@ -187,6 +271,7 @@ if ($method === 'POST') {
                     ':cantidad' => $cantidad,
                     ':precio'   => $precio,
                     ':id_stock' => $idStock,
+                    ':nombre_producto' => (string)$dbProd['nombre'],
                     ':usuario'  => $usuarioVendedor
                 ]);
                 $facturaId = (int)$db->lastInsertId();
@@ -205,7 +290,7 @@ if ($method === 'POST') {
                 $productosVenta[] = [
                     'id'        => $idStock,
                     'ID_stock'  => $idStock,
-                    'nombre'    => $nombre,
+                    'nombre'    => (string)$dbProd['nombre'],
                     'codigo'    => $codigo,
                     'cantidad'  => $cantidad,
                     'precio'    => $precio,
@@ -213,77 +298,20 @@ if ($method === 'POST') {
                 ];
             }
 
-            $db->commit();
-        } catch (Exception $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
+        if ($productosVenta === []) {
+            $db->rollBack();
+            sendJson(['error' => 'invalid_payload', 'message' => 'La venta no contiene productos válidos con código.'], 400);
         }
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('Error al registrar venta: ' . $e->getMessage());
+        sendJson(['ok' => false, 'error' => 'save_error', 'message' => 'No se pudo registrar la venta en la base de datos.'], 500);
     }
 
-    // 2. Si MySQL no estaba disponible o no se procesaron productos
-    if (empty($productosVenta)) {
-        foreach ($payload['productos'] as $prod) {
-            $cantidad = (int)($prod['cantidad'] ?? 1);
-            $precio = (float)($prod['precio'] ?? 0);
-            $totalCalculado += $precio * $cantidad;
-            $productosVenta[] = [
-                'id'        => $prod['id'] ?? time(),
-                'ID_stock'  => $prod['ID_stock'] ?? ($prod['id'] ?? time()),
-                'nombre'    => (string)($prod['nombre'] ?? 'Producto'),
-                'codigo'    => (string)($prod['codigo'] ?? ''),
-                'cantidad'  => $cantidad,
-                'precio'    => $precio,
-                'categoria' => (string)($prod['categoria'] ?? 'General')
-            ];
-        }
-    }
-
-    // 3. Descontar stock e incrementar cantVendida en inventario.json
-    $inventario = readJsonFile($inventarioFile);
-    foreach ($productosVenta as $p) {
-        $pCod = trim((string)($p['codigo'] ?? ''));
-        $pId = (int)($p['ID_stock'] ?? ($p['id'] ?? 0));
-        $pCant = (int)($p['cantidad'] ?? 1);
-
-        $encontrado = false;
-        foreach ($inventario as &$item) {
-            $matchCode = $pCod !== '' && strcasecmp(trim((string)($item['codigo'] ?? '')), $pCod) === 0;
-            $matchId = $pId > 0 && ((int)($item['ID_stock'] ?? ($item['id'] ?? 0)) === $pId);
-
-            if ($matchCode || $matchId) {
-                $stockActual = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
-                $nuevoStock = max(0, $stockActual - $pCant);
-                $item['cantidad'] = $nuevoStock;
-                if (isset($item['stock'])) {
-                    $item['stock'] = $nuevoStock;
-                }
-                $item['cantVendida'] = ((int)($item['cantVendida'] ?? 0)) + $pCant;
-                $item['total'] = round($nuevoStock * ((float)($item['precio'] ?? 0)), 2);
-                $encontrado = true;
-                break;
-            }
-        }
-
-        // Si el producto no estaba en inventario.json, agregarlo
-        if (!$encontrado && $pCod !== '') {
-            $inventario[] = [
-                'id'          => $pId ?: time(),
-                'ID_stock'    => $pId ?: time(),
-                'nombre'      => $p['nombre'],
-                'codigo'      => $pCod,
-                'cantidad'    => 0,
-                'cantVendida' => $pCant,
-                'precio'      => (float)($p['precio'] ?? 0),
-                'total'       => 0,
-                'categoria'   => $p['categoria'] ?? 'General',
-                'subcategoria'=> null
-            ];
-        }
-    }
-    writeJsonFile($inventarioFile, $inventario);
-
-    // 4. Guardar venta en ventas.json
+    // Preparar respuesta desde los registros persistidos en ventas.
     $totalVenta = (float)($payload['total'] ?? $totalCalculado);
     $ventaResult = [
         'id'          => (string)($facturasIds[0] ?? (string)time()),
@@ -292,14 +320,10 @@ if ($method === 'POST') {
         'productos'   => $productosVenta,
         'total'       => $totalVenta,
         'dinero'      => (float)($payload['dinero'] ?? $totalVenta),
-        'fecha'       => date('c')
+        'fecha'       => $saleDate->format('c')
     ];
 
-    $ventas = readJsonFile($ventasFile);
-    $ventas[] = $ventaResult;
-    writeJsonFile($ventasFile, $ventas);
-
-    // 5. Registrar actividad
+    // Registrar actividad
     $cantArticulos = array_sum(array_column($productosVenta, 'cantidad'));
     logActivity(
         $usuarioVendedor,
@@ -334,24 +358,12 @@ if ($method === 'PUT') {
         sendJson(['error' => 'invalid_payload', 'message' => 'El cuerpo de la solicitud es inválido.'], 400);
     }
 
-    // Si es un array de ventas (backup o guardado masivo por Admin)
-    if (isset($payload[0]) || empty($payload)) {
-        if (!isAdminApi()) {
-            sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo los administradores pueden realizar actualizaciones masivas.'], 403);
-        }
-        writeJsonFile($ventasFile, $payload);
-
-        $currentUser = getApiUser();
-        $uName = $currentUser['usuario'] ?? 'Administrador';
-        logActivity(
-            $uName,
-            'ventas_actualizadas',
-            "Historial de ventas actualizado en el sistema por {$uName}",
-            ['total_ventas' => count($payload)],
-            $currentUser['id'] ?? null
-        );
-
-        sendJson(['ok' => true, 'message' => 'Ventas actualizadas correctamente.', 'count' => count($payload)]);
+    if (isset($payload[0]) || $payload === []) {
+        sendJson([
+            'ok' => false,
+            'error' => 'bulk_update_not_supported',
+            'message' => 'No se permite reemplazar todo el historial. Modificá o eliminá las ventas por su ID.'
+        ], 400);
     }
 
     // Si es una sola venta
@@ -394,77 +406,51 @@ if ($method === 'PUT') {
         $deletedProdCode = $code ?? '';
         $deletedProdName = $productName;
 
-        if ($db !== null) {
-            try {
-                $db->beginTransaction();
-                $find = $db->prepare("
+        try {
+            $db->beginTransaction();
+            $find = $db->prepare("
                     SELECT f.`ID_factura`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`codigo`
-                    FROM `facturacion` f
+                    FROM `ventas` f
                     LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
                     WHERE f.`ID_factura` = :id
                     FOR UPDATE
                 ");
-                $find->execute([':id' => $invoiceId]);
-                $row = $find->fetch();
+            $find->execute([':id' => $invoiceId]);
+            $row = $find->fetch();
+            if (!$row) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta.'], 404);
+            }
 
-                if ($row) {
-                    $deletedQty = (int)$row['cantidadVendida'];
-                    $deletedProdId = (int)($row['ID_stock'] ?? 0);
-                    $deletedProdCode = (string)($row['codigo'] ?? $deletedProdCode);
-                    $deletedProdName = (string)($row['nombre'] ?? $deletedProdName);
+            $deletedQty = (int)$row['cantidadVendida'];
+            $deletedProdId = (int)($row['ID_stock'] ?? 0);
+            $deletedProdCode = (string)($row['codigo'] ?? $deletedProdCode);
+            $deletedProdName = (string)($row['nombre'] ?? $deletedProdName);
 
-                    if ($deletedProdId > 0) {
-                        $upd = $db->prepare("
+            if ($deletedProdId > 0) {
+                $upd = $db->prepare("
                             UPDATE `producto`
                             SET `cantTotal` = `cantTotal` + :cant_add,
                                 `cantVendida` = GREATEST(0, COALESCE(`cantVendida`, 0) - :cant_sub)
                             WHERE `ID_stock` = :id_stock
                         ");
-                        $upd->execute([
-                            ':cant_add' => $deletedQty,
-                            ':cant_sub' => $deletedQty,
-                            ':id_stock' => $deletedProdId
-                        ]);
-                    }
-
-                    $del = $db->prepare("DELETE FROM `facturacion` WHERE `ID_factura` = :id");
-                    $del->execute([':id' => $invoiceId]);
-                }
-                $db->commit();
-            } catch (Exception $e) {
-                if ($db->inTransaction()) $db->rollBack();
-                error_log('Error al eliminar venta 0 en DB: ' . $e->getMessage());
+                $upd->execute([
+                    ':cant_add' => $deletedQty,
+                    ':cant_sub' => $deletedQty,
+                    ':id_stock' => $deletedProdId
+                ]);
             }
-        }
 
-        // Sincronizar en inventario.json
-        $inventory = readJsonFile($inventarioFile);
-        if ($deletedQty > 0 || $deletedProdCode !== '') {
-            foreach ($inventory as &$item) {
-                $matchId = $deletedProdId > 0 && (int)($item['ID_stock'] ?? ($item['id'] ?? 0)) === $deletedProdId;
-                $matchCode = $deletedProdCode !== '' && strcasecmp((string)($item['codigo'] ?? ''), $deletedProdCode) === 0;
-                if ($matchId || $matchCode) {
-                    $prevStock = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
-                    $prevSold = (int)($item['cantVendida'] ?? 0);
-                    $qtyToRestore = $deletedQty > 0 ? $deletedQty : (int)($item['cantVendida'] ?? 0);
-                    $newStock = $prevStock + $qtyToRestore;
-                    $item['cantidad'] = $newStock;
-                    if (isset($item['stock'])) $item['stock'] = $newStock;
-                    $item['cantVendida'] = max(0, $prevSold - $qtyToRestore);
-                    $item['total'] = round($newStock * (float)($item['precio'] ?? 0), 2);
-                    break;
-                }
+            $del = $db->prepare("DELETE FROM `ventas` WHERE `ID_factura` = :id");
+            $del->execute([':id' => $invoiceId]);
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
             }
-            unset($item);
-            writeJsonFile($inventarioFile, $inventory);
+            error_log('Error al eliminar venta en base de datos: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo eliminar la venta.'], 500);
         }
-
-        // Sincronizar en ventas.json
-        $sales = readJsonFile($ventasFile);
-        $sales = array_values(array_filter($sales, function ($v) use ($invoiceId) {
-            return (int)($v['id'] ?? 0) !== $invoiceId && (int)($v['ID_factura'] ?? 0) !== $invoiceId;
-        }));
-        writeJsonFile($ventasFile, $sales);
 
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
@@ -484,30 +470,28 @@ if ($method === 'PUT') {
     $productId = 0;
     $difference = 0;
 
-    if ($db !== null) {
-        try {
-            $db->beginTransaction();
-            $find = $db->prepare("
+    try {
+        $db->beginTransaction();
+        $find = $db->prepare("
                 SELECT f.`ID_factura`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`cantTotal`, p.`cantVendida`, p.`codigo`
-                FROM `facturacion` f
+                FROM `ventas` f
                 JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
                 WHERE f.`ID_factura` = :id
                 FOR UPDATE
             ");
-            $find->execute([':id' => $invoiceId]);
-            $invoice = $find->fetch();
+        $find->execute([':id' => $invoiceId]);
+        $invoice = $find->fetch();
 
-            if (!$invoice) {
-                // Si no tiene join de producto, buscar solo facturacion
-                $findSolo = $db->prepare("SELECT * FROM `facturacion` WHERE `ID_factura` = :id FOR UPDATE");
-                $findSolo->execute([':id' => $invoiceId]);
-                $invoice = $findSolo->fetch();
-            }
+        if (!$invoice) {
+            $findSolo = $db->prepare("SELECT * FROM `ventas` WHERE `ID_factura` = :id FOR UPDATE");
+            $findSolo->execute([':id' => $invoiceId]);
+            $invoice = $findSolo->fetch();
+        }
 
-            if (!$invoice) {
-                $db->rollBack();
-                // Si no existe en DB, intentar fallback con JSON
-            } else {
+        if (!$invoice) {
+            $db->rollBack();
+            sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta.'], 404);
+        }
                 $oldQuantity = (int)$invoice['cantidadVendida'];
                 $productId = (int)($invoice['ID_stock'] ?? 0);
                 $currentStock = (int)($invoice['cantTotal'] ?? 0);
@@ -536,7 +520,7 @@ if ($method === 'PUT') {
                 }
 
                 $invoiceUpdate = $db->prepare("
-                    UPDATE `facturacion`
+                    UPDATE `ventas`
                     SET `cantidadVendida` = :quantity,
                         `precioFinal` = :precio
                     WHERE `ID_factura` = :id
@@ -547,73 +531,14 @@ if ($method === 'PUT') {
                     ':id'       => $invoiceId
                 ]);
 
-                $db->commit();
-            }
-        } catch (Exception $e) {
-            if ($db->inTransaction()) $db->rollBack();
-            error_log('Error al modificar venta en DB: ' . $e->getMessage());
-            sendJson(['ok' => false, 'message' => 'No se pudo actualizar la venta en la base de datos.'], 500);
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
         }
+        error_log('Error al modificar venta en base de datos: ' . $e->getMessage());
+        sendJson(['ok' => false, 'message' => 'No se pudo actualizar la venta en la base de datos.'], 500);
     }
-
-    // Sincronizar ventas.json
-    $sales = readJsonFile($ventasFile);
-    if ($oldQuantity === null) {
-        foreach ($sales as $sale) {
-            if ((int)($sale['id'] ?? 0) !== $invoiceId && (int)($sale['ID_factura'] ?? 0) !== $invoiceId) continue;
-            foreach ($sale['productos'] ?? [] as $prod) {
-                if ($code === '' || strcasecmp((string)($prod['codigo'] ?? ''), $code) === 0) {
-                    $oldQuantity = (int)($prod['cantidad'] ?? 0);
-                    $productId = (int)($prod['ID_stock'] ?? ($prod['id'] ?? 0));
-                    $price = $price !== null ? $price : (float)($prod['precio'] ?? 0);
-                    $code = $code ?: (string)($prod['codigo'] ?? '');
-                    $productName = (string)($prod['nombre'] ?? $productName);
-                    $difference = $newQuantity - $oldQuantity;
-                    break 2;
-                }
-            }
-        }
-    }
-
-    // Sincronizar inventario.json
-    $inventory = readJsonFile($inventarioFile);
-    foreach ($inventory as &$item) {
-        $matchId = $productId > 0 && (int)($item['ID_stock'] ?? ($item['id'] ?? 0)) === $productId;
-        $matchCode = $code !== '' && strcasecmp((string)($item['codigo'] ?? ''), (string)$code) === 0;
-        if ($matchId || $matchCode) {
-            $prevStock = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
-            $prevSold = (int)($item['cantVendida'] ?? 0);
-            $newStock = max(0, $prevStock - $difference);
-            $item['cantidad'] = $newStock;
-            if (isset($item['stock'])) $item['stock'] = $newStock;
-            $item['cantVendida'] = max(0, $prevSold + $difference);
-            $item['total'] = round($newStock * (float)($item['precio'] ?? $price), 2);
-            break;
-        }
-    }
-    unset($item);
-    writeJsonFile($inventarioFile, $inventory);
-
-    // Actualizar registro en ventas.json
-    foreach ($sales as &$sale) {
-        if ((int)($sale['id'] ?? 0) !== $invoiceId && (int)($sale['ID_factura'] ?? 0) !== $invoiceId) continue;
-        if (isset($sale['productos']) && is_array($sale['productos'])) {
-            foreach ($sale['productos'] as &$sp) {
-                if ($code === '' || strcasecmp((string)($sp['codigo'] ?? ''), (string)$code) === 0) {
-                    $sp['cantidad'] = $newQuantity;
-                    if ($price !== null) $sp['precio'] = $price;
-                }
-            }
-            unset($sp);
-        }
-        $unitPrice = $price !== null ? $price : (float)($sale['productos'][0]['precio'] ?? 0);
-        $newTotal = round($newQuantity * $unitPrice, 2);
-        $sale['total'] = $newTotal;
-        $sale['dinero'] = $newTotal;
-        break;
-    }
-    unset($sale);
-    writeJsonFile($ventasFile, $sales);
 
     $currentUser = getApiUser();
     $userName = (string)($currentUser['usuario'] ?? 'Administrador');
@@ -650,98 +575,55 @@ if ($method === 'DELETE') {
     $deletedProdCode = '';
     $deletedProdName = 'Producto';
 
-    if ($db !== null) {
-        try {
-            $db->beginTransaction();
+    try {
+        $db->beginTransaction();
 
-            $find = $db->prepare("
+        $find = $db->prepare("
                 SELECT f.`ID_factura`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`codigo`
-                FROM `facturacion` f
+                FROM `ventas` f
                 LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
                 WHERE f.`ID_factura` = :id
                 FOR UPDATE
             ");
-            $find->execute([':id' => $idInt]);
-            $row = $find->fetch();
+        $find->execute([':id' => $idInt]);
+        $row = $find->fetch();
+        if (!$row) {
+            $db->rollBack();
+            sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta.'], 404);
+        }
 
-            if ($row) {
-                $deletedQty = (int)$row['cantidadVendida'];
-                $deletedProdId = (int)($row['ID_stock'] ?? 0);
-                $deletedProdCode = (string)($row['codigo'] ?? '');
-                $deletedProdName = (string)($row['nombre'] ?? 'Producto');
+        $deletedQty = (int)$row['cantidadVendida'];
+        $deletedProdId = (int)($row['ID_stock'] ?? 0);
+        $deletedProdCode = (string)($row['codigo'] ?? '');
+        $deletedProdName = (string)($row['nombre'] ?? 'Producto');
 
-                // Restaurar stock en MySQL producto
-                if ($deletedProdId > 0) {
-                    $stmtUpd = $db->prepare("
+        // Restaurar stock en MySQL producto
+        if ($deletedProdId > 0) {
+            $stmtUpd = $db->prepare("
                         UPDATE `producto`
                         SET `cantTotal` = `cantTotal` + :cant_add,
                             `cantVendida` = GREATEST(0, COALESCE(`cantVendida`, 0) - :cant_sub)
                         WHERE `ID_stock` = :id_stock
                     ");
-                    $stmtUpd->execute([
-                        ':cant_add' => $deletedQty,
-                        ':cant_sub' => $deletedQty,
-                        ':id_stock' => $deletedProdId
-                    ]);
-                }
-
-                // Eliminar registro de facturacion
-                $stmtDel = $db->prepare("DELETE FROM `facturacion` WHERE `ID_factura` = :id");
-                $stmtDel->execute([':id' => $idInt]);
-            }
-
-            $db->commit();
-        } catch (Exception $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
-            error_log('Error al eliminar venta en DB: ' . $e->getMessage());
+            $stmtUpd->execute([
+                ':cant_add' => $deletedQty,
+                ':cant_sub' => $deletedQty,
+                ':id_stock' => $deletedProdId
+            ]);
         }
-    }
 
-    // Obtener detalles de ventas.json si no vinieron de MySQL
-    $sales = readJsonFile($ventasFile);
-    if ($deletedQty === 0) {
-        foreach ($sales as $sale) {
-            if ((string)($sale['id'] ?? '') === (string)$id || (int)($sale['ID_factura'] ?? 0) === $idInt) {
-                if (!empty($sale['productos']) && is_array($sale['productos'])) {
-                    $p0 = $sale['productos'][0];
-                    $deletedQty = (int)($p0['cantidad'] ?? 1);
-                    $deletedProdId = (int)($p0['ID_stock'] ?? ($p0['id'] ?? 0));
-                    $deletedProdCode = (string)($p0['codigo'] ?? '');
-                    $deletedProdName = (string)($p0['nombre'] ?? 'Producto');
-                }
-                break;
-            }
+        // Eliminar el registro activo de ventas.
+        $stmtDel = $db->prepare("DELETE FROM `ventas` WHERE `ID_factura` = :id");
+        $stmtDel->execute([':id' => $idInt]);
+
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
         }
+        error_log('Error al eliminar venta en base de datos: ' . $e->getMessage());
+        sendJson(['ok' => false, 'message' => 'No se pudo eliminar la venta.'], 500);
     }
-
-    // Restaurar stock en inventario.json
-    if ($deletedQty > 0 || $deletedProdCode !== '') {
-        $inventory = readJsonFile($inventarioFile);
-        foreach ($inventory as &$item) {
-            $matchId = $deletedProdId > 0 && (int)($item['ID_stock'] ?? ($item['id'] ?? 0)) === $deletedProdId;
-            $matchCode = $deletedProdCode !== '' && strcasecmp((string)($item['codigo'] ?? ''), $deletedProdCode) === 0;
-            if ($matchId || $matchCode) {
-                $prevStock = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
-                $prevSold = (int)($item['cantVendida'] ?? 0);
-                $newStock = $prevStock + $deletedQty;
-                $item['cantidad'] = $newStock;
-                if (isset($item['stock'])) $item['stock'] = $newStock;
-                $item['cantVendida'] = max(0, $prevSold - $deletedQty);
-                $item['total'] = round($newStock * (float)($item['precio'] ?? 0), 2);
-                break;
-            }
-        }
-        unset($item);
-        writeJsonFile($inventarioFile, $inventory);
-    }
-
-    // Eliminar de ventas.json
-    $sales = array_values(array_filter($sales, function ($v) use ($id, $idInt) {
-        return (string)($v['id'] ?? '') !== (string)$id && (int)($v['ID_factura'] ?? 0) !== $idInt;
-    }));
-    writeJsonFile($ventasFile, $sales);
 
     // Registrar actividad
     $currentUser = getApiUser();
@@ -756,5 +638,4 @@ if ($method === 'DELETE') {
 
     sendJson(['ok' => true, 'message' => 'Venta eliminada correctamente y stock devuelto al inventario.']);
 }
-
 sendJson(['error' => 'method_not_allowed'], 405);

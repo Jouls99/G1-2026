@@ -12,11 +12,31 @@ if ($method === 'GET') {
     // Administradores pueden consultar el registro general de actividades.
     requireAdminApi();
 
-    $db = getDBConnection();
+    $db = requireApiDatabase();
     $filtroUsuario = trim((string)($_GET['usuario'] ?? ''));
     $filtroTipo = trim((string)($_GET['tipo'] ?? ''));
     $limit = min(500, max(1, (int)($_GET['limit'] ?? 200)));
-    $amenazas = readJsonFile(dataPath('amenazas.json'));
+    $amenazaStmt = $db->query("
+        SELECT `id_amenaza`, `regla`, `clave`, `titulo`, `descripcion`, `usuario`, `ip`,
+               `intentos`, `fecha`, `ventana_minutos`
+        FROM `amenaza`
+        ORDER BY `fecha` DESC
+        LIMIT 1000
+    ");
+    $amenazas = array_map(static function (array $row): array {
+        return [
+            'id' => (string)$row['id_amenaza'],
+            'regla' => (string)$row['regla'],
+            'clave' => (string)$row['clave'],
+            'titulo' => (string)$row['titulo'],
+            'descripcion' => (string)$row['descripcion'],
+            'usuario' => $row['usuario'],
+            'ip' => $row['ip'],
+            'intentos' => (int)$row['intentos'],
+            'fecha' => date('c', strtotime((string)$row['fecha'])),
+            'ventana_minutos' => (int)$row['ventana_minutos']
+        ];
+    }, $amenazaStmt->fetchAll());
 
     $actividades = [];
     $stats = [
@@ -53,6 +73,18 @@ if ($method === 'GET') {
             }
         }
 
+        if (!isSuperAdminApi()) {
+            $where[] = "NOT EXISTS (
+                SELECT 1
+                FROM `usuario` superadmin
+                WHERE LOWER(TRIM(superadmin.`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin')
+                  AND (
+                      superadmin.`id_usuario` = a.`id_usuario`
+                      OR LOWER(superadmin.`nombre`) = LOWER(a.`usuario`)
+                  )
+            )";
+        }
+
         $whereSql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
         $query = "
@@ -66,7 +98,8 @@ if ($method === 'GET') {
                 a.`fecha`,
                 COALESCE(u.`rol`, 'vendedor') AS rol_usuario
             FROM `actividad_usuario` a
-            LEFT JOIN `usuario` u ON a.`id_usuario` = u.`id_usuario` OR LOWER(a.`usuario`) = LOWER(u.`nombre`)
+            LEFT JOIN `usuario` u ON (a.`id_usuario` IS NOT NULL AND a.`id_usuario` = u.`id_usuario`)
+                OR (a.`id_usuario` IS NULL AND LOWER(a.`usuario`) = LOWER(u.`nombre`))
             {$whereSql}
             ORDER BY a.`id_actividad` DESC
             LIMIT {$limit}
@@ -98,14 +131,23 @@ if ($method === 'GET') {
         // Estadísticas generales de actividad y logins
         $statsStmt = $db->query("
             SELECT 
-                COUNT(*) AS total,
-                SUM(CASE WHEN `tipo_accion` LIKE 'venta%' THEN 1 ELSE 0 END) AS ventas,
-                SUM(CASE WHEN `tipo_accion` = 'login_exitoso' OR `tipo_accion` LIKE 'registro%' THEN 1 ELSE 0 END) AS logins,
-                SUM(CASE WHEN (`tipo_accion` = 'login_exitoso' OR `tipo_accion` LIKE 'registro%') AND DATE(`fecha`) = CURDATE() THEN 1 ELSE 0 END) AS logins_hoy,
-                SUM(CASE WHEN `tipo_accion` = 'login_fallido' THEN 1 ELSE 0 END) AS intentos_fallidos,
-                SUM(CASE WHEN `tipo_accion` LIKE 'stock%' THEN 1 ELSE 0 END) AS stock,
-                SUM(CASE WHEN `tipo_accion` LIKE '%rol%' OR `tipo_accion` LIKE '%usuario%' THEN 1 ELSE 0 END) AS roles
-            FROM `actividad_usuario`
+                COUNT(DISTINCT a.`id_actividad`) AS total,
+                SUM(CASE WHEN a.`tipo_accion` LIKE 'venta%' THEN 1 ELSE 0 END) AS ventas,
+                SUM(CASE WHEN a.`tipo_accion` = 'login_exitoso' OR a.`tipo_accion` LIKE 'registro%' THEN 1 ELSE 0 END) AS logins,
+                SUM(CASE WHEN (a.`tipo_accion` = 'login_exitoso' OR a.`tipo_accion` LIKE 'registro%') AND DATE(a.`fecha`) = CURDATE() THEN 1 ELSE 0 END) AS logins_hoy,
+                SUM(CASE WHEN a.`tipo_accion` = 'login_fallido' THEN 1 ELSE 0 END) AS intentos_fallidos,
+                SUM(CASE WHEN a.`tipo_accion` LIKE 'stock%' THEN 1 ELSE 0 END) AS stock,
+                SUM(CASE WHEN a.`tipo_accion` LIKE '%rol%' OR a.`tipo_accion` LIKE '%usuario%' THEN 1 ELSE 0 END) AS roles
+            FROM `actividad_usuario` a
+            " . (isSuperAdminApi() ? "" : "WHERE NOT EXISTS (
+                SELECT 1
+                FROM `usuario` superadmin
+                WHERE LOWER(TRIM(superadmin.`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin')
+                  AND (
+                      superadmin.`id_usuario` = a.`id_usuario`
+                      OR LOWER(superadmin.`nombre`) = LOWER(a.`usuario`)
+                  )
+            )") . "
         ");
         $statRow = $statsStmt->fetch();
         if ($statRow) {
@@ -128,52 +170,8 @@ if ($method === 'GET') {
             'fuente'      => 'mysql'
         ]);
     } catch (Throwable $e) {
-        // Fallback a JSON
-        $all = array_merge(
-            readJsonFile(dataPath('actividad_ventas.json')),
-            readJsonFile(dataPath('actividad_usuarios.json')),
-            readJsonFile(dataPath('actividades.json'))
-        );
-        usort($all, static function (array $left, array $right): int {
-            return (strtotime((string)($right['fecha'] ?? '')) ?: 0) <=> (strtotime((string)($left['fecha'] ?? '')) ?: 0);
-        });
-        $filtered = $all;
-
-        if ($filtroUsuario !== '' && strtolower($filtroUsuario) !== 'todos') {
-            $filtered = array_filter($filtered, function ($a) use ($filtroUsuario) {
-                return strcasecmp((string)($a['usuario'] ?? ''), $filtroUsuario) === 0;
-            });
-        }
-
-        if ($filtroTipo !== '' && strtolower($filtroTipo) !== 'todas') {
-            $filtered = array_filter($filtered, static function (array $activity) use ($filtroTipo): bool {
-                $type = (string)($activity['tipo_accion'] ?? '');
-                return match (strtolower($filtroTipo)) {
-                    'venta' => str_starts_with($type, 'venta'),
-                    'login' => str_starts_with($type, 'login') || str_starts_with($type, 'registro') || $type === 'logout',
-                    'stock' => str_starts_with($type, 'stock'),
-                    'roles', 'rol' => str_contains($type, 'rol') || str_contains($type, 'usuario'),
-                    default => $type === $filtroTipo
-                };
-            });
-        }
-
-        $todayStr = date('Y-m-d');
-        sendJson([
-            'ok'          => true,
-            'actividades' => array_slice(array_values($filtered), 0, $limit),
-            'amenazas'    => $amenazas,
-            'fuente'      => 'json',
-            'stats'       => [
-                'total'             => count($all),
-                'ventas'            => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'venta'))),
-                'logins'            => count(array_filter($all, fn($a) => in_array(($a['tipo_accion'] ?? ''), ['login_exitoso', 'registro_usuario'], true))),
-                'logins_hoy'        => count(array_filter($all, fn($a) => in_array(($a['tipo_accion'] ?? ''), ['login_exitoso', 'registro_usuario'], true) && str_starts_with((string)($a['fecha'] ?? ''), $todayStr))),
-                'intentos_fallidos' => count(array_filter($all, fn($a) => ($a['tipo_accion'] ?? '') === 'login_fallido')),
-                'stock'             => count(array_filter($all, fn($a) => str_starts_with((string)($a['tipo_accion'] ?? ''), 'stock'))),
-                'roles'             => count(array_filter($all, fn($a) => str_contains((string)($a['tipo_accion'] ?? ''), 'rol'))),
-            ]
-        ]);
+        error_log('Error al consultar las actividades: ' . $e->getMessage());
+        sendJson(['ok' => false, 'message' => 'No se pudieron cargar las actividades.'], 500);
     }
 }
 

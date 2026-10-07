@@ -82,32 +82,17 @@ function hasUserPermission(string $permission): bool
     $user = getCurrentUser();
     require_once dirname(__DIR__) . '/database/conexion.php';
     $db = getDBConnection();
-    if ($db !== null) {
-        try {
-            $stmt = $db->prepare("SELECT `{$permission}` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
-            $stmt->execute([
-                ':id' => (int)($user['id'] ?? 0),
-                ':nombre' => (string)($user['usuario'] ?? '')
-            ]);
-            $value = $stmt->fetchColumn();
-            if ($value !== false) {
-                return (bool)$value;
-            }
-        } catch (Exception $e) {
-            // El respaldo JSON se consulta si MySQL no está disponible.
-        }
+    if ($db === null) {
+        return false;
     }
 
-    $usersPath = dirname(__DIR__) . '/data/users.json';
-    $users = file_exists($usersPath) ? json_decode(file_get_contents($usersPath) ?: '[]', true) : [];
-    foreach (is_array($users) ? $users : [] as $storedUser) {
-        if ((isset($storedUser['id']) && (int)$storedUser['id'] === (int)($user['id'] ?? 0))
-            || strcasecmp((string)($storedUser['usuario'] ?? ''), (string)($user['usuario'] ?? '')) === 0) {
-            return !empty($storedUser[$permission]);
-        }
-    }
-
-    return !empty($user[$permission]);
+    $stmt = $db->prepare("SELECT `{$permission}` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+    $stmt->execute([
+        ':id' => (int)($user['id'] ?? 0),
+        ':nombre' => (string)($user['usuario'] ?? '')
+    ]);
+    $value = $stmt->fetchColumn();
+    return $value !== false && (bool)$value;
 }
 
 function canRegisterStock(): bool
@@ -193,4 +178,3 @@ function logoutUser(): void
     }
     session_destroy();
 }
-

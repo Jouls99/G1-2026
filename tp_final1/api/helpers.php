@@ -51,76 +51,13 @@ function getJsonBody(): ?array
     return null;
 }
 
-/**
- * Lee un archivo JSON de forma segura con bloqueo compartido.
- */
-function readJsonFile(string $path): array
+function requireApiDatabase(): PDO
 {
-    if (!file_exists($path)) {
-        return [];
+    $db = getDBConnection();
+    if ($db === null) {
+        sendJson(['ok' => false, 'error' => 'database_unavailable', 'message' => 'No se pudo conectar a la base de datos.'], 503);
     }
-
-    $fp = fopen($path, 'r');
-    if (!$fp) {
-        return [];
-    }
-
-    // Bloqueo compartido para lectura
-    flock($fp, LOCK_SH);
-    $size = filesize($path);
-    $content = $size > 0 ? fread($fp, $size) : '';
-    flock($fp, LOCK_UN);
-    fclose($fp);
-
-    if ($content === false || trim($content) === '') {
-        return [];
-    }
-
-    $data = json_decode($content, true);
-    return is_array($data) ? $data : [];
-}
-
-/**
- * Guarda un array en un archivo JSON de forma atómica y segura con bloqueo exclusivo.
- */
-function writeJsonFile(string $path, array $data): bool
-{
-    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    if ($json === false) {
-        return false;
-    }
-
-    // Escritura segura mediante archivo temporal y renombrado atómico o con LOCK_EX
-    $dir = dirname($path);
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    $fp = fopen($path, 'c+');
-    if (!$fp) {
-        return false;
-    }
-
-    if (flock($fp, LOCK_EX)) {
-        ftruncate($fp, 0);
-        rewind($fp);
-        fwrite($fp, $json . PHP_EOL);
-        fflush($fp);
-        flock($fp, LOCK_UN);
-        fclose($fp);
-        return true;
-    }
-
-    fclose($fp);
-    return false;
-}
-
-/**
- * Retorna la ruta absoluta a un archivo de datos.
- */
-function dataPath(string $filename): string
-{
-    return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . $filename;
+    return $db;
 }
 
 /**
@@ -144,12 +81,26 @@ function getApiUser(): ?array
  */
 function requireApiAuth(): void
 {
-    if (!is_array(getApiUser())) {
+    $user = getApiUser();
+    if (!is_array($user)) {
         sendJson([
             'ok' => false,
             'error' => 'unauthorized',
             'message' => 'Debés iniciar sesión para acceder a este recurso.'
         ], 401);
+    }
+
+    require_once dirname(__DIR__) . '/includes/jornada.php';
+    $db = requireApiDatabase();
+    try {
+        registrarActividadSesion($db, $user);
+    } catch (Exception $e) {
+        error_log('Error al actualizar la actividad de la sesión: ' . $e->getMessage());
+        sendJson([
+            'ok' => false,
+            'error' => 'session_tracking_failed',
+            'message' => 'No se pudo validar la actividad de la sesión. Intentá nuevamente.'
+        ], 503);
     }
 }
 
@@ -192,31 +143,16 @@ function hasUserPermissionApi(string $permission): bool
     }
 
     $db = getDBConnection();
-    if ($db !== null) {
-        try {
-            $stmt = $db->prepare("SELECT `{$permission}` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
-            $stmt->execute([
-                ':id' => (int)($user['id'] ?? 0),
-                ':nombre' => (string)($user['usuario'] ?? '')
-            ]);
-            $value = $stmt->fetchColumn();
-            if ($value !== false) {
-                return (bool)$value;
-            }
-        } catch (Exception $e) {
-            // El respaldo JSON se consulta si MySQL no está disponible.
-        }
+    if ($db === null) {
+        return false;
     }
 
-    $users = readJsonFile(dataPath('users.json'));
-    foreach ($users as $storedUser) {
-        if ((isset($storedUser['id']) && (int)$storedUser['id'] === (int)($user['id'] ?? 0))
-            || strcasecmp((string)($storedUser['usuario'] ?? ''), (string)($user['usuario'] ?? '')) === 0) {
-            return !empty($storedUser[$permission]);
-        }
-    }
-
-    return !empty($user[$permission]);
+    $stmt = $db->prepare("SELECT `{$permission}` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+    $stmt->execute([
+        ':id' => (int)($user['id'] ?? 0),
+        ':nombre' => (string)($user['usuario'] ?? '')
+    ]);
+    return (bool)$stmt->fetchColumn();
 }
 
 function canRegisterStockApi(): bool
@@ -264,37 +200,27 @@ function requireSuperAdminApi(): void
     }
 }
 
-function appendJsonRecord(string $filename, array $record, int $limit = 1000): bool
+function logThreatIfDetected(PDO $db): void
 {
-    $path = dataPath($filename);
-    $records = readJsonFile($path);
-    $records[] = $record;
-
-    if (count($records) > $limit) {
-        $records = array_slice($records, -$limit);
-    }
-
-    return writeJsonFile($path, $records);
-}
-
-function logThreatIfDetected(array $activity): void
-{
-    $userActivities = readJsonFile(dataPath('actividad_usuarios.json'));
+    $stmt = $db->query("
+        SELECT `usuario`, `detalles`, `fecha`
+        FROM `actividad_usuario`
+        WHERE `tipo_accion` = 'login_fallido'
+          AND `fecha` >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+    ");
+    $userActivities = $stmt->fetchAll();
     $cutoff = time() - 15 * 60;
     $failuresByIp = [];
     $failuresByIpAndUser = [];
 
     foreach ($userActivities as $item) {
-        if (($item['tipo_accion'] ?? '') !== 'login_fallido') {
-            continue;
-        }
-
         $eventTime = strtotime((string)($item['fecha'] ?? ''));
         if ($eventTime === false || $eventTime < $cutoff) {
             continue;
         }
 
-        $details = is_array($item['detalles'] ?? null) ? $item['detalles'] : [];
+        $details = json_decode((string)($item['detalles'] ?? ''), true);
+        $details = is_array($details) ? $details : [];
         $ip = trim((string)($details['ip'] ?? ''));
         $username = trim((string)($item['usuario'] ?? 'Desconocido'));
         $pairKey = strtolower($ip) . '|' . strtolower($username);
@@ -307,10 +233,9 @@ function logThreatIfDetected(array $activity): void
         }
     }
 
-    $threats = readJsonFile(dataPath('amenazas.json'));
     foreach ($failuresByIpAndUser as $key => $group) {
         if (count($group['eventos']) >= 5) {
-            $threats = appendThreatOnce($threats, [
+            appendThreatOnce($db, [
                 'regla' => 'fallos_cuenta_ip',
                 'clave' => $key,
                 'titulo' => 'Múltiples fallos para la misma cuenta',
@@ -330,7 +255,7 @@ function logThreatIfDetected(array $activity): void
             $events
         ));
         if (count($events) >= 10 && count($affectedUsers) >= 3) {
-            $threats = appendThreatOnce($threats, [
+            appendThreatOnce($db, [
                 'regla' => 'fallos_multiples_cuentas',
                 'clave' => strtolower($ip),
                 'titulo' => 'Posible intento sobre varias cuentas',
@@ -345,85 +270,62 @@ function logThreatIfDetected(array $activity): void
     }
 }
 
-function appendThreatOnce(array $threats, array $threat): array
+function appendThreatOnce(PDO $db, array $threat): void
 {
-    $recentDuplicate = array_filter($threats, static function (array $existing) use ($threat): bool {
-        $generatedAt = strtotime((string)($existing['fecha'] ?? ''));
-        return ($existing['regla'] ?? '') === $threat['regla']
-            && ($existing['clave'] ?? '') === $threat['clave']
-            && $generatedAt !== false
-            && $generatedAt >= time() - 15 * 60;
-    });
-
-    if ($recentDuplicate !== []) {
-        return $threats;
+    $duplicate = $db->prepare("
+        SELECT 1 FROM `amenaza`
+        WHERE `regla` = :regla AND `clave` = :clave
+          AND `fecha` >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+        LIMIT 1
+    ");
+    $duplicate->execute([':regla' => $threat['regla'], ':clave' => $threat['clave']]);
+    if ($duplicate->fetchColumn()) {
+        return;
     }
 
-    $threat['id'] = hash('sha256', $threat['regla'] . '|' . $threat['clave'] . '|' . $threat['fecha']);
-    $threats[] = $threat;
-    if (count($threats) > 1000) {
-        $threats = array_slice($threats, -1000);
-    }
-    writeJsonFile(dataPath('amenazas.json'), $threats);
-
-    return $threats;
+    $insert = $db->prepare("
+        INSERT INTO `amenaza`
+            (`id_amenaza`, `regla`, `clave`, `titulo`, `descripcion`, `usuario`, `ip`, `intentos`, `fecha`, `ventana_minutos`)
+        VALUES (:id, :regla, :clave, :titulo, :descripcion, :usuario, :ip, :intentos, :fecha, :ventana)
+    ");
+    $insert->execute([
+        ':id' => hash('sha256', $threat['regla'] . '|' . $threat['clave'] . '|' . $threat['fecha']),
+        ':regla' => $threat['regla'],
+        ':clave' => $threat['clave'],
+        ':titulo' => $threat['titulo'],
+        ':descripcion' => $threat['descripcion'],
+        ':usuario' => $threat['usuario'],
+        ':ip' => $threat['ip'],
+        ':intentos' => $threat['intentos'],
+        ':fecha' => date('Y-m-d H:i:s', strtotime($threat['fecha']) ?: time()),
+        ':ventana' => $threat['ventana_minutos']
+    ]);
 }
 
 /**
- * Registra una acción / interacción de usuario en MySQL y archivo JSON de respaldo.
+ * Registra una acción o interacción de usuario en MySQL.
  */
 function logActivity(string $usuario, string $tipo, string $descripcion, ?array $detalles = null, ?int $idUsuario = null): bool
 {
     $fecha = date('Y-m-d H:i:s');
     $detallesJson = $detalles !== null ? json_encode($detalles, JSON_UNESCAPED_UNICODE) : null;
 
-    // 1. Intentar registrar en MySQL
-    try {
-        $db = getDBConnection();
-        if ($db) {
-            $stmt = $db->prepare("
-                INSERT INTO `actividad_usuario` (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
-                VALUES (:id_user, :usuario, :tipo, :desc, :detalles, :fecha)
-            ");
-            $stmt->execute([
-                ':id_user'  => $idUsuario,
-                ':usuario'  => $usuario,
-                ':tipo'     => $tipo,
-                ':desc'     => $descripcion,
-                ':detalles' => $detallesJson,
-                ':fecha'    => $fecha
-            ]);
-        }
-        
-    } catch (Exception $e) {
-        // Continuar con respaldo JSON
-    }
+    $db = requireApiDatabase();
+    $stmt = $db->prepare("
+        INSERT INTO `actividad_usuario` (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
+        VALUES (:id_user, :usuario, :tipo, :desc, :detalles, :fecha)
+    ");
+    $stmt->execute([
+        ':id_user'  => $idUsuario,
+        ':usuario'  => $usuario,
+        ':tipo'     => $tipo,
+        ':desc'     => $descripcion,
+        ':detalles' => $detallesJson,
+        ':fecha'    => $fecha
+    ]);
 
-    // 2. Mantener una copia de respaldo por tipo de actividad
-    try {
-        $activity = [
-            'id'          => time() . rand(100, 999),
-            'id_usuario'  => $idUsuario,
-            'usuario'     => $usuario,
-            'tipo_accion' => $tipo,
-            'descripcion' => $descripcion,
-            'detalles'    => $detalles,
-            'fecha'       => date('c')
-        ];
-
-        if ($tipo === 'venta_registrada') {
-            appendJsonRecord('actividad_ventas.json', $activity);
-        } elseif (in_array($tipo, ['login_exitoso', 'login_fallido', 'logout'], true)) {
-            appendJsonRecord('actividad_usuarios.json', $activity);
-            if ($tipo === 'login_fallido') {
-                logThreatIfDetected($activity);
-            }
-        } else {
-            appendJsonRecord('actividades.json', $activity);
-        }
-
-    } catch (Throwable $e) {
-        // Ignorar
+    if ($tipo === 'login_fallido') {
+        logThreatIfDetected($db);
     }
 
     return true;

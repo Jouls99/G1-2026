@@ -748,11 +748,10 @@ document.addEventListener('DOMContentLoaded', () => {
         formNuevoUsuario.addEventListener('submit', async (e) => {
             e.preventDefault();
             const usuario = document.getElementById('new-username').value.trim();
-            const password = document.getElementById('new-password').value;
             const role = document.querySelector('input[name="new-role"]:checked')?.value || 'vendedor';
 
-            if (!usuario || !password) {
-                showToast('❌ Completá todos los campos.', true);
+            if (!usuario) {
+                showToast('❌ Ingresá el nombre de usuario.', true);
                 return;
             }
             if (rolOcupado(normalizarRol(role))) {
@@ -764,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch('api/users.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ usuario, password, role })
+                    body: JSON.stringify({ usuario, role })
                 });
                 const data = await res.json();
 
@@ -772,8 +771,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'Error al crear usuario.');
                 }
 
-                showToast(`✅ Usuario '${usuario}' creado con rol '${role}'.`);
                 cerrarModal(modalNuevoUsuario);
+                document.getElementById('generated-credential-user').textContent = `Usuario: ${data.user.usuario}`;
+                document.getElementById('generated-credential-password').textContent = data.temporary_password;
+                abrirModal(document.getElementById('modal-credenciales-generadas'));
                 await cargarUsuarios();
                 cargarLoginsYActividades();
             } catch (err) {
@@ -781,6 +782,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    document.getElementById('copy-generated-credential')?.addEventListener('click', async () => {
+        const password = document.getElementById('generated-credential-password')?.textContent || '';
+        try {
+            await navigator.clipboard.writeText(password);
+            showToast('Contraseña copiada.');
+        } catch (error) {
+            showToast('No se pudo copiar la contraseña. Seleccionala y copiala manualmente.', true);
+        }
+    });
 
     // 10. Formulario Editar Usuario
     const formEditarUsuario = document.getElementById('form-editar-usuario');

@@ -1,17 +1,7 @@
-const fallbackInventory = [
-  { categoria: 'Maquillaje', nombre: 'Base Matte', codigo: 'MQL-001', precio: 18000, cantidad: 15, total: 270000, fecha: '2026-07-01', hora: '09:30', dia: 'Lunes' },
-  { categoria: 'Maquillaje', nombre: 'Rubor Cream', codigo: 'MQL-002', precio: 9500, cantidad: 22, total: 209000, fecha: '2026-07-02', hora: '11:20', dia: 'Martes' },
-  { categoria: 'Maquillaje', nombre: 'Base Líquida Nude', codigo: 'BS-001', precio: 16000, cantidad: 8, total: 128000, fecha: '2026-07-03', hora: '16:00', dia: 'Miércoles' },
-  { categoria: 'Maquillaje', nombre: 'Sombras Compactas', codigo: 'OJ-001', precio: 12000, cantidad: 10, total: 120000, fecha: '2026-07-04', hora: '18:10', dia: 'Jueves' },
-  { categoria: 'Skincare', nombre: 'Serum Vitamina C', codigo: 'SKN-001', precio: 24000, cantidad: 9, total: 216000, fecha: '2026-07-01', hora: '10:15', dia: 'Lunes' },
-  { categoria: 'Skincare', nombre: 'Crema Hidratante', codigo: 'SKN-002', precio: 15000, cantidad: 14, total: 210000, fecha: '2026-07-02', hora: '14:40', dia: 'Martes' },
-  { categoria: 'Skincare', nombre: 'Ampolla Vitamina C', codigo: 'TRT-001', precio: 9000, cantidad: 7, total: 63000, fecha: '2026-07-05', hora: '12:00', dia: 'Viernes' },
-  { categoria: 'Fragancias', nombre: 'Perfume Floral', codigo: 'FRG-001', precio: 32000, cantidad: 6, total: 192000, fecha: '2026-07-06', hora: '15:35', dia: 'Sábado' }
-];
-
 const state = {
   inventory: [],
   sales: [],
+  historySales: null,
   category: 'Maquillaje',
   period: 'diario'
 };
@@ -37,29 +27,58 @@ function escapeHtml(str) {
 function getPeriodLabels(period) {
   switch (period) {
     case 'semanal':
-      return ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+      return ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     case 'mensual':
-      return ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      return ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'];
     case 'diario':
     default:
-      return ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+      return ['Hoy'];
   }
 }
 
-function getSeriesIndex(date, period, length) {
+function getPeriodDateRange(period, now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let end;
+
+  if (period === 'diario') {
+    end = new Date(start);
+    end.setDate(end.getDate() + 1);
+  } else if (period === 'semanal') {
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    end = new Date(start);
+    end.setDate(end.getDate() + 7);
+  } else {
+    start.setDate(1);
+    end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  }
+
+  return { start, end };
+}
+
+function getSeriesIndex(date, period) {
   switch (period) {
     case 'semanal':
-      return Math.min(Math.floor(date.getDate() / 7), length - 1);
+      return (date.getDay() + 6) % 7;
     case 'mensual':
-      return Math.min(date.getMonth(), length - 1);
+      return Math.min(Math.floor((date.getDate() - 1) / 7), 4);
     case 'diario':
     default:
-      return (date.getDay() + 6) % 7;
+      return 0;
   }
+}
+
+function getProductCategory(product) {
+  const productCode = String(product.codigo || '').trim().toLowerCase();
+  if (!productCode) return product.categoria || null;
+  const inventoryItem = state.inventory.find((entry) =>
+    String(entry.codigo || '').trim().toLowerCase() === productCode
+  );
+  return product.categoria || inventoryItem?.categoria || null;
 }
 
 function buildSeries(category, period) {
   const labels = getPeriodLabels(period);
+  const { start, end } = getPeriodDateRange(period);
   const series = {
     labels,
     sold: labels.map(() => 0),
@@ -67,39 +86,36 @@ function buildSeries(category, period) {
     summary: labels.map(() => 0)
   };
 
-  const categorySales = state.sales.filter((sale) => {
-    return (sale.productos || []).some((producto) => {
-      const item = state.inventory.find((entry) => String(entry.codigo).toLowerCase() === String(producto.codigo).toLowerCase());
-      return item?.categoria === category;
-    });
-  });
-
-  categorySales.forEach((sale) => {
+  state.sales.forEach((sale) => {
     const date = new Date(sale.fecha);
-    const index = getSeriesIndex(date, period, labels.length);
-    if (index < 0 || index >= labels.length) return;
+    if (Number.isNaN(date.getTime()) || date < start || date >= end) return;
 
-    const productosCategoria = (sale.productos || []).filter((producto) => {
-      const item = state.inventory.find((entry) => String(entry.codigo).toLowerCase() === String(producto.codigo).toLowerCase());
-      return item?.categoria === category;
-    });
-
-    const soldQty = productosCategoria.reduce((sum, producto) => sum + (producto.cantidad || 0), 0);
-    const revenueValue = productosCategoria.reduce((sum, producto) => sum + (producto.precio || 0) * (producto.cantidad || 0), 0);
-
-    series.sold[index] += soldQty;
-    series.revenue[index] += revenueValue;
-    series.summary[index] += revenueValue;
+    const index = getSeriesIndex(date, period);
+    (sale.productos || []).filter((product) => getProductCategory(product) === category)
+      .forEach((product) => {
+        const quantity = Number(product.cantidad) || 0;
+        const revenue = (Number(product.precio) || 0) * quantity;
+        series.sold[index] += quantity;
+        series.revenue[index] += revenue;
+        series.summary[index] += revenue;
+      });
   });
 
   return series;
 }
 
 function renderCategoryButtons() {
-  const categories = [...new Set(state.inventory.map((item) => item.categoria))];
+  const categories = [...new Set([
+    ...state.inventory.map((item) => item.categoria),
+    ...state.sales.flatMap((sale) => (sale.productos || []).map((product) => product.categoria))
+  ].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   const container = document.getElementById('categoryButtons');
   if (!container) return;
   container.innerHTML = '';
+
+  if (categories.length && !categories.includes(state.category)) {
+    state.category = categories[0];
+  }
 
   categories.forEach((category) => {
     const button = document.createElement('button');
@@ -134,9 +150,9 @@ function renderPeriodButtons() {
 }
 
 function renderMetrics(series) {
-  const sold = series.sold.at(-1) || 0;
-  const revenue = series.revenue.at(-1) || 0;
-  const summary = series.summary.at(-1) || 0;
+  const sold = series.sold.reduce((total, value) => total + value, 0);
+  const revenue = series.revenue.reduce((total, value) => total + value, 0);
+  const summary = series.summary.reduce((total, value) => total + value, 0);
   const inventoryValue = state.inventory
     .filter((item) => item.categoria === state.category)
     .reduce((total, item) => {
@@ -158,9 +174,14 @@ function renderMetrics(series) {
   if (elTitle) elTitle.textContent = `${state.category} · ${state.period.charAt(0).toUpperCase() + state.period.slice(1)}`;
 }
 
-function renderChart(series) {
-  const svg = document.getElementById('lineChart');
-  if (!svg) return;
+function renderLoadErrors(errors) {
+  const notice = document.getElementById('dashboardLoadError');
+  if (!notice) return;
+  notice.textContent = errors.join(' ');
+  notice.hidden = errors.length === 0;
+}
+
+function buildChartMarkup(series) {
   const width = 640;
   const height = 280;
   const padding = 36;
@@ -171,8 +192,7 @@ function renderChart(series) {
   const soldPoints = series.sold.map((value, index) => `${padding + index * stepX},${y(value)}`).join(' ');
   const revenuePoints = series.revenue.map((value, index) => `${padding + index * stepX},${y(value)}`).join(' ');
 
-  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.innerHTML = `
+  return `
     <rect x="0" y="0" width="${width}" height="${height}" rx="18" fill="#fff5fb"></rect>
     <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#dabad3" stroke-width="1"></line>
     <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#dabad3" stroke-width="1"></line>
@@ -189,10 +209,22 @@ function renderChart(series) {
   `;
 }
 
-function buildSoldSummary() {
+function renderChart(series) {
+  const svg = document.getElementById('lineChart');
+  if (!svg) return;
+  const width = 640;
+  const height = 280;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.innerHTML = buildChartMarkup(series);
+}
+
+function buildSoldSummary(period = null) {
   const soldCounts = {};
+  const range = period ? getPeriodDateRange(period) : null;
 
   state.sales.forEach((sale) => {
+    const saleDate = new Date(sale.fecha);
+    if (range && (Number.isNaN(saleDate.getTime()) || saleDate < range.start || saleDate >= range.end)) return;
     (sale.productos || []).forEach((producto) => {
       const key = String(producto.codigo || '').toLowerCase();
       soldCounts[key] = (soldCounts[key] || 0) + (producto.cantidad || 0);
@@ -227,7 +259,7 @@ function getLastSaleInfo(codigo) {
 function renderProducts() {
   const list = document.getElementById('productList');
   if (!list) return;
-  const soldSummary = buildSoldSummary();
+  const soldSummary = buildSoldSummary(state.period);
   const items = state.inventory.filter((item) => item.categoria === state.category);
 
   if (!items.length) {
@@ -261,7 +293,7 @@ function renderInventoryTable() {
 
     return `
       <tr>
-        <td>${escapeHtml(item.categoria || 'Sin categoría')}</td>
+        <td>${escapeHtml(item.categoria)}</td>
         <td>${escapeHtml(item.nombre)}</td>
         <td>${escapeHtml(item.codigo)}</td>
         <td>${sold}</td>
@@ -281,7 +313,8 @@ function renderSalesHistory() {
   const count = document.getElementById('salesCount');
   if (!tbody) return;
 
-  const sales = [...state.sales].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const sourceSales = state.historySales || state.sales;
+  const sales = [...sourceSales].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
   if (count) count.textContent = `${sales.length} ventas`;
 
@@ -292,7 +325,19 @@ function renderSalesHistory() {
 
   tbody.innerHTML = sales.map((sale) => {
     const date = new Date(sale.fecha);
-    const productoText = (sale.productos || []).map((producto) => `${escapeHtml(producto.nombre)} × ${producto.cantidad}`).join(', ');
+    const productoText = (sale.productos || []).map((producto) => {
+      const metadata = [
+        producto.sub_nombre,
+        producto.subcategoria,
+        producto.categoria,
+        producto.marca
+      ].filter(Boolean).map(escapeHtml).join(' · ');
+      return `<div class="sale-product-detail">
+        ${producto.nombre ? `<strong>${escapeHtml(producto.nombre)}</strong>` : ''}
+        ${metadata ? `<small>${metadata}</small>` : ''}
+        <span>× ${Number(producto.cantidad) || 0}</span>
+      </div>`;
+    }).join('');
     return `
       <tr>
         <td>${date.toLocaleDateString('es-AR')}</td>
@@ -301,16 +346,84 @@ function renderSalesHistory() {
         <td>${productoText}</td>
         <td>${currencyFormatter.format(sale.total || 0)}</td>
         <td>
-          ${puedeModificarInforme ? `
+          ${puedeModificarInforme && !sale.archivada ? `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button type="button" class="btn-edit-action" onclick="abrirModalEdicion('${sale.id}')" title="Editar venta">✏️ Editar</button>
               <button type="button" class="btn-delete-action" onclick="confirmarEliminarVenta('${sale.id}')" title="Eliminar venta">🗑️ Eliminar</button>
             </div>
-          ` : '<span style="color:#6b7280; font-size:0.85rem;">Solo lectura</span>'}
+          ` : `<span style="color:#6b7280; font-size:0.85rem;">${sale.archivada ? 'Archivada' : 'Solo lectura'}</span>`}
         </td>
       </tr>
     `;
   }).join('');
+}
+
+function getWeekStartDate(date = new Date()) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  return start;
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function configureHistoryFilters() {
+  if (!usuarioEsAdminInforme) return;
+  const weekSelect = document.getElementById('historyWeekSelect');
+  const dateSelect = document.getElementById('historyDateSelect');
+  if (!weekSelect || !dateSelect) return;
+
+  const currentWeek = getWeekStartDate();
+  const oldestWeek = new Date(currentWeek);
+  oldestWeek.setDate(oldestWeek.getDate() - 21);
+  weekSelect.innerHTML = '';
+  for (let offset = 0; offset < 4; offset += 1) {
+    const weekStart = new Date(currentWeek);
+    weekStart.setDate(weekStart.getDate() - offset * 7);
+    const option = document.createElement('option');
+    option.value = formatLocalDate(weekStart);
+    option.textContent = offset === 0 ? 'Esta semana' : offset === 1 ? 'Semana pasada' : `Hace ${offset} semanas`;
+    weekSelect.appendChild(option);
+  }
+  dateSelect.min = formatLocalDate(oldestWeek);
+  dateSelect.max = formatLocalDate(new Date());
+
+  weekSelect.addEventListener('change', () => loadHistorySales('semana', weekSelect.value));
+  dateSelect.addEventListener('change', () => {
+    if (dateSelect.value) loadHistorySales('fecha', dateSelect.value);
+  });
+}
+
+async function loadHistorySales(filter, value) {
+  const query = filter === 'fecha' ? `fecha=${encodeURIComponent(value)}` : `semana=${encodeURIComponent(value)}`;
+  try {
+    const response = await fetch(`api/ventas.php?${query}`, { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || `No se pudo cargar el historial (HTTP ${response.status}).`);
+    }
+    if (!Array.isArray(result)) throw new Error('La respuesta del historial no tiene un formato válido.');
+    state.historySales = result;
+    renderSalesHistory();
+    renderLoadErrors([]);
+  } catch (error) {
+    renderLoadErrors([error.message || 'No se pudo cargar el historial de ventas.']);
+  }
+}
+
+function refreshSelectedHistory() {
+  if (!usuarioEsAdminInforme) return;
+  const selectedDate = document.getElementById('historyDateSelect')?.value;
+  if (selectedDate) {
+    loadHistorySales('fecha', selectedDate);
+    return;
+  }
+  const selectedWeek = document.getElementById('historyWeekSelect')?.value;
+  if (selectedWeek) loadHistorySales('semana', selectedWeek);
 }
 
 function updateClock() {
@@ -321,6 +434,91 @@ function updateClock() {
   if (elDate) elDate.textContent = now.toLocaleDateString('es-AR');
   if (elTime) elTime.textContent = now.toLocaleTimeString('es-AR');
   if (elDay) elDay.textContent = now.toLocaleDateString('es-AR', { weekday: 'long' });
+}
+
+function renderPdfReport() {
+  const container = document.getElementById('reportPdfContent');
+  if (!container) return;
+
+  const { start, end } = getPeriodDateRange(state.period);
+  const period = state.period.charAt(0).toUpperCase() + state.period.slice(1);
+  const rangeText = state.period === 'diario'
+    ? start.toLocaleDateString('es-AR')
+    : `${start.toLocaleDateString('es-AR')} - ${new Date(end.getTime() - 1).toLocaleDateString('es-AR')}`;
+  const salesInRange = state.sales.filter((sale) => {
+    const saleDate = new Date(sale.fecha);
+    return !Number.isNaN(saleDate.getTime()) && saleDate >= start && saleDate < end;
+  });
+  const pdfCategoryName = (category) => {
+    const normalized = String(category || '').trim().toLocaleLowerCase('es');
+    return !normalized || normalized === 'general' ? 'General' : category;
+  };
+  const categories = new Set(state.inventory.map((item) => item.categoria).filter(Boolean));
+  const productsByCategory = new Map();
+  categories.forEach((category) => productsByCategory.set(category, []));
+
+  salesInRange.forEach((sale) => {
+    (sale.productos || []).forEach((product) => {
+      const inventoryItem = state.inventory.find((item) =>
+        String(item.codigo || '').trim().toLowerCase() === String(product.codigo || '').trim().toLowerCase()
+      );
+      const category = pdfCategoryName(product.categoria || inventoryItem?.categoria);
+      categories.add(category);
+      if (!productsByCategory.has(category)) productsByCategory.set(category, []);
+      productsByCategory.get(category).push({ sale, product });
+    });
+  });
+  const sortedCategories = [...categories].sort((a, b) => a.localeCompare(b, 'es'));
+
+  container.innerHTML = `
+    <header class="pdf-report-heading">
+      <h2>Historial de ventas · ${escapeHtml(period)}</h2>
+      <p>${escapeHtml(rangeText)}</p>
+    </header>
+    ${sortedCategories.length ? sortedCategories.map((category) => {
+      const entries = productsByCategory.get(category)
+        .sort((a, b) => new Date(b.sale.fecha) - new Date(a.sale.fecha));
+      return `
+        <article class="pdf-category-report">
+          <h3>${escapeHtml(category)}</h3>
+          <table class="pdf-sales-table">
+            <thead><tr>
+              <th>Fecha</th><th>Hora</th><th>Día</th><th>Producto</th>
+              <th>Nombre secundario</th><th>Subcategoría</th><th>Marca</th>
+              <th>Cantidad</th><th>Total</th>
+            </tr></thead>
+            <tbody>${entries.length ? entries.map(({ sale, product }) => {
+              const date = new Date(sale.fecha);
+              const quantity = Number(product.cantidad) || 0;
+              const itemTotal = quantity * (Number(product.precio) || 0);
+              return `<tr>
+                <td>${date.toLocaleDateString('es-AR')}</td>
+                <td>${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
+                <td>${date.toLocaleDateString('es-AR', { weekday: 'long' })}</td>
+                <td>${escapeHtml(product.nombre || 'Nombre no disponible')}</td>
+                <td>${escapeHtml(product.sub_nombre || '-')}</td>
+                <td>${escapeHtml(product.subcategoria || '-')}</td>
+                <td>${escapeHtml(product.marca || '-')}</td>
+                <td>${quantity}</td>
+                <td>${currencyFormatter.format(itemTotal)}</td>
+              </tr>`;
+            }).join('') : '<tr><td colspan="9">No hay ventas registradas para esta categoría en el período.</td></tr>'}</tbody>
+          </table>
+        </article>
+      `;
+    }).join('') : '<p>No hay categorías para mostrar en el informe.</p>'}
+  `;
+}
+
+function exportReportPdf() {
+  const originalTitle = document.title;
+  const period = state.period.charAt(0).toUpperCase() + state.period.slice(1);
+  renderPdfReport();
+  document.title = `Historial de ventas ${period}`;
+  window.addEventListener('afterprint', () => {
+    document.title = originalTitle;
+  }, { once: true });
+  window.print();
 }
 
 function render() {
@@ -336,33 +534,36 @@ function render() {
 }
 
 async function loadInventory() {
+  const errors = [];
   try {
     const response = await fetch('api/inventario.php', { cache: 'no-store' });
-    if (!response.ok) throw new Error('No se pudo cargar el inventario');
+    if (!response.ok) throw new Error(`No se pudo cargar el inventario (HTTP ${response.status}).`);
     const data = await response.json();
-    if (Array.isArray(data) && data.length) {
-      state.inventory = data;
-    } else {
-      state.inventory = fallbackInventory;
-    }
+    if (!Array.isArray(data)) throw new Error('La respuesta del inventario no tiene un formato válido.');
+    state.inventory = data;
   } catch (error) {
-    state.inventory = fallbackInventory;
+    state.inventory = [];
+    errors.push(error.message || 'No se pudo cargar el inventario.');
   }
 
   try {
     const salesResponse = await fetch('api/ventas.php', { cache: 'no-store' });
-    if (salesResponse.ok) {
-      const salesData = await salesResponse.json();
-      state.sales = Array.isArray(salesData) ? salesData : [];
-    }
+    if (!salesResponse.ok) throw new Error(`No se pudieron cargar las ventas (HTTP ${salesResponse.status}).`);
+    const salesData = await salesResponse.json();
+    if (!Array.isArray(salesData)) throw new Error('La respuesta de ventas no tiene un formato válido.');
+    state.sales = salesData;
   } catch (error) {
     state.sales = [];
+    errors.push(error.message || 'No se pudieron cargar las ventas.');
   }
 
   render();
+  renderLoadErrors(errors);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('exportReportPdfBtn')?.addEventListener('click', exportReportPdf);
+  configureHistoryFilters();
   const salesToggle = document.getElementById('btn-despliegueventas');
   const summaryToggle = document.getElementById('btn-despliegueresumen');
   const salesSection = document.getElementById('seccion-ventas');
@@ -385,6 +586,10 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   loadInventory();
+  if (usuarioEsAdminInforme) {
+    const currentWeek = formatLocalDate(getWeekStartDate());
+    loadHistorySales('semana', currentWeek);
+  }
   setInterval(updateClock, 1000);
 });
 window.addEventListener('storage', (event) => {
@@ -622,6 +827,7 @@ document.getElementById('edit-sale-form')?.addEventListener('submit', async (e) 
     alert(result.message || '✅ Venta modificada con éxito y stock actualizado.');
 
     await loadInventory();
+    refreshSelectedHistory();
 
     localStorage.setItem('inventarioUpdated', Date.now().toString());
     window.dispatchEvent(new Event('inventario-updated'));
@@ -651,6 +857,7 @@ async function eliminarVentaDirecto(saleId) {
     alert(result.message || '✅ Venta eliminada con éxito y stock restaurado.');
 
     await loadInventory();
+    refreshSelectedHistory();
 
     localStorage.setItem('inventarioUpdated', Date.now().toString());
     window.dispatchEvent(new Event('inventario-updated'));

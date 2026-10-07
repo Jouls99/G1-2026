@@ -17,7 +17,7 @@ function hideProductContextMenu() {
 }
 
 function showCategoryContextMenu(event, categoria) {
-    if (!usuarioEsAdmin) return;
+    if (!usuarioEsAdmin || !categoria.ID_categoria) return;
     event.preventDefault();
     event.stopPropagation();
     hideCategoryContextMenu();
@@ -112,7 +112,7 @@ function showProductContextMenu(event, codigo, catId) {
     actionBtn.onclick = (e) => {
         e.stopPropagation();
         hideProductContextMenu();
-        pedirConfirmacionEliminar(targetProduct.codigo, targetCat?.id || catId, targetProduct.nombre, targetCat?.nombre || 'General');
+        pedirConfirmacionEliminar(targetProduct.codigo, targetCat?.id || catId, targetProduct.nombre, targetCat?.nombre || '');
     };
 }
 
@@ -127,7 +127,7 @@ function pedirConfirmacionEliminar(codigo, catId, nombre, categoriaNombre) {
         codigo: codigo,
         catId: catId,
         nombre: nombre || codigo,
-        categoriaNombre: categoriaNombre || 'General'
+        categoriaNombre: categoriaNombre || ''
     };
 
     const modal = document.getElementById('modal-confirmar-eliminar');
@@ -172,34 +172,20 @@ async function ejecutarEliminacion() {
             headers: { 'Content-Type': 'application/json' }
         });
         const data = await res.json();
-        if (!res.ok && !data.ok) {
-            console.warn('Aviso al eliminar producto:', data);
+        if (!res.ok || data.ok === false) {
+            throw new Error(data.message || 'No se pudo eliminar el producto.');
         }
     } catch (e) {
-        console.error('Error al contactar con api/inventario.php:', e);
+        alert(`No se pudo eliminar el producto: ${e.message}`);
+        return;
     }
-
-    // Actualizar estado local (marcar como deshabilitado para que no se muestre en pantalla)
-    inventario.forEach(cat => {
-        (cat.productos || []).forEach(p => {
-            if (String(p.codigo).toLowerCase() === String(codigo).toLowerCase()) {
-                p.fase = 'deshabilitado';
-            }
-        });
-        (cat.subcategorias || []).forEach(sub => {
-            (sub.productos || []).forEach(p => {
-                if (String(p.codigo).toLowerCase() === String(codigo).toLowerCase()) {
-                    p.fase = 'deshabilitado';
-                }
-            });
-        });
-    });
 
     if (productoSeleccionado && String(productoSeleccionado.codigo).toLowerCase() === String(codigo).toLowerCase()) {
         productoSeleccionado = null;
     }
 
-    await guardarInventario();
+    await cargarInventario();
+    categoriaSeleccionada = inventario.find(cat => cat.id === catId) || inventario[0] || null;
     localStorage.setItem('inventarioUpdated', Date.now().toString());
     window.dispatchEvent(new Event('inventario-updated'));
 
@@ -216,7 +202,7 @@ async function ejecutarEliminacion() {
     alert(`✅ El producto "${nombre}" fue eliminado correctamente.`);
 }
 
-function deleteCategory(catId) {
+async function deleteCategory(catId) {
     if (!usuarioEsAdmin) return;
     const categoria = inventario.find(c => c.id === catId);
     if (!categoria) {
@@ -224,23 +210,59 @@ function deleteCategory(catId) {
         return;
     }
 
-    const confirmDelete = confirm(`¿Eliminar la categoría "${categoria.nombre}" y todo su contenido?`);
+    const destinationCategories = inventario.filter(category => category.ID_categoria !== categoria.ID_categoria);
+    if (!destinationCategories.length) {
+        alert('Debe existir otra categoría para reasignar los productos antes de eliminar esta.');
+        hideCategoryContextMenu();
+        return;
+    }
+    const destinationList = destinationCategories.map(category => category.nombre).join('\n');
+    const destinationName = prompt(
+        `Escribí el nombre de la categoría destino para mover los productos de "${categoria.nombre}":\n${destinationList}`
+    );
+    if (destinationName === null) {
+        hideCategoryContextMenu();
+        return;
+    }
+    const destination = destinationCategories.find(category =>
+        category.nombre.toLocaleLowerCase('es') === destinationName.trim().toLocaleLowerCase('es')
+    );
+    if (!destination) {
+        alert('Ingresá el nombre exacto de una categoría disponible.');
+        hideCategoryContextMenu();
+        return;
+    }
+    const confirmDelete = confirm(`¿Eliminar "${categoria.nombre}" y reasignar sus productos y subcategorías a "${destination.nombre}"?`);
     if (!confirmDelete) {
         hideCategoryContextMenu();
         return;
     }
 
-    inventario = inventario.filter(c => c.id !== catId);
-    if (categoriaFiltro === catId) categoriaFiltro = '';
-
-    if (categoriaSeleccionada?.id === catId) {
-        categoriaSeleccionada = inventario[0] || null;
-        productoSeleccionado = null;
+    const selectedCategoryId = categoriaSeleccionada?.id;
+    try {
+        const res = await fetch(`api/inventario.php?action=delete_category&id=${encodeURIComponent(categoria.ID_categoria)}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ destination_id: destination.ID_categoria })
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+            throw new Error(data.message || 'No se pudo eliminar la categoría.');
+        }
+    } catch (error) {
+        alert(error.message);
+        hideCategoryContextMenu();
+        return;
     }
 
-    guardarInventario();
+    if (categoriaFiltro === catId) categoriaFiltro = '';
+    if (selectedCategoryId === catId) productoSeleccionado = null;
+    await cargarInventario();
+    categoriaSeleccionada = inventario.find(cat => cat.id === selectedCategoryId) || inventario[0] || null;
     renderCategories();
     renderCategoryFilter();
+    renderCategorySelector();
+    renderPriceCategoryFilter();
 
     if (categoriaSeleccionada) {
         renderTable(categoriaSeleccionada);
@@ -252,28 +274,34 @@ function deleteCategory(catId) {
     hideCategoryContextMenu();
 }
 
-function addCategory() {
+async function addCategory() {
     if (!usuarioEsAdmin) return;
     const input = document.getElementById('newCatName');
     const nombre = input.value.trim();
     if (!nombre) return;
 
-    const newCat = {
-        id: `cat-${Date.now()}`,
-        nombre,
-        productos: [],
-        subcategorias: []
-    };
-
-    inventario.push(newCat);
-    input.value = '';
-    categoriaSeleccionada = newCat;
-    guardarInventario();
-    renderCategories();
-    renderCategoryFilter();
-    renderCategorySelector();
-    renderPriceCategoryFilter();
-    renderTable(categoriaSeleccionada);
+    try {
+        const res = await fetch('api/inventario.php?action=create_category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre })
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok !== true || !data.categoria) {
+            throw new Error(data.message || 'No se pudo crear la categoría.');
+        }
+        input.value = '';
+        await cargarInventario();
+        categoriaSeleccionada = inventario.find(cat => cat.ID_categoria === Number(data.categoria.ID_categoria)) || inventario[0] || null;
+        renderCategories();
+        renderCategoryFilter();
+        renderCategorySelector();
+        renderPriceCategoryFilter();
+        if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
+        renderDetailPanel();
+    } catch (error) {
+        alert(error.message);
+    }
 }
 
 function mostrarFormularioEdicion() {
@@ -290,7 +318,15 @@ function mostrarFormularioEdicion() {
         <div class="form-grid">
             <div>
                 <label for="editProdName">Nombre</label>
-                <input id="editProdName" required>
+                <input id="editProdName" required pattern="[A-Za-z]+(?: [A-Za-z]+)*" title="Usá solo letras A-Z y espacios entre palabras.">
+            </div>
+            <div>
+                <label for="editProdBrand">Marca</label>
+                <input id="editProdBrand">
+            </div>
+            <div>
+                <label for="editProdSubName">Nombre secundario (opcional)</label>
+                <input id="editProdSubName">
             </div>
             <div>
                 <label for="editProdCode">Código</label>
@@ -298,7 +334,7 @@ function mostrarFormularioEdicion() {
             </div>
             <div>
                 <label for="editProdPrice">Precio</label>
-                <input id="editProdPrice" type="number" min="0" step="0.01" required>
+                <input id="editProdPrice" type="text" inputmode="decimal" pattern="[0-9]+(?:\\.[0-9]{1,2})?" title="Usá números y, opcionalmente, punto con hasta dos decimales." required>
             </div>
             <div>
                 <label for="editProdStock">Stock</label>
@@ -317,6 +353,8 @@ function mostrarFormularioEdicion() {
 
     panel.appendChild(form);
     document.getElementById('editProdName').value = productoSeleccionado.nombre;
+    document.getElementById('editProdBrand').value = productoSeleccionado.marca || '';
+    document.getElementById('editProdSubName').value = productoSeleccionado.sub_nombre || '';
     document.getElementById('editProdCode').value = productoSeleccionado.codigo;
     document.getElementById('editProdPrice').value = productoSeleccionado.precio;
     document.getElementById('editProdStock').value = productoSeleccionado.stock;
@@ -333,11 +371,22 @@ async function guardarEdicionProducto(event) {
     event.preventDefault();
 
     const nombre = document.getElementById('editProdName').value.trim();
-    const precio = parseFloat(document.getElementById('editProdPrice').value);
+    const marca = document.getElementById('editProdBrand').value.trim();
+    const subNombre = document.getElementById('editProdSubName').value.trim();
+    const precioRaw = document.getElementById('editProdPrice').value.trim();
+    const precio = parseFloat(precioRaw);
     const stock = parseInt(document.getElementById('editProdStock').value, 10);
     const subcategoria = document.getElementById('editProdSub').value.trim();
 
-    if (!nombre || Number.isNaN(precio) || Number.isNaN(stock) || precio < 0 || stock < 0) {
+    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(nombre)) {
+        alert('El nombre solo puede contener letras de la A a la Z y espacios entre palabras.');
+        return;
+    }
+    if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(precioRaw)) {
+        alert('El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.');
+        return;
+    }
+    if (Number.isNaN(precio) || Number.isNaN(stock) || precio < 0 || stock < 0) {
         alert('Completá correctamente el nombre, el precio y el stock.');
         return;
     }
@@ -352,6 +401,8 @@ async function guardarEdicionProducto(event) {
                 ID_stock: productoSeleccionado.ID_stock || productoSeleccionado.id,
                 codigo: productoSeleccionado.codigo,
                 nombre,
+                marca,
+                sub_nombre: subNombre,
                 precio,
                 cantidad: stock,
                 subcategoria: subcategoria || null,
@@ -368,6 +419,8 @@ async function guardarEdicionProducto(event) {
     }
 
     productoSeleccionado.nombre = nombre;
+    productoSeleccionado.marca = marca || undefined;
+    productoSeleccionado.sub_nombre = subNombre || undefined;
     productoSeleccionado.precio = precio;
     productoSeleccionado.stock = stock;
     productoSeleccionado.subcategoria = subcategoria || undefined;
@@ -380,7 +433,6 @@ async function guardarEdicionProducto(event) {
         );
     });
 
-    await guardarInventario();
     renderTable(categoriaSeleccionada);
     renderDetailPanel();
     alert(`✅ El producto "${nombre}" fue actualizado correctamente.`);
@@ -389,13 +441,28 @@ async function guardarEdicionProducto(event) {
 async function addProduct() {
     if (!usuarioPuedeRegistrarStock) return;
     const name = document.getElementById('prodName').value.trim();
+    const brand = document.getElementById('prodBrand').value.trim();
+    const subName = document.getElementById('prodSubName').value.trim();
     const code = document.getElementById('prodCode').value.trim();
-    const price = parseFloat(document.getElementById('prodPrice').value);
+    const priceRaw = document.getElementById('prodPrice').value.trim();
+    const price = parseFloat(priceRaw);
     const stock = parseInt(document.getElementById('prodStock').value, 10);
     const subcategory = document.getElementById('prodSub').value.trim();
     const catId = document.getElementById('prodCat').value;
 
-    if (!name || !code || isNaN(price) || isNaN(stock) || price < 0 || stock < 0) {
+    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(name)) {
+        alert('El nombre solo puede contener letras de la A a la Z y espacios entre palabras.');
+        return;
+    }
+    if (!/^[0-9]+$/.test(code)) {
+        alert('El código solo puede contener números del 0 al 9.');
+        return;
+    }
+    if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(priceRaw)) {
+        alert('El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.');
+        return;
+    }
+    if (isNaN(price) || isNaN(stock) || price < 0 || stock < 0) {
         alert('Por favor complete todos los campos requeridos correctamente.');
         return;
     }
@@ -426,6 +493,8 @@ async function addProduct() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 nombre: name,
+                marca: brand,
+                sub_nombre: subName,
                 codigo: code,
                 precio: price,
                 cantidad: stock,
@@ -447,6 +516,8 @@ async function addProduct() {
             id: newId,
             ID_stock: newId,
             nombre: name,
+            marca: brand || undefined,
+            sub_nombre: subName || undefined,
             codigo: code,
             precio: price,
             stock: stock,
@@ -468,7 +539,6 @@ async function addProduct() {
             sub.productos.push(newProduct);
         }
 
-        await guardarInventario();
         localStorage.setItem('inventarioUpdated', Date.now().toString());
         window.dispatchEvent(new Event('inventario-updated'));
 
