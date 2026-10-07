@@ -803,6 +803,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const password = document.getElementById('edit-password').value;
             const role = document.querySelector('input[name="edit-role"]:checked')?.value || 'vendedor';
 
+            if (password) {
+                const validPassword = /^[\x21-\x7E]{26,64}$/.test(password)
+                    && /[a-z]/.test(password)
+                    && /[A-Z]/.test(password)
+                    && /[0-9]/.test(password)
+                    && /\$/.test(password)
+                    && /%/.test(password)
+                    && /[+\-*\/=<>]/.test(password)
+                    && /[!@#&()[\]{}:;_.,~^|\\]/.test(password);
+                if (!validPassword) {
+                    showToast('❌ Usá entre 26 y 64 caracteres ASCII imprimibles, incluyendo minúsculas, mayúsculas, números, $, %, un operador y otro símbolo.', true);
+                    return;
+                }
+            }
+
             if (rolOcupado(normalizarRol(role), id)) {
                 showToast(`❌ Ya existe otra cuenta con el rol ${normalizarRol(role)}.`, true);
                 return;

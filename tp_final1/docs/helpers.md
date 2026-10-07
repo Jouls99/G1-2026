@@ -30,6 +30,8 @@ La salida JSON se usa únicamente para la comunicación HTTP. Los datos persiste
 
 `logActivity($usuario, $tipo, $descripcion, $detalles = null, $idUsuario = null)` inserta el evento en `actividad_usuario`. Los eventos `login_fallido` también llaman a `logThreatIfDetected()`, que consulta los últimos 15 minutos en MySQL y guarda alertas en `amenaza`: cinco fallos para la misma combinación de cuenta/IP, o diez fallos desde una IP contra tres o más cuentas distintas. `appendThreatOnce()` evita duplicar la misma regla/clave durante esa ventana.
 
+`includes/security_monitor.php` inspecciona de forma pasiva los parámetros de URL, formularios, cuerpos JSON y algunos encabezados de solicitudes a páginas PHP y APIs en busca de patrones comunes de inyección SQL, XSS, ejecución de comandos, traversal y ejecución de PHP. Las solicitudes sospechosas generan una alerta `request_code` en `amenaza`, visible en Auditoría. Se guardan la categoría detectada, la ruta PHP, el método y la IP; el contenido enviado no se almacena ni se bloquea. Es un detector heurístico y no reemplaza validación de entradas, consultas preparadas ni un WAF.
+
 ## Dependencias y uso
 
 - La conexión PDO se obtiene desde `database/conexion.php` mediante `getDBConnection()`.

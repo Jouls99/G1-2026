@@ -35,6 +35,51 @@ function isSuperAdminRole(string $role): bool
     return in_array(strtolower(trim($role)), ['superadmin', 'super administrador', 'super_admin', 'super-admin'], true);
 }
 
+function generateTemporaryPassword(): string
+{
+    $characterGroups = [
+        'abcdefghijklmnopqrstuvwxyz',
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        '0123456789',
+        '$',
+        '%',
+        '+-*/=<>',
+        '!@#&()[]{}:;_.,~^|\\'
+    ];
+    $characters = '';
+
+    foreach ($characterGroups as $group) {
+        $characters .= $group[random_int(0, strlen($group) - 1)];
+    }
+
+    $allCharacters = implode('', $characterGroups);
+    while (strlen($characters) < 32) {
+        $characters .= $allCharacters[random_int(0, strlen($allCharacters) - 1)];
+    }
+
+    $password = str_split($characters);
+    for ($index = count($password) - 1; $index > 0; $index--) {
+        $swapIndex = random_int(0, $index);
+        [$password[$index], $password[$swapIndex]] = [$password[$swapIndex], $password[$index]];
+    }
+
+    return implode('', $password);
+}
+
+function passwordMeetsPolicy(string $password): bool
+{
+    return strlen($password) >= 26
+        && strlen($password) <= 64
+        && preg_match('/\A[\x21-\x7E]+\z/', $password) === 1
+        && preg_match('/[a-z]/', $password) === 1
+        && preg_match('/[A-Z]/', $password) === 1
+        && preg_match('/[0-9]/', $password) === 1
+        && preg_match('/[$]/', $password) === 1
+        && preg_match('/%/', $password) === 1
+        && preg_match('/[+\-*\/=<>]/', $password) === 1
+        && preg_match('/[!@#&()\[\]{}:;_.,~^|\\\\]/', $password) === 1;
+}
+
 function canManageUserTarget(array $target, ?array $currentUser): bool
 {
     if (isSuperAdminApi()) {
@@ -269,7 +314,7 @@ if ($method === 'POST') {
             sendJson(['ok' => false, 'error' => 'role_limit_reached', 'message' => "Ya existe una cuenta con el rol {$roleLabel}. No se puede asignar a otro usuario."], 409);
         }
 
-        $temporaryPassword = strtoupper(bin2hex(random_bytes(12)));
+        $temporaryPassword = generateTemporaryPassword();
         $db->beginTransaction();
         $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
         $insertStmt->execute([
@@ -330,6 +375,14 @@ if ($method === 'PUT') {
     $usuario = trim((string)($body['usuario'] ?? ''));
     $newRole = isset($body['role']) ? trim((string)$body['role']) : null;
     $newPassword = isset($body['password']) && trim((string)$body['password']) !== '' ? (string)$body['password'] : null;
+
+    if ($newPassword !== null && !passwordMeetsPolicy($newPassword)) {
+        sendJson([
+            'ok' => false,
+            'error' => 'weak_password',
+            'message' => 'La contraseña debe tener entre 26 y 64 caracteres ASCII imprimibles e incluir minúsculas, mayúsculas, números, $, %, un operador (+ - * / = < >) y otro símbolo.'
+        ], 400);
+    }
 
     if (!$id && $usuario === '') {
         sendJson(['ok' => false, 'error' => 'missing_params', 'message' => 'Se requiere el ID o nombre del usuario.'], 400);

@@ -10,6 +10,75 @@ $action = $_GET['action'] ?? ($_POST['action'] ?? 'check');
 $method = requestMethod();
 $db = requireApiDatabase();
 
+function getLoginLockSeconds(PDO $db, string $username): int
+{
+    $stmt = $db->prepare("
+        SELECT GREATEST(1, TIMESTAMPDIFF(SECOND, NOW(), `bloqueado_hasta`))
+        FROM `login_intentos`
+        WHERE `usuario_clave` = :usuario
+          AND `bloqueado_hasta` > NOW()
+        LIMIT 1
+    ");
+    $stmt->execute([':usuario' => trim($username)]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
+function recordFailedLogin(PDO $db, string $username): int
+{
+    $db->beginTransaction();
+    try {
+        $insert = $db->prepare("
+            INSERT IGNORE INTO `login_intentos` (`usuario_clave`, `intentos_fallidos`)
+            VALUES (:usuario, 0)
+        ");
+        $insert->execute([':usuario' => trim($username)]);
+
+        $select = $db->prepare("
+            SELECT `intentos_fallidos`, `bloqueado_hasta`,
+                   (`bloqueado_hasta` > NOW()) AS `esta_bloqueado`
+            FROM `login_intentos`
+            WHERE `usuario_clave` = :usuario
+            FOR UPDATE
+        ");
+        $select->execute([':usuario' => trim($username)]);
+        $state = $select->fetch();
+
+        if (!$state) {
+            throw new RuntimeException('No se pudo recuperar el contador de intentos de inicio de sesión.');
+        }
+
+        if ((int)$state['esta_bloqueado'] === 1) {
+            $db->commit();
+            return getLoginLockSeconds($db, $username);
+        }
+
+        $attempts = $state['bloqueado_hasta'] !== null
+            ? 1
+            : (int)$state['intentos_fallidos'] + 1;
+        $locked = $attempts >= 4;
+        $update = $db->prepare("
+            UPDATE `login_intentos`
+            SET `intentos_fallidos` = :intentos,
+                `bloqueado_hasta` = CASE WHEN :bloquear = 1 THEN DATE_ADD(NOW(), INTERVAL 10 SECOND) ELSE NULL END,
+                `actualizado_en` = NOW()
+            WHERE `usuario_clave` = :usuario
+        ");
+        $update->execute([
+            ':intentos' => $attempts,
+            ':bloquear' => $locked ? 1 : 0,
+            ':usuario' => trim($username)
+        ]);
+        $db->commit();
+
+        return $locked ? 10 : 0;
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
 // 1. Comprobar estado de autenticación
 if ($action === 'check') {
     $user = getApiUser();
@@ -38,6 +107,26 @@ if ($action === 'login' && $method === 'POST') {
         sendJson(['ok' => false, 'error' => 'missing_fields', 'message' => 'Completá usuario y contraseña.'], 400);
     }
 
+    $lockSeconds = getLoginLockSeconds($db, $usuario);
+    if ($lockSeconds > 0) {
+        header('Retry-After: ' . $lockSeconds);
+        logActivity(
+            $usuario,
+            'login_fallido',
+            "Intento de inicio de sesión rechazado durante el bloqueo temporal del usuario '{$usuario}'",
+            [
+                'motivo' => 'Bloqueo temporal por intentos fallidos consecutivos',
+                'segundos_restantes' => $lockSeconds
+            ]
+        );
+        sendJson([
+            'ok' => false,
+            'error' => 'login_temporarily_locked',
+            'message' => "Acceso temporalmente bloqueado. Esperá {$lockSeconds} segundos antes de volver a intentarlo.",
+            'retry_after' => $lockSeconds
+        ], 429);
+    }
+
     $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `password`, `rol` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
     $stmt->execute([':nombre' => $usuario]);
     $found = $stmt->fetch();
@@ -49,6 +138,7 @@ if ($action === 'login' && $method === 'POST') {
     $userAgent = (string)($_SERVER['HTTP_USER_AGENT'] ?? 'Navegador Web');
 
     if (!$found || !password_verify($password, (string)($found['password'] ?? ''))) {
+        $lockSeconds = recordFailedLogin($db, $usuario);
         // Registrar intento fallido para auditoría del Super Admin
         logActivity(
             $usuario !== '' ? $usuario : 'Desconocido',
@@ -57,11 +147,25 @@ if ($action === 'login' && $method === 'POST') {
             [
                 'ip' => $clientIp,
                 'user_agent' => $userAgent,
-                'motivo' => 'Credenciales incorrectas'
+                'motivo' => $lockSeconds > 0
+                    ? 'Credenciales incorrectas; se activó un bloqueo temporal de 10 segundos'
+                    : 'Credenciales incorrectas'
             ]
         );
+        if ($lockSeconds > 0) {
+            header('Retry-After: ' . $lockSeconds);
+            sendJson([
+                'ok' => false,
+                'error' => 'login_temporarily_locked',
+                'message' => 'Se alcanzaron 4 intentos fallidos consecutivos. El acceso quedó bloqueado durante 10 segundos.',
+                'retry_after' => $lockSeconds
+            ], 429);
+        }
         sendJson(['ok' => false, 'error' => 'invalid_credentials', 'message' => 'Usuario o contraseña incorrectos.'], 401);
     }
+
+    $clearAttempts = $db->prepare("DELETE FROM `login_intentos` WHERE `usuario_clave` = :usuario");
+    $clearAttempts->execute([':usuario' => trim($usuario)]);
 
     // Iniciar sesión en PHP
     $_SESSION['user'] = [

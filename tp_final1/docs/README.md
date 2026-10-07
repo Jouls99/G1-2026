@@ -52,6 +52,7 @@ El esquema inicial de `database/sos_cosmeticos.sql` define la base `sos_cosmetic
 | `ventas_historial` | Ventas archivadas al cierre, con su fecha exacta y el lunes de la semana correspondiente en `semana_inicio`. Conserva solo la semana actual y las tres anteriores. |
 | `facturacion` | Tabla heredada, conservada como origen de migración de ventas anteriores; las ventas nuevas se registran en `ventas`. |
 | `sesion_activa` | Sesiones autenticadas y última actividad, usadas para determinar cuál fue la última sesión de la jornada. |
+| `login_intentos` | Contador de intentos fallidos consecutivos y bloqueos temporales de inicio de sesión por usuario. |
 | `cierre_jornada` | Resultado y cantidad de ventas archivadas y semanas depuradas por cada cierre diario. |
 | `usuario` | Nombre de usuario, hash de contraseña, rol, último acceso y fecha de creación. |
 | `actividad_usuario` | Eventos del sistema: usuario, tipo de acción, descripción, detalles y fecha. |

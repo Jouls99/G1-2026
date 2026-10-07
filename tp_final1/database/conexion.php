@@ -59,6 +59,7 @@ function getDBConnection(): ?PDO
     ensureUniqueAdministrativeRoles($pdo);
     ensureThreatTable($pdo);
     ensureSessionTrackingTables($pdo);
+    ensureLoginAttemptTable($pdo);
     ensureFacturacionDateIndex($pdo);
     ensureSalesLedgerTables($pdo);
     importLegacyActivityFiles($pdo);
@@ -315,6 +316,20 @@ function ensureSessionTrackingTables(PDO $pdo): void
     if (!$archiveColumn) {
         $pdo->exec("ALTER TABLE `cierre_jornada` ADD COLUMN `registros_archivados` int(11) NOT NULL DEFAULT 0 AFTER `registros_eliminados`");
     }
+}
+
+function ensureLoginAttemptTable(PDO $pdo): void
+{
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `login_intentos` (
+            `usuario_clave` varchar(100) NOT NULL,
+            `intentos_fallidos` tinyint unsigned NOT NULL DEFAULT 0,
+            `bloqueado_hasta` datetime DEFAULT NULL,
+            `actualizado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`usuario_clave`),
+            KEY `idx_login_intentos_bloqueado_hasta` (`bloqueado_hasta`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci
+    ");
 }
 
 /** Persiste las alertas de seguridad generadas a partir de inicios de sesión fallidos. */

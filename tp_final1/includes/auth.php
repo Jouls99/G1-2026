@@ -5,6 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/security_monitor.php';
+
 /**
  * Comprueba si hay una sesión de usuario activa.
  */
@@ -178,3 +180,5 @@ function logoutUser(): void
     }
     session_destroy();
 }
+
+monitorRequestForMaliciousInput();

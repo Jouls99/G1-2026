@@ -6,6 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once dirname(__DIR__) . '/database/conexion.php';
+require_once dirname(__DIR__) . '/includes/security_monitor.php';
 
 /**
  * Envía una respuesta en formato JSON con los encabezados adecuados.
@@ -330,3 +331,5 @@ function logActivity(string $usuario, string $tipo, string $descripcion, ?array 
 
     return true;
 }
+
+monitorRequestForMaliciousInput();

@@ -29,6 +29,7 @@ Campos requeridos: `usuario` y `password`.
 1. Busca el usuario en MySQL y verifica la contraseña con `password_verify()`.
 2. Al autenticar, crea `$_SESSION['user']` y actualiza el último acceso en MySQL.
 3. Registra `login_exitoso` o `login_fallido` mediante `logActivity()`. El evento contiene IP y agente de usuario; el fallo incluye también el motivo.
+4. Después de cuatro contraseñas incorrectas consecutivas para el mismo usuario, bloquea nuevos intentos durante 10 segundos. Un inicio correcto reinicia el contador. La restricción también se aplica a nombres de usuario que no existen.
 
 Si ya hay una sesión activa, solo el Super Administrador puede usar esta acción para cambiar a otra cuenta. Las sesiones de vendedores y administradores reciben `403 forbidden`.
 
@@ -36,9 +37,10 @@ Respuestas relevantes:
 
 - `400 missing_fields`: falta usuario o contraseña.
 - `401 invalid_credentials`: las credenciales no coinciden.
+- `429 login_temporarily_locked`: se alcanzaron cuatro intentos fallidos y el acceso está bloqueado temporalmente; `retry_after` indica los segundos restantes.
 - `200`: autenticación exitosa y objeto `user`.
 
-El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria, guarda únicamente su hash y devuelve `temporary_password` solo después de confirmar la creación. La contraseña no se vuelve a consultar desde la API.
+El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria de 32 caracteres que incluye minúsculas, mayúsculas, números, `$`, `%`, un operador y otro símbolo, guarda únicamente su hash y devuelve `temporary_password` solo después de confirmar la creación. Las contraseñas restablecidas deben tener entre 26 y 64 caracteres ASCII imprimibles y cumplir las mismas categorías. La contraseña no se vuelve a consultar desde la API.
 
 ### `logout`
 

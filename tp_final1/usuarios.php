@@ -280,7 +280,8 @@ require_once __DIR__ . '/includes/navbar.php';
 
             <div class="field-group">
                 <label for="edit-password">Restablecer contraseña</label>
-                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para conservarla" autocomplete="new-password">
+                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para conservarla" minlength="26" maxlength="64" autocomplete="new-password">
+                <small>Si la cambiás: más de 25 caracteres, con minúsculas, mayúsculas, números, $, %, operadores y otros símbolos. Usá caracteres ASCII imprimibles.</small>
             </div>
 
             <div class="field-group">

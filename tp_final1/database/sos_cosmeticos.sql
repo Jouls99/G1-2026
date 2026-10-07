@@ -125,6 +125,15 @@ CREATE TABLE IF NOT EXISTS `sesion_activa` (
   KEY `idx_sesion_activa_ultima_actividad` (`activa`, `ultima_actividad`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
+CREATE TABLE IF NOT EXISTS `login_intentos` (
+  `usuario_clave` varchar(100) NOT NULL,
+  `intentos_fallidos` tinyint unsigned NOT NULL DEFAULT 0,
+  `bloqueado_hasta` datetime DEFAULT NULL,
+  `actualizado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`usuario_clave`),
+  KEY `idx_login_intentos_bloqueado_hasta` (`bloqueado_hasta`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+
 CREATE TABLE IF NOT EXISTS `cierre_jornada` (
   `id_cierre` bigint(20) NOT NULL AUTO_INCREMENT,
   `fecha_jornada` date NOT NULL,
