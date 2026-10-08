@@ -12,6 +12,7 @@ requireApiAuth();
 
 // GET: Listar ventas activas o consultar el historial semanal/de una fecha exacta.
 if ($method === 'GET') {
+    // Combina ventas vigentes con el archivo semanal o filtra por semana/fecha solicitada.
     $ventas = [];
     try {
         $historyDate = isset($_GET['fecha']) ? trim((string)$_GET['fecha']) : null;
@@ -170,6 +171,7 @@ if ($method === 'GET') {
 
 // POST: Registrar una nueva venta y actualizar el stock en una transacción MySQL.
 if ($method === 'POST') {
+    // Verifica stock y persiste factura/ajustes de inventario dentro de una transacción.
     $payload = getJsonBody();
 
     if (
@@ -348,6 +350,7 @@ if ($method === 'POST') {
 
 // PUT: Actualizar o modificar una venta existente
 if ($method === 'PUT') {
+    // Restaura las cantidades anteriores y aplica la nueva composición de la venta atómicamente.
     $payload = getJsonBody();
 
     if (!canModifyReportsApi()) {
@@ -555,6 +558,7 @@ if ($method === 'PUT') {
 
 // DELETE: Eliminar una venta / factura por ID y restaurar stock
 if ($method === 'DELETE') {
+    // Elimina la factura vigente y devuelve sus unidades al inventario dentro de la transacción.
     if (!canModifyReportsApi()) {
         sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'No tenés permiso para eliminar ventas.'], 403);
     }

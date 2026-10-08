@@ -1,9 +1,11 @@
 
+// Referencias a los dos formularios y al control que muestra u oculta el registro en login.php.
 const registroContainer = document.getElementById('registroFormContainer');
 const tituloIngreso = document.getElementById('title_ingreso');
 const formRegistro = document.getElementById('FormRegistro');
 const formIngreso = document.getElementById('Form_Ingreso');
 
+// Permitir alternar el formulario de alta con ratón o teclado.
 if (tituloIngreso) {
     tituloIngreso.addEventListener('click', () => {
         if (registroContainer) {
@@ -21,6 +23,7 @@ if (tituloIngreso) {
     });
 }
 
+// Leer usuarios del servidor y recurrir a la copia local cuando el endpoint no está disponible.
 async function obtenerUsuarios() {
     try {
         const res = await fetch('/api/users');
@@ -31,6 +34,7 @@ async function obtenerUsuarios() {
     }
 }
 
+// Registrar en la API y conservar el modo local heredado como alternativa de funcionamiento.
 async function guardarUsuarioServidor(usuario, password, role = 'vendedor') {
     try {
         const res = await fetch('/api/users', {
@@ -57,6 +61,7 @@ async function guardarUsuarioServidor(usuario, password, role = 'vendedor') {
     }
 }
 
+// Validar campos y confirmación antes de crear el usuario y abrir la aplicación.
 if (formRegistro) {
     formRegistro.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -83,6 +88,7 @@ if (formRegistro) {
     });
 }
 
+// Comparar credenciales con la lista recuperada y continuar solo ante coincidencia.
 if (formIngreso) {
     formIngreso.addEventListener('submit', async (event) => {
         event.preventDefault();

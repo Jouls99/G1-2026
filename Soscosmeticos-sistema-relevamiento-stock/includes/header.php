@@ -1,6 +1,7 @@
 <?php
 /**
  * Header común para todas las vistas PHP
+ * Inicializa datos compartidos y emite el encabezado HTML que usan todas las vistas PHP.
  */
 require_once __DIR__ . '/session.php';
 
@@ -8,6 +9,7 @@ $pageTitle = $pageTitle ?? 'Panel de Gestión';
 $extraCss = $extraCss ?? [];
 $activeTab = $activeTab ?? '';
 ?>
+<!-- Estructura base, metadatos y estilos; los recursos variables se declaran desde cada página. -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -24,6 +26,7 @@ $activeTab = $activeTab ?? '';
     <?php endforeach; ?>
 </head>
 <body class="app-body">
+<!-- Ocultar navegación únicamente en pantallas que requieren un acceso sin sesión, como login.php. -->
 <?php if (empty($hideNav)): ?>
     <?php include __DIR__ . '/nav.php'; ?>
 <?php endif; ?>

@@ -14,6 +14,7 @@ const currencyFormatter = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 0
 });
 
+// Escapa datos variables antes de interpolarlos en las tablas y tarjetas del informe.
 function escapeHtml(str) {
   if (typeof str !== 'string') return String(str ?? '');
   return str
@@ -24,6 +25,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Define rótulos y límites temporales comunes para agrupar ventas por día, semana o mes.
 function getPeriodLabels(period) {
   switch (period) {
     case 'semanal':
@@ -36,6 +38,7 @@ function getPeriodLabels(period) {
   }
 }
 
+// Devuelve los límites semiabiertos del período para que todos los agregados usen el mismo rango.
 function getPeriodDateRange(period, now = new Date()) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   let end;
@@ -55,6 +58,7 @@ function getPeriodDateRange(period, now = new Date()) {
   return { start, end };
 }
 
+// Relaciona cada fecha con la posición de su serie y cada venta con la categoría del catálogo.
 function getSeriesIndex(date, period) {
   switch (period) {
     case 'semanal':
@@ -67,6 +71,7 @@ function getSeriesIndex(date, period) {
   }
 }
 
+// Resuelve la categoría histórica desde la venta o, si falta, mediante el código del producto.
 function getProductCategory(product) {
   const productCode = String(product.codigo || '').trim().toLowerCase();
   if (!productCode) return product.categoria || null;
@@ -76,6 +81,7 @@ function getProductCategory(product) {
   return product.categoria || inventoryItem?.categoria || null;
 }
 
+// Agrega unidades e importes vendidos por categoría y período para alimentar KPIs y gráfico.
 function buildSeries(category, period) {
   const labels = getPeriodLabels(period);
   const { start, end } = getPeriodDateRange(period);
@@ -104,6 +110,7 @@ function buildSeries(category, period) {
   return series;
 }
 
+// Construye los controles de categoría y período a partir del inventario y las ventas existentes.
 function renderCategoryButtons() {
   const categories = [...new Set([
     ...state.inventory.map((item) => item.categoria),
@@ -130,6 +137,7 @@ function renderCategoryButtons() {
   });
 }
 
+// Permite cambiar el rango de agregación y vuelve a dibujar el dashboard al seleccionarlo.
 function renderPeriodButtons() {
   const periods = ['diario', 'semanal', 'mensual'];
   const container = document.getElementById('periodButtons');
@@ -149,6 +157,7 @@ function renderPeriodButtons() {
   });
 }
 
+// Actualiza totales de venta y valorización de stock para la categoría/período seleccionado.
 function renderMetrics(series) {
   const sold = series.sold.reduce((total, value) => total + value, 0);
   const revenue = series.revenue.reduce((total, value) => total + value, 0);
@@ -181,6 +190,8 @@ function renderLoadErrors(errors) {
   notice.hidden = errors.length === 0;
 }
 
+// Genera el SVG de las series de ventas e importes, usando las etiquetas de cada período.
+// Construye los ejes y puntos SVG usando los valores agregados de ventas e ingresos.
 function buildChartMarkup(series) {
   const width = 640;
   const height = 280;
@@ -209,6 +220,7 @@ function buildChartMarkup(series) {
   `;
 }
 
+// Inserta el SVG recién calculado en el espacio gráfico de la vista.
 function renderChart(series) {
   const svg = document.getElementById('lineChart');
   if (!svg) return;
@@ -218,6 +230,7 @@ function renderChart(series) {
   svg.innerHTML = buildChartMarkup(series);
 }
 
+// Suma unidades vendidas por código y opcionalmente restringe el conteo al período activo.
 function buildSoldSummary(period = null) {
   const soldCounts = {};
   const range = period ? getPeriodDateRange(period) : null;
@@ -234,6 +247,7 @@ function buildSoldSummary(period = null) {
   return soldCounts;
 }
 
+// Busca la última venta por código para completar la fecha/hora mostrada en el resumen.
 function getLastSaleInfo(codigo) {
   const codigoKey = String(codigo || '').toLowerCase();
   const salesForProduct = state.sales.filter((sale) =>
@@ -256,6 +270,7 @@ function getLastSaleInfo(codigo) {
   };
 }
 
+// Renderiza productos de la categoría y muestra sus ventas y existencias disponibles.
 function renderProducts() {
   const list = document.getElementById('productList');
   if (!list) return;
@@ -281,6 +296,7 @@ function renderProducts() {
     .join('');
 }
 
+// Completa el resumen tabular con existencias, valorización y fecha de última venta por artículo.
 function renderInventoryTable() {
   const soldSummary = buildSoldSummary();
   const tbody = document.getElementById('stockTableBody');
@@ -308,6 +324,7 @@ function renderInventoryTable() {
   }).join('');
 }
 
+// Presenta ventas recientes o el historial filtrado, con acciones solo si el permiso lo permite.
 function renderSalesHistory() {
   const tbody = document.getElementById('salesHistoryBody');
   const count = document.getElementById('salesCount');
@@ -358,12 +375,14 @@ function renderSalesHistory() {
   }).join('');
 }
 
+// Provee fechas locales de inicio de semana para solicitar históricos dentro del período retenido.
 function getWeekStartDate(date = new Date()) {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
   return start;
 }
 
+// Serializa una fecha local como AAAA-MM-DD, formato requerido por el filtro de la API.
 function formatLocalDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -371,6 +390,7 @@ function formatLocalDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+// Configura filtros semanales/diarios exclusivos de usuarios con capacidad administrativa.
 function configureHistoryFilters() {
   if (!usuarioEsAdminInforme) return;
   const weekSelect = document.getElementById('historyWeekSelect');
@@ -415,6 +435,7 @@ async function loadHistorySales(filter, value) {
   }
 }
 
+// Recarga el mismo rango histórico seleccionado después de editar o eliminar una venta.
 function refreshSelectedHistory() {
   if (!usuarioEsAdminInforme) return;
   const selectedDate = document.getElementById('historyDateSelect')?.value;
@@ -426,6 +447,7 @@ function refreshSelectedHistory() {
   if (selectedWeek) loadHistorySales('semana', selectedWeek);
 }
 
+// Actualiza la fecha/hora/día visibles sin requerir una nueva consulta al servidor.
 function updateClock() {
   const now = new Date();
   const elDate = document.getElementById('liveDate');
@@ -436,6 +458,7 @@ function updateClock() {
   if (elDay) elDay.textContent = now.toLocaleDateString('es-AR', { weekday: 'long' });
 }
 
+// Prepara un informe imprimible agrupando los renglones de venta del período por categoría.
 function renderPdfReport() {
   const container = document.getElementById('reportPdfContent');
   if (!container) return;
@@ -521,6 +544,7 @@ function exportReportPdf() {
   window.print();
 }
 
+// Recalcula y actualiza todas las regiones visuales dependientes del estado de la página.
 function render() {
   renderCategoryButtons();
   renderPeriodButtons();
@@ -533,6 +557,7 @@ function render() {
   updateClock();
 }
 
+// Carga inventario y ventas en paralelo, conserva errores parciales y representa el estado combinado.
 async function loadInventory() {
   const errors = [];
   try {
@@ -561,6 +586,7 @@ async function loadInventory() {
   renderLoadErrors(errors);
 }
 
+// Engancha controles de la vista y carga inventario/ventas al iniciar o al recibir cambios externos.
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('exportReportPdfBtn')?.addEventListener('click', exportReportPdf);
   configureHistoryFilters();
@@ -592,11 +618,13 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   setInterval(updateClock, 1000);
 });
+// Mantiene el dashboard al día cuando otra pestaña cambia inventario o se registra una venta.
 window.addEventListener('storage', (event) => {
   if (event.key === 'inventarioUpdated') {
     loadInventory();
   }
 });
+// Sincroniza la vista con actualizaciones publicadas por los otros módulos de la misma aplicación.
 window.addEventListener('inventario-updated', () => {
   loadInventory();
 });
@@ -614,6 +642,7 @@ function closeSwitchUserModal() {
   if (switchUserMessage) switchUserMessage.textContent = '';
 }
 
+// Gestiona apertura/cierre y autentica en el servidor el cambio de cuenta del Super Admin.
 document.getElementById('openSwitchUserBtn')?.addEventListener('click', () => {
   if (!switchUserModal) return;
   switchUserModal.style.display = 'flex';
@@ -663,6 +692,7 @@ switchUserForm?.addEventListener('submit', async (event) => {
 });
 
 // === MODAL DE EDICIÓN DE VENTAS ===
+// Pinta la venta elegida y limita cantidades según el stock que volvería al inventario.
 function abrirModalEdicion(saleId) {
   if (!puedeModificarInforme) return;
   const sale = state.sales.find(s => String(s.id) === String(saleId));
@@ -750,6 +780,7 @@ function recalcularTotalModal() {
 }
 
 // Cerrar modal
+// Los controles y el clic fuera del cuadro cierran el editor sin enviar cambios.
 document.getElementById('closeModalBtn')?.addEventListener('click', () => {
   const modal = document.getElementById('editSaleModal');
   if (modal) modal.style.display = 'none';
@@ -763,6 +794,7 @@ window.addEventListener('click', (event) => {
 });
 
 // Guardar cambios modal
+// Valida las cantidades editadas y envía la composición al endpoint de actualización de ventas.
 document.getElementById('edit-sale-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!puedeModificarInforme) return;
@@ -837,6 +869,7 @@ document.getElementById('edit-sale-form')?.addEventListener('submit', async (e) 
 });
 
 // Eliminar venta directo vía API
+// Elimina la factura persistida y actualiza vistas e inventario tras la respuesta de MySQL.
 async function eliminarVentaDirecto(saleId) {
   if (!puedeModificarInforme) return;
 
@@ -867,6 +900,7 @@ async function eliminarVentaDirecto(saleId) {
 }
 
 // Confirmar y eliminar venta desde tabla o botón
+// Pide confirmación antes de delegar la baja en el mismo flujo de eliminación de la API.
 function confirmarEliminarVenta(saleId) {
   if (!puedeModificarInforme) return;
   if (confirm('⚠️ ¿Estás seguro de que querés eliminar esta venta del historial?\nEl stock de los productos se devolverá automáticamente al inventario.')) {
@@ -882,6 +916,7 @@ document.getElementById('btnDeleteSale')?.addEventListener('click', async () => 
   confirmarEliminarVenta(saleId);
 });
 
+// Publica estas acciones para los botones dinámicos creados al renderizar el historial.
 window.abrirModalEdicion = abrirModalEdicion;
 window.confirmarEliminarVenta = confirmarEliminarVenta;
 window.eliminarVentaDirecto = eliminarVentaDirecto;

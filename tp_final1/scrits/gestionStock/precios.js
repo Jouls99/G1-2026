@@ -2,6 +2,7 @@
  * Ajustes de precios y auditoria de stock
  */
 
+// Los selectores de categoría y tipo se derivan del catálogo cargado por inventario.js.
 function renderPriceCategoryFilter() {
     const selector = document.getElementById('priceCategory');
     if (!selector) return;
@@ -30,6 +31,7 @@ function renderPriceTypeFilter() {
     selector.value = types.includes(currentValue) ? currentValue : '';
 }
 
+// Conserva la selección manual de productos que alimentará un ajuste de alcance seleccionado.
 function togglePriceProduct(id, checked) {
     if (!Number.isInteger(id) || id < 1) return;
     if (checked) {
@@ -51,6 +53,7 @@ function toggleVisiblePriceProducts(checked) {
  * Renderizar la tabla de productos (solo muestra productos activos)
  */
 async function cargarAuditoriaStock() {
+    // Este registro es privado del Super Admin y se alimenta desde la auditoría persistida.
     const content = document.getElementById('auditoria-stock-content');
     if (!content || !usuarioEsSuperAdmin) return;
 
@@ -74,12 +77,14 @@ async function cargarAuditoriaStock() {
     }
 }
 
+// Da formato local a las fechas mostradas en el registro de cambios y ajustes.
 function formatAuditDate(value) {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString('es-AR');
 }
 
 async function aplicarAjustePrecios() {
+    // Valida alcance y valor en el cliente antes de enviar el lote a la API administrativa.
     if (!usuarioEsAdmin) return;
     const scope = document.getElementById('priceScope').value;
     const adjustmentType = document.getElementById('priceAdjustmentType').value;
@@ -154,6 +159,7 @@ async function aplicarAjustePrecios() {
     }
 }
 
+// Recupera los últimos ajustes persistidos para dar trazabilidad a los cambios administrativos.
 async function cargarHistorialPrecios() {
     const container = document.getElementById('priceHistory');
     if (!container || !usuarioEsAdmin) return;

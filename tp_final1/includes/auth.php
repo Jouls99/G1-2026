@@ -7,6 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/security_monitor.php';
 
+// Consultas pequeñas sobre la sesión actual; las usan las vistas y las reglas de acceso.
 /**
  * Comprueba si hay una sesión de usuario activa.
  */
@@ -97,6 +98,7 @@ function hasUserPermission(string $permission): bool
     return $value !== false && (bool)$value;
 }
 
+// Los administradores conservan acceso implícito; los vendedores dependen del permiso guardado.
 function canRegisterStock(): bool
 {
     return isAdmin() || hasUserPermission('puede_registrar_stock');

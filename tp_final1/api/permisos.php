@@ -4,12 +4,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/helpers.php';
 
 handleOptions();
+// Toda consulta o modificación de permisos delegables requiere rol administrativo.
 requireAdminApi();
 
 $method = requestMethod();
 $db = requireApiDatabase();
 
 if ($method === 'GET') {
+    // Devuelve únicamente vendedores y normaliza tipos para la tabla del panel administrativo.
     try {
         $stmt = $db->query("SELECT `id_usuario` AS id, `nombre` AS usuario, `puede_registrar_stock`, `puede_modificar_informes` FROM `usuario` WHERE LOWER(`rol`) = 'vendedor' ORDER BY `nombre` ASC");
         $users = array_map(static function (array $user): array {
@@ -28,6 +30,7 @@ if ($method === 'GET') {
 }
 
 if ($method === 'PUT') {
+    // Acepta cambios parciales, verifica que el destino sea vendedor y registra quién los hizo.
     $body = getJsonBody() ?? [];
     $id = (int)($body['id'] ?? 0);
     $permissionFields = ['puede_registrar_stock', 'puede_modificar_informes'];

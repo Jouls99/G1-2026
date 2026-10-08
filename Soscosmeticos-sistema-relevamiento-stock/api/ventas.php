@@ -1,6 +1,7 @@
 <?php
 /**
  * API para Gestión de Ventas
+ * Endpoint de consulta, registro, reemplazo y eliminación de ventas del historial.
  */
 require_once __DIR__ . '/config.php';
 
@@ -10,11 +11,13 @@ require_api_auth();
 $ventasFile = getDataFilePath('ventas.json');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+// Consultar el historial para el dashboard de informes y otras vistas.
 if ($method === 'GET') {
     $ventas = readJsonFile($ventasFile, []);
     sendJsonResponse($ventas);
 }
 
+// Agregar una venta validada y completar identificador, fecha y montos compatibles con el historial.
 if ($method === 'POST') {
     $payload = getJsonInput();
     
@@ -48,6 +51,7 @@ if ($method === 'POST') {
     ]);
 }
 
+// Reemplazar el historial completo; se usa al editar una venta desde el informe.
 if ($method === 'PUT') {
     $payload = getJsonInput();
     
@@ -65,6 +69,7 @@ if ($method === 'PUT') {
     ]);
 }
 
+// Eliminar por identificador para clientes que solicitan una baja puntual de la venta.
 if ($method === 'DELETE') {
     $id = $_GET['id'] ?? null;
     if (!$id) {

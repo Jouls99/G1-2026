@@ -10,6 +10,7 @@ $action = $_GET['action'] ?? ($_POST['action'] ?? 'check');
 $method = requestMethod();
 $db = requireApiDatabase();
 
+// El control de bloqueo se consulta en cada intento antes de verificar credenciales.
 function getLoginLockSeconds(PDO $db, string $username): int
 {
     $stmt = $db->prepare("
@@ -23,6 +24,7 @@ function getLoginLockSeconds(PDO $db, string $username): int
     return (int)($stmt->fetchColumn() ?: 0);
 }
 
+// Actualiza de forma atómica los fallos consecutivos y activa un bloqueo tras el umbral.
 function recordFailedLogin(PDO $db, string $username): int
 {
     $db->beginTransaction();
@@ -80,6 +82,7 @@ function recordFailedLogin(PDO $db, string $username): int
 }
 
 // 1. Comprobar estado de autenticación
+// Devuelve al cliente el usuario reconocido por la sesión PHP actual.
 if ($action === 'check') {
     $user = getApiUser();
     sendJson([
@@ -90,6 +93,7 @@ if ($action === 'check') {
 }
 
 // 2. Iniciar sesión (Login)
+// Verifica acceso, limita intentos fallidos, crea la sesión y registra la auditoría.
 if ($action === 'login' && $method === 'POST') {
     if (is_array(getApiUser()) && !isSuperAdminApi()) {
         sendJson([
@@ -212,6 +216,7 @@ if ($action === 'login' && $method === 'POST') {
 }
 
 // 3. Cerrar sesión
+// Registra salida, intenta el cierre de jornada y elimina cookie/datos de sesión.
 if ($action === 'logout') {
     $currentUser = getApiUser();
     if (!is_array($currentUser)) {

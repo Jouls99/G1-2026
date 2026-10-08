@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) {
+    // La plantilla puede usarse de forma independiente, por eso inicia la sesión si hace falta.
     session_start();
 }
 
@@ -13,6 +14,7 @@ if (session_status() === PHP_SESSION_NONE) {
 $pageTitle = $pageTitle ?? 'Sistema de Gestión';
 $customCss = $customCss ?? null;
 ?>
+<!-- Estructura HTML común; las variables anteriores personalizan título y estilos por vista. -->
 <!DOCTYPE html>
 <html lang="es">
 <head>

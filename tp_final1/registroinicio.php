@@ -11,11 +11,13 @@ $customCss = 'css/login.css';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<!-- Encabezado de la pantalla pública de autenticación. -->
 <header>
     <h1>💄 Sistema de Gestión Comercial</h1>
 </header>
 
 <main>
+    <!-- El formulario es atendido por login.js, que valida campos y llama a api/auth.php. -->
     <section class="loginss">
         <h2>Iniciar Sesión</h2>
         <?php if (($_GET['error'] ?? '') === 'cierre_jornada'): ?>

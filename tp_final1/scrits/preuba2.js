@@ -15,6 +15,7 @@ const inputPrecio = document.getElementById('precio');
 const stockInfo = document.getElementById('stock-info');
 const datalist = document.getElementById('productos-datalist');
 
+// Evita que los valores numéricos locales queden negativos antes de incorporarlos a una venta.
 function normalizarNumerosNoNegativos() {
     if (inputCantidad && Number(inputCantidad.value) < 0) {
         inputCantidad.value ='0';
@@ -65,6 +66,7 @@ function actualizarDatalist() {
     });
 }
 
+// Mantiene código, precio, disponibilidad y límite de cantidad al buscar el producto por nombre.
 // Escuchar cambios en el nombre del producto para autocompletar desde la DB
 inputNombre.addEventListener('input', () => {
     const val = inputNombre.value.trim().toLowerCase();
@@ -82,6 +84,7 @@ inputNombre.addEventListener('input', () => {
     }
 });
 
+// Permite localizar el mismo producto por código y sincroniza los datos del formulario.
 // Escuchar cambios en el código para autocompletar si se busca por código
 inputCodigo.addEventListener('input', () => {
     const val = inputCodigo.value.trim().toLowerCase();
@@ -96,6 +99,7 @@ inputCodigo.addEventListener('input', () => {
     }
 });
 
+// Funciones de presentación para mostrar errores o limpiar el aviso de la operación actual.
 function mostrarMensaje(texto, tipo) {
     if (!mensageError) return;
     mensageError.textContent = texto;
@@ -109,6 +113,7 @@ function limpiarMensaje() {
     mensageError.style.display = 'none';
 }
 
+// Reconstruye el carrito temporal y calcula el importe visible a partir de sus renglones.
 function actualizarTabla() {
     if (productosCargados.length === 0) {
         tablaProductos.innerHTML = `
@@ -157,6 +162,7 @@ function actualizarTabla() {
 }
 
 // 1. EVENTO: Capturar el formulario y añadir a la tabla temporal de venta
+// Comprueba que cada producto exista y que la suma de cantidades no exceda el stock disponible.
 formulario.addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -217,6 +223,7 @@ formulario.addEventListener('submit', (e) => {
 });
 
 // 2. EVENTO: Registrar Venta en MySQL (tabla `ventas` y actualización en `producto`)
+// Envía el carrito a la API, que registra factura y stock; después sincroniza la vista local.
 btnRegistrar.addEventListener('click', async () => {
     if (productosCargados.length === 0) {
         mostrarMensaje('❌ Agregá al menos un producto antes de registrar la venta.', 'error');
@@ -267,6 +274,7 @@ btnRegistrar.addEventListener('click', async () => {
 });
 
 // 3. EVENTO: Cancelar / Vaciar Venta Actual
+// Quita renglones seleccionados o vacía el carrito completo con confirmación del operador.
 btnCancelar.addEventListener('click', () => {
     if (productosCargados.length === 0) {
         mostrarMensaje('ℹ️ No hay productos para cancelar.', 'correcto');

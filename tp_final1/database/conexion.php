@@ -69,6 +69,7 @@ function getDBConnection(): ?PDO
     return $pdo;
 }
 
+// Agrega el índice compuesto que acelera filtros cronológicos del historial de facturas.
 function ensureFacturacionDateIndex(PDO $pdo): void
 {
     $stmt = $pdo->prepare("
@@ -84,6 +85,7 @@ function ensureFacturacionDateIndex(PDO $pdo): void
     }
 }
 
+// Crea los libros de ventas vigentes e históricos y migra los registros heredados una sola vez.
 function ensureSalesLedgerTables(PDO $pdo): void
 {
     $pdo->exec("
@@ -189,6 +191,7 @@ function ensureSalesLedgerTables(PDO $pdo): void
     }
 }
 
+// Conserva el nombre del producto en cada venta aunque después se modifique o elimine del catálogo.
 function ensureSalesProductNameSnapshots(PDO $pdo): void
 {
     foreach (['ventas', 'ventas_historial'] as $table) {
@@ -265,6 +268,7 @@ function ensureSalesProductNameSnapshots(PDO $pdo): void
     }
 }
 
+// Ajusta el siguiente identificador para no colisionar con facturas activas, archivadas o antiguas.
 function ensureSalesAutoIncrement(PDO $pdo): void
 {
     $maxId = (int)$pdo->query("
@@ -285,6 +289,7 @@ function ensureSalesAutoIncrement(PDO $pdo): void
     }
 }
 
+// Crea el registro de sesiones activas y el historial de cierres diarios de jornada.
 function ensureSessionTrackingTables(PDO $pdo): void
 {
     $pdo->exec("
@@ -318,6 +323,7 @@ function ensureSessionTrackingTables(PDO $pdo): void
     }
 }
 
+// Persiste los contadores y tiempos de bloqueo usados para limitar inicios de sesión fallidos.
 function ensureLoginAttemptTable(PDO $pdo): void
 {
     $pdo->exec("
@@ -705,6 +711,7 @@ function ensurePriceAdjustmentHistoryTable(PDO $pdo): void
 /**
  * Asegura que las cuentas iniciales existan y conserven sus roles correctos.
  */
+// Normaliza las cuentas base de administración en instalaciones existentes sin duplicar roles únicos.
 function syncDefaultUsers(PDO $pdo): void
 {
     try {

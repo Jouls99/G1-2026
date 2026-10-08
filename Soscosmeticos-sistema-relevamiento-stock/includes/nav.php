@@ -1,11 +1,13 @@
 <?php
 /**
  * Barra de navegación principal
+ * Barra compartida que enlaza las vistas y refleja sesión, rol y pestaña activa.
  */
 $currentUser = current_user();
 $currentRole = current_role();
 $activeTab = $activeTab ?? '';
 ?>
+<!-- Los enlaces de gestión solo aparecen con usuario autenticado; la acción derecha cambia según la sesión. -->
 <nav class="app-navbar">
     <div class="nav-brand">
         <a href="index.php" class="brand-link">

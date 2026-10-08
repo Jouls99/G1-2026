@@ -1,5 +1,6 @@
 const formIngreso = document.getElementById('Form_Ingreso');
 
+// Envía las credenciales a la API y devuelve un resultado uniforme para el formulario.
 async function loginUsuario(usuario, password) {
     try {
         const res = await fetch('api/auth.php?action=login', {
@@ -18,6 +19,7 @@ async function loginUsuario(usuario, password) {
     }
 }
 
+// Conecta el formulario de la vista de login con la autenticación de PHP y muestra sus errores.
 if (formIngreso) {
     formIngreso.addEventListener('submit', async (event) => {
         event.preventDefault();

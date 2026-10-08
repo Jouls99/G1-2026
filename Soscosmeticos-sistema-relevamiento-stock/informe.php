@@ -1,4 +1,5 @@
 <?php
+// Protege el informe y configura sus recursos; informe.js alimenta los resúmenes, gráficos e historial.
 require_once __DIR__ . '/includes/session.php';
 require_auth('login.php');
 
@@ -10,6 +11,7 @@ $extraJs = ['assets/js/informe.js'];
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<!-- Encabezado y tabla consolidada: sus identificadores son los destinos del reloj y del resumen por producto. -->
 <div class="informe-page-container" style="max-width: 1300px; margin: 0 auto; padding: 24px; width: 100%;">
     <header>
         <div class="header-top">
@@ -46,6 +48,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </header>
 
+    <!-- Dashboard de métricas, filtros y ventas; el JavaScript reemplaza estos contenedores con datos actuales. -->
     <main style="margin-top: 30px;">
         <section id="dashboard-informe">
             <div class="dashboard-header">
@@ -120,6 +123,7 @@ require_once __DIR__ . '/includes/header.php';
     </main>
 
     <!-- Modal de Edición de Venta -->
+    <!-- Modal usado por el historial para modificar cantidades y guardar o eliminar una venta. -->
     <div id="editSaleModal" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content" style="background: white; border-radius: 12px; max-width: 550px; width: 90%; padding: 24px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">

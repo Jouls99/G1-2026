@@ -1,4 +1,5 @@
 <?php
+// Restringe el panel a usuarios autenticados y prepara los recursos propios de esta vista.
 require_once __DIR__ . '/includes/session.php';
 require_auth('login.php');
 
@@ -10,6 +11,7 @@ $extraJs = ['assets/js/stock.js'];
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<!-- Panel de inventario: reúne búsqueda, categorías, productos y sus detalles; stock.js conecta estos contenedores con la API. -->
 <main class="container-fluid" style="padding: 24px; max-width: 1300px; margin: 0 auto; width: 100%;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
         <h1 style="color: #2d112c; font-size: 26px; font-weight: 700; margin: 0;">📦 Panel de Gestión y Control de Stock</h1>
@@ -25,6 +27,7 @@ require_once __DIR__ . '/includes/header.php';
     
     <input type="text" id="globalSearch" class="search-box" placeholder="🔍 Buscar producto por nombre o código..." style="margin-bottom: 20px; width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 1rem;">
 
+    <!-- Navegación y acciones de categorías a la izquierda; tabla y detalle se renderizan dinámicamente en los paneles restantes. -->
     <div class="dashboard">
         <div class="sidebar">
             <h3>Categorías</h3>

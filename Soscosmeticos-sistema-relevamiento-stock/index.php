@@ -1,4 +1,5 @@
 <?php
+// Protege la pantalla de ventas y selecciona los estilos y el controlador que la inicializan.
 require_once __DIR__ . '/includes/session.php';
 require_auth('login.php');
 
@@ -10,11 +11,13 @@ $extraJs = ['assets/js/ventas.js'];
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<!-- Vista de venta: la tabla y el total reflejan el carrito temporal hasta confirmar o cancelar. -->
 <main class="container-fluid" style="padding: 24px; max-width: 1300px; margin: 0 auto; width: 100%;">
     <header style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e2e8f0;">
         <h1 style="color: #2d112c; font-size: 26px; font-weight: 700;">💄 Panel de Gestión de Ventas</h1>
     </header>
 
+    <!-- El panel izquierdo presenta el carrito; el derecho captura productos del inventario y enlaza vistas complementarias. -->
     <div class="container">
         <!-- Panel Izquierdo: Productos en la Venta -->
         <div class="panel panel-izquierdo">

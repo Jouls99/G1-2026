@@ -1,4 +1,5 @@
 
+        // Catálogo local inicial: se sustituye con la persistencia disponible al cargar el panel.
         let inventario = [
   {
     id: "cat-1",
@@ -39,12 +40,15 @@
   }
 ];
 
+// Selección y menú temporal que comparten las funciones de renderizado e interacción.
 let categoriaSeleccionada = inventario[0];
 let productoSeleccionado = null;
 let categoryContextMenu = null;
 
+// Serializar productos principales y secundarios en filas planas, persistiendo en API y en respaldo local.
 async function guardarInventario() {
     // crear array plano con los campos requeridos: categoria,nombre,codigo,precio,cantidad,total
+    // Aplanar el modelo jerárquico al formato de campos que espera el endpoint de inventario.
     const flat = [];
     inventario.forEach(cat => {
         cat.productos.forEach(p => {
@@ -66,13 +70,16 @@ async function guardarInventario() {
         });
         if (!res.ok) throw new Error('no_server');
         // también guardamos una copia local
+        // Conservar copia local para que el panel pueda recuperar su estado sin depender del servidor.
         localStorage.setItem('inventarioCosmetica', JSON.stringify(inventario));
     } catch (e) {
         // fallback a localStorage
+        // Mantener las modificaciones aunque el endpoint no esté disponible.
         localStorage.setItem('inventarioCosmetica', JSON.stringify(inventario));
     }
 }
 
+// Leer la API y reconstruir categorías; si no responde, recuperar la copia de localStorage.
 async function cargarInventario() {
     try {
         const res = await fetch('/api/inventario');
@@ -80,6 +87,7 @@ async function cargarInventario() {
         const flat = await res.json();
         if (Array.isArray(flat) && flat.length > 0) {
             // reconstruir estructura por categorias
+            // Agrupar las filas planas por categoría para recuperar el modelo usado por la interfaz.
             const map = new Map();
             flat.forEach(item => {
                 const catName = item.categoria || 'Sin categoría';
@@ -104,6 +112,7 @@ async function cargarInventario() {
     }
 }
 
+// Repintar la navegación de categorías y asociar apertura y eliminación contextual.
 function renderCategories() {
     const container = document.getElementById('categoriesContainer');
     container.innerHTML = '';
@@ -118,6 +127,7 @@ function renderCategories() {
     });
 }
 
+// Retirar el menú previo al cerrar o mostrar otro.
 function hideCategoryContextMenu() {
     if (categoryContextMenu) {
         categoryContextMenu.remove();
@@ -125,6 +135,7 @@ function hideCategoryContextMenu() {
     }
 }
 
+// Ubicar junto al puntero el acceso contextual para eliminar la categoría elegida.
 function showCategoryContextMenu(event, categoria) {
     event.preventDefault();
     hideCategoryContextMenu();
@@ -145,6 +156,7 @@ function showCategoryContextMenu(event, categoria) {
     categoryContextMenu = menu;
 }
 
+// Confirmar la eliminación y dejar los paneles en una categoría válida o en estado vacío.
 function deleteCategory(catId) {
     const categoria = inventario.find(c => c.id === catId);
     if (!categoria) {
@@ -178,6 +190,7 @@ function deleteCategory(catId) {
     hideCategoryContextMenu();
 }
 
+// Crear una categoría vacía desde el formulario lateral y seleccionarla para continuar la carga.
 function addCategory() {
     const input = document.getElementById('newCatName');
     const nombre = input.value.trim();
@@ -198,6 +211,7 @@ function addCategory() {
     renderTable(categoriaSeleccionada);
 }
 
+// Cambiar de categoría y limpiar cualquier selección de producto anterior.
 function selectCategory(catId) {
     categoriaSeleccionada = inventario.find(c => c.id === catId);
     productoSeleccionado = null;
@@ -206,6 +220,7 @@ function selectCategory(catId) {
     renderDetailPanel();
 }
 
+// Generar el formulario de producto, filas de stock y valor consolidado para la categoría actual.
 function renderTable(categoria) {
     const content = document.getElementById('mainContent');
     if (!categoria) return;
@@ -282,6 +297,7 @@ function renderTable(categoria) {
     content.innerHTML = html;
 }
 
+// Buscar el producto seleccionado por código dentro de la categoría y refrescar su ficha.
 function selectProduct(codigo, catId) {
     const cat = inventario.find(c => c.id === catId);
     if (!cat) return;
@@ -289,6 +305,7 @@ function selectProduct(codigo, catId) {
     renderDetailPanel();
 }
 
+// Mostrar ficha del producto o instrucciones iniciales en el panel lateral de detalles.
 function renderDetailPanel() {
     const panel = document.getElementById('detailPanel');
 
@@ -314,6 +331,7 @@ function renderDetailPanel() {
     `;
 }
 
+// Validar el formulario, incorporar el producto y conservarlo tanto en categoría como en subcategoría elegida.
 function addProduct() {
     const name = document.getElementById('prodName').value.trim();
     const code = document.getElementById('prodCode').value.trim();
@@ -353,6 +371,7 @@ function addProduct() {
     document.getElementById('productForm').reset();
 }
 
+// Abrir un resultado de búsqueda en su categoría y cargar el detalle correspondiente.
 function selectProductFromSearch(codigo, catId) {
     const cat = inventario.find(c => c.id === catId);
     if (!cat) return;
@@ -370,6 +389,7 @@ function selectProductFromSearch(codigo, catId) {
     document.getElementById('globalSearch').value = '';
 }
 
+// Buscar coincidencias en productos principales y secundarios y presentar resultados en la tabla central.
 document.getElementById('globalSearch').addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
     if (!query) {
@@ -415,6 +435,7 @@ document.getElementById('globalSearch').addEventListener('input', (e) => {
     `;
 });
 
+// Descargar el estado jerárquico del inventario como archivo de respaldo.
 function exportarJSON() {
     const dataStr = JSON.stringify(inventario, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -426,11 +447,13 @@ function exportarJSON() {
     URL.revokeObjectURL(url);
 }
 
+// Cerrar el menú contextual al hacer clic fuera de él o pulsar Escape.
 document.addEventListener('click', hideCategoryContextMenu);
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') hideCategoryContextMenu();
 });
 
+// Cargar los datos persistidos y poblar navegación, tabla y ficha inicial al evaluar el script.
 (async () => {
     await cargarInventario();
     renderCategories();
@@ -438,6 +461,7 @@ document.addEventListener('keydown', (event) => {
     renderDetailPanel();
 })();
 
+// Sincronizar el panel con cambios de inventario escritos desde otra pestaña del navegador.
 window.addEventListener('storage', async (event) => {
     if (event.key === 'inventarioUpdated') {
         await cargarInventario();
@@ -447,6 +471,7 @@ window.addEventListener('storage', async (event) => {
     }
 });
 
+// Sincronizar también las actualizaciones originadas en otros módulos de esta misma pestaña.
 window.addEventListener('inventario-updated', async () => {
     await cargarInventario();
     renderCategories();

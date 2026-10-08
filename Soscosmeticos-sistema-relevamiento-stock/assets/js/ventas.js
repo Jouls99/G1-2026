@@ -1,7 +1,9 @@
+// El carrito es temporal; inventarioProductos conserva la última lectura para sugerencias y validaciones de stock.
 let productosCargados = [];
 let inventarioProductos = [];
 
 // Elementos del DOM
+// Referencias a los controles que renderizan el carrito o capturan productos y cantidades.
 const formulario = document.getElementById('formulario-producto');
 const tablaProductos = document.getElementById('tabla-productos');
 const totalMonto = document.getElementById('total-monto');
@@ -16,6 +18,7 @@ const stockInfo = document.getElementById('stock-info');
 const datalist = document.getElementById('productos-datalist');
 
 // Cargar inventario al iniciar
+// Consultar el inventario del servidor al iniciar para poblar sugerencias con productos disponibles.
 async function cargarInventarioParaVentas() {
     try {
         const data = await API.getInventario();
@@ -29,6 +32,7 @@ async function cargarInventarioParaVentas() {
     }
 }
 
+// Mostrar en el datalist solo artículos que aún tienen unidades para vender.
 function actualizarDatalist() {
     if (!datalist) return;
     datalist.innerHTML = '';
@@ -43,6 +47,7 @@ function actualizarDatalist() {
 }
 
 // Escuchar cambios en el nombre del producto
+// Completar código, precio y límite de unidades al reconocer el nombre ingresado.
 if (inputNombre) {
     inputNombre.addEventListener('input', () => {
         const val = inputNombre.value.trim().toLowerCase();
@@ -64,6 +69,7 @@ if (inputNombre) {
     });
 }
 
+// Presentar avisos de validación y resultado junto al carrito con una clase visual según el tipo.
 function mostrarMensaje(texto, tipo) {
     if (!mensageError) return;
     mensageError.textContent = texto;
@@ -71,12 +77,14 @@ function mostrarMensaje(texto, tipo) {
     mensageError.style.display = 'block';
 }
 
+// Vaciar el aviso anterior antes de iniciar una operación que pueda generar un nuevo resultado.
 function limpiarMensaje() {
     if (!mensageError) return;
     mensageError.textContent = '';
     mensageError.style.display = 'none';
 }
 
+// Volver a generar filas y total a partir del carrito en memoria, incluidos los estados vacíos.
 function actualizarTabla() {
     if (!tablaProductos || !totalMonto) return;
 
@@ -113,6 +121,7 @@ function actualizarTabla() {
 }
 
 // Capturar el formulario y añadir a la tabla
+// Validar que el artículo exista y que la suma pedida no exceda stock antes de consolidarlo en el carrito.
 if (formulario) {
     formulario.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -170,6 +179,7 @@ if (formulario) {
 }
 
 // Registrar Venta (actualiza stock y guarda en PHP)
+// Revalidar contra el inventario más reciente, descontar stock y guardar venta e inventario mediante la API.
 if (btnRegistrar) {
     btnRegistrar.addEventListener('click', async () => {
         if (productosCargados.length === 0) {
@@ -201,6 +211,7 @@ if (btnRegistrar) {
             }
 
             // Actualizar inventario en el servidor PHP
+            // Persistir primero el stock reducido para que el inventario disponible coincida con la venta.
             await API.saveInventario(nuevoInventario);
 
             const payloadVenta = {
@@ -212,6 +223,7 @@ if (btnRegistrar) {
             };
 
             // Guardar venta en el servidor PHP
+            // Agregar el comprobante al historial después de confirmar el cambio de stock.
             await API.addVenta(payloadVenta);
 
             localStorage.setItem('inventarioUpdated', Date.now().toString());
@@ -231,6 +243,7 @@ if (btnRegistrar) {
 }
 
 // Eliminar / Cancelar Venta
+// Vaciar únicamente el carrito sin persistir, ya que la venta aún no fue registrada.
 if (btnCancelar) {
     btnCancelar.addEventListener('click', () => {
         if (productosCargados.length === 0) {
@@ -247,17 +260,20 @@ if (btnCancelar) {
 }
 
 // Escuchar cambios de inventario desde otras pestañas
+// Recargar sugerencias si otra pestaña o módulo modificó el inventario.
 window.addEventListener('storage', (e) => {
     if (e.key === 'inventarioUpdated') {
         cargarInventarioParaVentas();
     }
 });
 
+// Atender también cambios publicados mediante evento local en esta misma pestaña.
 window.addEventListener('inventario-updated', () => {
     cargarInventarioParaVentas();
 });
 
 // Inicializar al cargar
+// Consultar los productos al terminar de construir el DOM de la página de ventas.
 document.addEventListener('DOMContentLoaded', () => {
     cargarInventarioParaVentas();
 });

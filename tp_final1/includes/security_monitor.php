@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+// Revisa parámetros y cabeceras entrantes con un límite de volumen para detectar patrones sospechosos.
 function scanRequestForMaliciousInput(): array
 {
     $patterns = [
@@ -58,6 +59,7 @@ function scanRequestForMaliciousInput(): array
 
 function logMaliciousInputAttempt(array $signals): void
 {
+    // Persiste solo metadatos y señales, sin guardar el contenido recibido en la solicitud.
     if ($signals === [] || !empty($GLOBALS['malicious_input_checked'])) {
         return;
     }
@@ -120,6 +122,7 @@ function logMaliciousInputAttempt(array $signals): void
 
 function monitorRequestForMaliciousInput(): void
 {
+    // Omite ejecuciones de consola y preflight para no auditar tráfico que no ejecuta endpoints.
     if (PHP_SAPI === 'cli' || ($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
         return;
     }

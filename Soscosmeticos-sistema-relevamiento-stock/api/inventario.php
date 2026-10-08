@@ -1,6 +1,7 @@
 <?php
 /**
  * API para Gestión de Inventario
+ * Endpoint de lectura y reemplazo del inventario, usado por las vistas de stock, ventas e informes.
  */
 require_once __DIR__ . '/config.php';
 
@@ -10,11 +11,13 @@ require_api_auth();
 $inventarioFile = getDataFilePath('inventario.json');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+// Entregar el inventario persistido sin transformaciones en las consultas de lectura.
 if ($method === 'GET') {
     $inventario = readJsonFile($inventarioFile, []);
     sendJsonResponse($inventario);
 }
 
+// Admitir guardados completos y normalizar el formato recibido antes de persistirlo.
 if ($method === 'PUT' || $method === 'POST') {
     $payload = getJsonInput();
     

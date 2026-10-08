@@ -3,11 +3,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
+// Si existe una sesión, registra su cierre y finaliza la jornada cuando corresponde.
 if (isLoggedIn()) {
 	$user = getCurrentUser();
 	$errorCierreJornada = false;
 	require_once __DIR__ . '/api/helpers.php';
 	require_once __DIR__ . '/includes/jornada.php';
+	// Guarda el evento de salida antes de limpiar los datos de autenticación.
 	logActivity(
 		(string)($user['usuario'] ?? 'Usuario'),
 		'logout',
@@ -18,6 +20,7 @@ if (isLoggedIn()) {
 		],
 		isset($user['id']) ? (int)$user['id'] : null
 	);
+	// El cierre de jornada y el archivado se delegan al servicio común; un fallo se informa al login.
 	try {
 		$db = getDBConnection();
 		if ($db === null) {
@@ -40,11 +43,13 @@ if (isLoggedIn()) {
 		$errorCierreJornada = true;
 		error_log('Error al cerrar la jornada y eliminar ventas: ' . $e->getMessage());
 	}
+	// Destruye la sesión incluso si falló el cierre de jornada y redirige con el aviso correspondiente.
 	logoutUser();
 	header('Location: registroinicio.php' . ($errorCierreJornada ? '?error=cierre_jornada' : ''));
 	exit;
 }
 
+// Ruta de salida idempotente para solicitudes que ya no tienen usuario autenticado.
 logoutUser();
 header('Location: registroinicio.php');
 exit;

@@ -11,6 +11,7 @@ $superAdmin = isSuperAdminApi();
 
 requireApiAuth();
 
+// Validadores compartidos por creación/edición: restringen nombres, códigos y precios recibidos.
 function isValidProductName(string $name): bool
 {
     return preg_match('/\A[A-Za-z]+(?: [A-Za-z]+)*\z/', $name) === 1;
@@ -33,6 +34,7 @@ function isReservedCategoryName(string $name): bool
         || preg_match('/\As[ií]n categor[ií]a\z/iu', $name) === 1;
 }
 
+// Busca o registra la subcategoría dentro de una categoría, devolviendo su clave persistente.
 function findOrCreateSubcategory(PDO $db, ?int $categoryId, ?string $name): ?int
 {
     $name = $name !== null ? trim($name) : '';
@@ -56,6 +58,7 @@ function findOrCreateSubcategory(PDO $db, ?int $categoryId, ?string $name): ?int
     return $id !== false ? (int)$id : null;
 }
 
+// Resuelve la categoría del producto por código o identificador para asociar su subcategoría.
 function findProductCategoryId(PDO $db, string $code, int $productId): ?int
 {
     $stmt = $db->prepare("
@@ -71,6 +74,7 @@ function findProductCategoryId(PDO $db, string $code, int $productId): ?int
 
 // GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`)
 if ($method === 'GET') {
+    // Las consultas auxiliares para categorías, precios y auditoría preceden al listado estándar.
     if (($_GET['action'] ?? '') === 'categories') {
         try {
             $stmt = $db->query("
@@ -145,6 +149,7 @@ if ($method === 'GET') {
             sendJson(['ok' => false, 'message' => 'La auditoría no está disponible sin conexión a la base de datos.'], 503);
         }
 
+        // El listado normal oculta productos deshabilitados salvo para Super Admin y devuelve datos tipados.
         try {
             $auditStmt = $db->query("
                 SELECT `id_actividad`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`
@@ -250,6 +255,7 @@ if ($method === 'GET') {
 
 // POST: Agregar un nuevo producto al inventario en MySQL (o rehabilitar si se especifica action=rehabilitar)
 if ($method === 'POST') {
+    // El POST enruta subacciones de creación de categoría, ajuste masivo de precios o alta de producto.
     $body = getJsonBody();
     $action = $_GET['action'] ?? ($body['action'] ?? 'create');
 
@@ -281,6 +287,7 @@ if ($method === 'POST') {
     }
 
     if ($action === 'adjust_prices') {
+        // Define productos objetivo, calcula precios y registra el lote en el historial de ajustes.
         requireAdminApi();
         if ($db === null) {
             sendJson(['ok' => false, 'message' => 'Los ajustes de precios requieren conexión a la base de datos.'], 503);
@@ -368,7 +375,7 @@ if ($method === 'POST') {
             $selectStmt = $db->prepare($selectSql);
             $selectStmt->execute($params);
             $products = $selectStmt->fetchAll();
-            if ($scope === 'selected' && count($products) !== count($productIds)) {
+            if ($scope === 'selected' && count($products) !== count($products)) {
                 $db->rollBack();
                 sendJson(['ok' => false, 'message' => 'Uno o más productos seleccionados ya no existen. No se modificó ningún precio.'], 409);
             }
@@ -601,6 +608,7 @@ if ($method === 'POST') {
 
 // PUT: Actualizar producto o inventario en MySQL
 if ($method === 'PUT') {
+    // Admite una lista de existencias o un producto individual, siempre bajo autorización admin.
     requireAdminApi();
     $payload = getJsonBody();
 
@@ -741,6 +749,7 @@ if ($method === 'PUT') {
 
 // DELETE: Deshabilitar producto (Baja lógica / Soft-delete a fase = 'deshabilitado')
 if ($method === 'DELETE') {
+    // Realiza baja lógica de productos; la eliminación de categoría reasigna primero sus productos.
     requireAdminApi();
     if (($_GET['action'] ?? '') === 'delete_category') {
         $body = getJsonBody();

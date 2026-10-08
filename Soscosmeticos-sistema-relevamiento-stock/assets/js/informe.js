@@ -1,6 +1,9 @@
 /**
  * Lógica del dashboard de informes, gráficos SVG y edición de historial de ventas
+ * Agrega métricas, visualizaciones e interacción con el historial en informe.php.
+ * Lee inventario y ventas mediante API y sincroniza los cambios de otras vistas.
  */
+// Mantener en un único estado los datos y filtros que determinan cada renderizado.
 const state = {
   inventory: [],
   sales: [],
@@ -8,6 +11,7 @@ const state = {
   activePeriod: 'todo'
 };
 
+// Opciones temporales visibles en el filtro de periodo del dashboard.
 const periods = [
   { id: 'hoy', label: 'Hoy' },
   { id: 'semana', label: 'Esta Semana' },
@@ -15,6 +19,7 @@ const periods = [
   { id: 'todo', label: 'Todo' }
 ];
 
+// Refrescar fecha, hora y día en la tarjeta del encabezado.
 function updateClock() {
   const now = new Date();
   const dateEl = document.getElementById('liveDate');
@@ -36,6 +41,7 @@ function updateClock() {
   }
 }
 
+// Derivar las opciones del filtro de categorías desde el inventario cargado.
 function getCategories() {
   const cats = new Set();
   state.inventory.forEach(i => {
@@ -44,6 +50,7 @@ function getCategories() {
   return ['all', ...Array.from(cats)];
 }
 
+// Limitar las ventas a hoy, últimos siete días, mes actual o historial completo.
 function filterSalesByPeriod(sales, period) {
   const now = new Date();
   return sales.filter(sale => {
@@ -65,6 +72,7 @@ function filterSalesByPeriod(sales, period) {
   });
 }
 
+// Calcular cantidades e importes de ventas y valor del stock que cumplen los filtros seleccionados.
 function calculateCategoryStats() {
   const filteredSales = filterSalesByPeriod(state.sales, state.activePeriod);
   
@@ -97,6 +105,7 @@ function calculateCategoryStats() {
   return { totalSold, totalRevenue, summaryAmount };
 }
 
+// Construir chips de categoría y periodo; cada selección vuelve a dibujar el dashboard.
 function renderControls() {
   const catContainer = document.getElementById('categoryButtons');
   if (catContainer) {
@@ -118,16 +127,19 @@ function renderControls() {
   }
 }
 
+// Actualizar filtro de categoría y refrescar todos los bloques dependientes.
 function setCategory(cat) {
   state.activeCategory = cat;
   render();
 }
 
+// Actualizar filtro temporal y recalcular métricas, tablas y gráfico.
 function setPeriod(period) {
   state.activePeriod = period;
   render();
 }
 
+// Volcar los agregados calculados en las tarjetas superiores del informe.
 function renderMetrics() {
   const { totalSold, totalRevenue, summaryAmount } = calculateCategoryStats();
   
@@ -140,6 +152,7 @@ function renderMetrics() {
   if (metricSummary) metricSummary.textContent = `$${summaryAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
 }
 
+// Enumerar productos de la categoría activa y resaltar los que tienen poco stock.
 function renderProducts() {
   const listEl = document.getElementById('productList');
   if (!listEl) return;
@@ -164,6 +177,7 @@ function renderProducts() {
   `).join('');
 }
 
+// Consolidar unidades y montos vendidos por código para completar la tabla de inventario con últimas fechas.
 function renderInventoryTable() {
   const tbody = document.getElementById('stockTableBody');
   if (!tbody) return;
@@ -227,6 +241,7 @@ function renderInventoryTable() {
   }).join('');
 }
 
+// Presentar las ventas más recientes primero y enlazar cada fila con las acciones de edición y eliminación.
 function renderSalesHistory() {
   const tbody = document.getElementById('salesHistoryBody');
   const countEl = document.getElementById('salesCount');
@@ -265,6 +280,7 @@ function renderSalesHistory() {
   }).join('');
 }
 
+// Agrupar las ventas filtradas en puntos y dibujar las series de unidades e importes dentro del SVG.
 function renderChart() {
   const svg = document.getElementById('lineChart');
   if (!svg) return;
@@ -316,6 +332,7 @@ function renderChart() {
   `;
 }
 
+// Orquestar el refresco coordinado de filtros, indicadores, listados, historial y gráfico.
 function render() {
   renderControls();
   renderMetrics();
@@ -326,6 +343,7 @@ function render() {
   updateClock();
 }
 
+// Consultar inventario e historial por separado para conservar la parte disponible si falla la otra API.
 async function loadData() {
   try {
     const invData = await API.getInventario();
@@ -345,6 +363,7 @@ async function loadData() {
 }
 
 // Modal de edición de ventas
+// Preparar los renglones editables y el límite de stock al abrir el modal para una venta existente.
 function abrirModalEdicion(saleId) {
   const sale = state.sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
@@ -388,6 +407,7 @@ function abrirModalEdicion(saleId) {
   if (modal) modal.style.display = 'flex';
 }
 
+// Actualizar en vivo el importe del modal a partir de las cantidades editables.
 function recalculateEditTotal() {
   const totalEl = document.getElementById('edit-sale-total');
   const qtyInputs = document.querySelectorAll('.edit-qty-input');
@@ -403,6 +423,7 @@ function recalculateEditTotal() {
 }
 
 // Guardar cambios en la venta editada
+// Validar el nuevo stock, recalcular los productos y persistir conjuntamente inventario e historial.
 const editSaleForm = document.getElementById('edit-sale-form');
 if (editSaleForm) {
   editSaleForm.addEventListener('submit', async (e) => {
@@ -463,6 +484,7 @@ if (editSaleForm) {
 }
 
 // Eliminar venta directa
+// Quitar una venta del historial y devolver sus cantidades al inventario antes de guardar.
 async function eliminarVentaDirecto(saleId) {
   const sale = state.sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
@@ -501,6 +523,7 @@ async function eliminarVentaDirecto(saleId) {
 }
 
 // Cerrar modal
+// Cerrar el diálogo mediante el botón de cierre.
 const closeModalBtn = document.getElementById('closeModalBtn');
 if (closeModalBtn) {
   closeModalBtn.addEventListener('click', () => {
@@ -510,6 +533,7 @@ if (closeModalBtn) {
 }
 
 // Escuchar cambios de cantidad en el modal para actualizar total
+// Recalcular el total ante cualquier cambio de cantidad dentro del editor.
 document.addEventListener('input', (e) => {
   if (e.target && e.target.classList.contains('edit-qty-input')) {
     recalculateEditTotal();
@@ -517,22 +541,26 @@ document.addEventListener('input', (e) => {
 });
 
 // Exportar global
+// Exponer callbacks usados por atributos onclick de los controles generados al renderizar.
 window.setCategory = setCategory;
 window.setPeriod = setPeriod;
 window.abrirModalEdicion = abrirModalEdicion;
 window.eliminarVentaDirecto = eliminarVentaDirecto;
 
+// Cargar los datos al iniciar y mantener el reloj actualizado.
 document.addEventListener('DOMContentLoaded', () => {
   loadData();
   setInterval(updateClock, 1000);
 });
 
+// Volver a leer datos cuando otra pestaña publica una modificación del inventario.
 window.addEventListener('storage', (e) => {
   if (e.key === 'inventarioUpdated') {
     loadData();
   }
 });
 
+// Refrescar también ante cambios notificados dentro de esta pestaña.
 window.addEventListener('inventario-updated', () => {
   loadData();
 });

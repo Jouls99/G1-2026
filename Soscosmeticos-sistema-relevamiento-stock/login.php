@@ -1,4 +1,5 @@
 <?php
+// Si la sesión ya existe, evita mostrar el formulario y vuelve al panel de ventas.
 require_once __DIR__ . '/includes/session.php';
 
 // Si ya está autenticado, redirigir al panel principal
@@ -16,6 +17,7 @@ $hideNav = true;
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<!-- Formulario de acceso y registro; login.js valida los datos y los envía al backend. -->
 <div class="login-page-wrapper" style="display: flex; justify-content: center; align-items: center; min-height: 80vh; padding: 20px;">
     <main style="max-width: 440px; width: 100%;">
         <section class="loginss" style="background: white; border-radius: 16px; padding: 30px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); border: 1px solid #f1f5f9;">
@@ -25,6 +27,7 @@ require_once __DIR__ . '/includes/header.php';
                 <p style="color: #64748b; font-size: 0.9rem;">Acceso al panel de ventas e inventario</p>
             </div>
 
+            <!-- Inicio de sesión: usuario y contraseña se leen desde estos campos al enviar. -->
             <section class="ingreso">
                 <form class="form-ingreso" id="Form_Ingreso">
                     <div style="margin-bottom: 14px;">
@@ -47,6 +50,7 @@ require_once __DIR__ . '/includes/header.php';
                 </h3>
             </div>
 
+            <!-- Registro inicialmente oculto; el control superior permite alternarlo antes de enviarlo. -->
             <section class="registro" id="registroFormContainer" style="display: none; border-top: 1px dashed #cbd5e1; padding-top: 20px; margin-top: 15px;">
                 <h3 style="color: #2d112c; font-size: 1.1rem; margin-bottom: 12px;">Crear Cuenta de Usuario</h3>
                 <form class="form_registro" id="FormRegistro">

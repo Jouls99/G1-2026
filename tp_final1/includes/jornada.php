@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/database/conexion.php';
 
+// Registra o actualiza en MySQL el latido asociado al identificador de sesión PHP.
 function registrarActividadSesion(PDO $db, array $user): void
 {
     if (session_status() !== PHP_SESSION_ACTIVE || session_id() === '') {
@@ -124,6 +125,7 @@ function cerrarSesionYJornadaSiCorresponde(PDO $db, array $user): array
 
 function archivarVentasDeJornada(PDO $db, string $dayStart, string $dayEnd): int
 {
+    // Copia y elimina lotes transaccionales para evitar duplicados o pérdida de facturas.
     $archived = 0;
     do {
         $db->beginTransaction();
@@ -171,6 +173,7 @@ function archivarVentasDeJornada(PDO $db, string $dayStart, string $dayEnd): int
 
 function podarHistorialVentas(PDO $db, string $weekStart): int
 {
+    // Conserva el intervalo histórico de semanas configurado y depura filas antiguas por lotes.
     $pruned = 0;
     do {
         $delete = $db->prepare("
@@ -189,6 +192,7 @@ function podarHistorialVentas(PDO $db, string $weekStart): int
 
 function purgarVentasActivasAnteriores(PDO $db, string $oldestDate): int
 {
+    // Limpia ventas activas anteriores al período retenido una vez archivadas las vigentes.
     $deleted = 0;
     do {
         $stmt = $db->prepare("

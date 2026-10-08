@@ -1,11 +1,14 @@
 /**
  * Lógica de inicio de sesión y registro de usuarios con backend PHP
+ * Controladores del formulario de acceso y registro; se ejecutan en login.php mediante includes/footer.php.
  */
+// Cachear nodos opcionales para que el mismo script pueda operar solo cuando existe cada formulario.
 const registroContainer = document.getElementById('registroFormContainer');
 const tituloIngreso = document.getElementById('title_ingreso');
 const formRegistro = document.getElementById('FormRegistro');
 const formIngreso = document.getElementById('Form_Ingreso');
 
+// Alternar el registro por ratón y teclado para que ambos controles mantengan el mismo estado visual.
 if (tituloIngreso) {
     tituloIngreso.addEventListener('click', () => {
         if (registroContainer) {
@@ -24,6 +27,7 @@ if (tituloIngreso) {
 }
 
 // Manejo de Registro
+// Validar confirmación y crear la cuenta en el servidor; ante éxito se conserva el nombre para la interfaz y se ingresa.
 if (formRegistro) {
     formRegistro.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -60,6 +64,7 @@ if (formRegistro) {
 }
 
 // Manejo de Ingreso
+// Enviar credenciales al endpoint y redirigir solo cuando el servidor confirme la autenticación.
 if (formIngreso) {
     formIngreso.addEventListener('submit', async (event) => {
         event.preventDefault();

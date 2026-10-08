@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 requireAdmin('venta.php');
 
+// Ajustes de la plantilla compartida para identificar esta pantalla en la navegación.
 $pageTitle = 'Permisos de vendedores';
 $customCss = 'css/usuarios.css';
 $activePage = 'permisos';
@@ -12,6 +13,7 @@ require_once __DIR__ . '/includes/navbar.php';
 ?>
 
 <main class="usuarios-container permisos-container">
+    <!-- Presenta el alcance de la herramienta administrativa y el rol de quien la utiliza. -->
     <header class="usuarios-header permisos-header">
         <div class="title-area">
             <h1>🔐 Permisos de vendedores</h1>
@@ -23,6 +25,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </header>
 
+    <!-- permisos.js consulta los vendedores, renderiza sus permisos y envía los cambios a la API. -->
     <section class="panel-layout">
         <div class="table-card">
             <div class="permissions-table-scroll">

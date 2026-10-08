@@ -8,6 +8,7 @@ let filtroLoginActual = 'todos';
 const tbodyLogins = document.getElementById('tbody-logins');
 const inputSearchLogin = document.getElementById('search-login');
 
+// Se invoca al cargar el feed o cambiar la búsqueda/tipo para refrescar la tabla de accesos.
 /**
  * Renderizar la tabla de Monitoreo de Logins
  */
@@ -97,4 +98,3 @@ function renderTablaLogins() {
         `;
     }).join('');
 }
-

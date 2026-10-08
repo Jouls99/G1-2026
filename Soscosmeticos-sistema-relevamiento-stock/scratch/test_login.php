@@ -1,4 +1,5 @@
 <?php
+// Prueba puntual del endpoint de acceso; conserva la cookie temporal durante la petición y luego la elimina.
 $cookieFile = __DIR__ . '/test_cookie.txt';
 if (file_exists($cookieFile)) unlink($cookieFile);
 

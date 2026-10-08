@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/auth.php';
 // Proteger vista: requiere sesión activa
 requireAuth('registroinicio.php');
 
+// Configura la plantilla y comunica a JavaScript los permisos de edición vigentes.
 $pageTitle = 'Informe de Stock y Métricas';
 $customCss = 'css/estadisticadasboard.css?v=' . filemtime(__DIR__ . '/css/estadisticadasboard.css');
 $activePage = 'informe';
@@ -16,6 +17,7 @@ require_once __DIR__ . '/includes/navbar.php';
 ?>
 
 <main class="report-container">
+    <!-- Accesos principales del informe; las opciones administrativas dependen del rol. -->
     <header class="report-header">
         <div class="title-area">
             <h1>📊 Informe de Stock y Ventas</h1>
@@ -33,6 +35,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </header>
 
+    <!-- Controles, indicadores y visualizaciones que dashboard-informe.js calcula con la API. -->
     <section id="dashboard-informe">
         <div class="dashboard-header">
             <h2>Dashboard dinámico</h2>
@@ -85,6 +88,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <ul id="productList" class="product-list"></ul>
             </aside>
         </div>
+        <!-- Historial de ventas y resumen de inventario se despliegan bajo demanda. -->
         <button type="button" id="btn-despliegueventas" aria-controls="seccion-ventas" aria-expanded="false">Desplegar Ventas</button>
         <button type="button" id="btn-despliegueresumen" aria-controls="seccion-resumen" aria-expanded="false">Desplegar Resumen</button>
 
@@ -146,6 +150,7 @@ require_once __DIR__ . '/includes/navbar.php';
 </main>
 
 <?php if (isSuperAdmin()): ?>
+<!-- Modal exclusivo para que el Super Administrador cambie de cuenta autenticándose en el servidor. -->
 <div id="switchUserModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="switchUserTitle">
     <div class="modal-content switch-user-modal-content">
         <button type="button" class="close-btn" id="closeSwitchUserBtn" aria-label="Cerrar">&times;</button>
@@ -171,6 +176,7 @@ require_once __DIR__ . '/includes/navbar.php';
 <?php endif; ?>
 
 <!-- Modal de Edición de Venta -->
+<!-- Permite modificar los productos de una venta y recalcular su total antes de persistirla. -->
 <div id="editSaleModal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close-btn" id="closeModalBtn">&times;</span>

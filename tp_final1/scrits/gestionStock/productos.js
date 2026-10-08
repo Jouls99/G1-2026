@@ -2,6 +2,7 @@
  * Gestion de productos y categorias
  */
 
+// Retira de la página el menú emergente para evitar menús duplicados o persistentes.
 function hideCategoryContextMenu() {
     if (categoryContextMenu) {
         categoryContextMenu.remove();
@@ -9,6 +10,7 @@ function hideCategoryContextMenu() {
     }
 }
 
+// Retira el menú de producto abierto cuando se cambia de objetivo o se hace clic fuera.
 function hideProductContextMenu() {
     if (productContextMenu) {
         productContextMenu.remove();
@@ -16,6 +18,7 @@ function hideProductContextMenu() {
     }
 }
 
+// Construye el menú contextual de una categoría y limita sus acciones a usuarios administradores.
 function showCategoryContextMenu(event, categoria) {
     if (!usuarioEsAdmin || !categoria.ID_categoria) return;
     event.preventDefault();
@@ -202,6 +205,7 @@ async function ejecutarEliminacion() {
     alert(`✅ El producto "${nombre}" fue eliminado correctamente.`);
 }
 
+// Mueve primero productos y subcategorías a una categoría destino antes de borrar la seleccionada.
 async function deleteCategory(catId) {
     if (!usuarioEsAdmin) return;
     const categoria = inventario.find(c => c.id === catId);
@@ -274,6 +278,7 @@ async function deleteCategory(catId) {
     hideCategoryContextMenu();
 }
 
+// Crea la categoría en MySQL y recarga las opciones vinculadas al catálogo.
 async function addCategory() {
     if (!usuarioEsAdmin) return;
     const input = document.getElementById('newCatName');
@@ -304,6 +309,7 @@ async function addCategory() {
     }
 }
 
+// Inserta en el panel de detalle un formulario temporal con los datos actuales del producto.
 function mostrarFormularioEdicion() {
     if (!usuarioEsAdmin || !productoSeleccionado) return;
 
@@ -366,6 +372,7 @@ function cancelarEdicionProducto() {
     document.getElementById('editProductForm')?.remove();
 }
 
+// Valida y guarda los campos editables, sincronizando después la tabla y el detalle visibles.
 async function guardarEdicionProducto(event) {
     if (!usuarioEsAdmin || !productoSeleccionado) return;
     event.preventDefault();
@@ -438,6 +445,7 @@ async function guardarEdicionProducto(event) {
     alert(`✅ El producto "${nombre}" fue actualizado correctamente.`);
 }
 
+// Valida los campos y registra un producto nuevo ligado a la categoría elegida.
 async function addProduct() {
     if (!usuarioPuedeRegistrarStock) return;
     const name = document.getElementById('prodName').value.trim();

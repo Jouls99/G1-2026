@@ -1,12 +1,14 @@
 <?php
 /**
  * API para Gestión y Consulta de Usuarios
+ * Endpoint de consulta, registro e inicio de sesión, consumido por el helper API del navegador.
  */
 require_once __DIR__ . '/config.php';
 
 $usersFile = getDataFilePath('users.json');
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+// La consulta requiere sesión y devuelve los datos de usuario guardados para los clientes existentes.
 if ($method === 'GET') {
     // Solo usuarios autenticados pueden consultar usuarios
     require_api_auth();
@@ -26,6 +28,7 @@ if ($method === 'GET') {
     sendJsonResponse($users);
 }
 
+// En POST se distinguen el acceso y el registro según la acción opcional del payload.
 if ($method === 'POST') {
     $payload = getJsonInput();
     
@@ -34,6 +37,7 @@ if ($method === 'POST') {
     }
     
     // Acción de inicio de sesión directo
+    // Validar credenciales y establecer la sesión PHP para habilitar las vistas y endpoints protegidos.
     if (isset($payload['action']) && $payload['action'] === 'login') {
         $usuario = trim($payload['usuario'] ?? '');
         $password = $payload['password'] ?? '';
@@ -81,6 +85,7 @@ if ($method === 'POST') {
     }
     
     // Registro de nuevo usuario
+    // Validar unicidad, almacenar credenciales con hash y autenticar la sesión recién creada.
     $usuario = trim($payload['usuario'] ?? '');
     $password = $payload['password'] ?? '';
     $role = trim($payload['role'] ?? 'vendedor');

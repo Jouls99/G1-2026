@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
-// Requiere sesión activa
+// La pantalla y sus datos se reservan a usuarios autenticados; los permisos finos
+// se calculan después para ajustar qué acciones de inventario puede ver cada rol.
 requireAuth('registroinicio.php');
 $soloLectura = !isAdmin();
 $puedeCargarStock = canRegisterStock();
@@ -11,6 +12,8 @@ $activePage = 'stock';
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/navbar.php';
 ?>
+<!-- Encabezado y enlaces rápidos: presentan el módulo y muestran la administración
+     solo al Super Administrador, evitando ofrecer una ruta que el resto no puede usar. -->
 <div style="max-width: 1200px; margin: 20px auto 10px; padding: 0 15px;">
     <header class="stock-page-header">
         <div>
@@ -25,6 +28,8 @@ require_once __DIR__ . '/includes/navbar.php';
             <?php endif; ?>
         </div>
     </header>
+    <!-- Formulario de alta: se renderiza solo cuando el rol o permiso delegado habilita
+         el registro; los campos y sus patrones guían la captura de datos del producto. -->
     <?php if ($puedeCargarStock): ?>
     <section class="product-form stock-load-form">
         <h2>Cargar producto</h2>
@@ -67,6 +72,8 @@ require_once __DIR__ . '/includes/navbar.php';
         </form>
     </section>
     <?php endif; ?>
+    <!-- Accesos al listado y a la auditoría; la auditoría contiene datos administrativos
+         y por eso solo se ofrece a la cuenta Super Administradora. -->
     <div class="stock-entry-actions">
         <button type="button" class="stock-nav-btn" id="btn-ver-stock">📦 Ver stock por categoría</button>
         <?php if (isSuperAdmin()): ?>
@@ -77,8 +84,12 @@ require_once __DIR__ . '/includes/navbar.php';
         <h2>Stock separado por categorías</h2>
         <p>Seleccioná “Ver stock por categoría” para consultar los productos.</p>
     </section>
+    <!-- Espacio de trabajo que el JavaScript muestra al abrir el stock; reúne búsqueda,
+         filtros, categorías, tabla y detalle sin cargar esa interfaz hasta que se solicite. -->
     <div id="stock-workspace" hidden>
     <input type="text" id="globalSearch" class="search-box" placeholder="🔍 Buscar producto por nombre o código...">
+    <!-- Ajustes de precios: se ocultan en modo de solo lectura para impedir que la interfaz
+         presente operaciones que el usuario no está autorizado a ejecutar. -->
     <?php if (!$soloLectura): ?>
     <div class="price-category-control">
         <label for="priceCategory">Categoría</label>
@@ -129,6 +140,8 @@ require_once __DIR__ . '/includes/navbar.php';
         <div id="priceHistory" class="price-history" hidden></div>
     </section>
     <?php endif; ?>
+    <!-- Distribución principal del inventario: navegación por categorías a la izquierda,
+         resultados al centro y ficha contextual del producto a la derecha. -->
     <div class="dashboard">
         <div class="sidebar">
             <h3>Categorías</h3>
@@ -145,6 +158,8 @@ require_once __DIR__ . '/includes/navbar.php';
             <?php endif; ?>
             <br>
             <a href="venta.php" class="ver-stock" style="display:block; width:100%; box-sizing:border-box; margin-top:8px;">← Volver a Ventas</a>
+            <!-- Registro de cambios de estado de productos, restringido en servidor y en interfaz
+                 al Super Administrador para facilitar auditoría sin exponerla a otros roles. -->
             <?php if (isSuperAdmin()): ?>
             <a href="usuarios.php" class="ver-stock" style="display:block; width:100%; box-sizing:border-box; margin-top:8px; background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Ir a Gestión de Usuarios</a>
             <?php endif; ?>
@@ -180,7 +195,8 @@ require_once __DIR__ . '/includes/navbar.php';
     <div id="auditoria-stock-content" class="audit-table-wrap">Cargando historial...</div>
 </section>
 <?php endif; ?>
-<!-- MODAL DE CONFIRMACIÓN PARA ELIMINAR PRODUCTO -->
+<!-- Modal de confirmación: muestra el producto seleccionado y exige una acción explícita
+     antes de que el JavaScript ejecute su eliminación. -->
 <div id="modal-confirmar-eliminar" class="modal-overlay" aria-hidden="true">
     <div class="modal-box">
         <div class="modal-header-danger">
@@ -205,11 +221,15 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </div>
 </div>
+<!-- Estas banderas comunican al cliente los permisos ya comprobados en PHP para adaptar
+     botones y controles; la API vuelve a validar cada operación antes de modificar datos. -->
 <script>
     window.usuarioEsAdmin = <?= $soloLectura ? 'false' : 'true' ?>;
     window.usuarioPuedeRegistrarStock = <?= $puedeCargarStock ? 'true' : 'false' ?>;
     window.usuarioEsSuperAdmin = <?= isSuperAdmin() ? 'true' : 'false' ?>;
 </script>
+<!-- Carga los módulos del inventario en orden: datos base, productos, precios y finalmente
+     la composición del panel que conecta sus controles. El parámetro filemtime invalida caché. -->
 <script src="scrits/gestionStock/inventario.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/inventario.js') ?>"></script>
 <script src="scrits/gestionStock/productos.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/productos.js') ?>"></script>
 <script src="scrits/gestionStock/precios.js?v=<?= filemtime(__DIR__ . '/scrits/gestionStock/precios.js') ?>"></script>

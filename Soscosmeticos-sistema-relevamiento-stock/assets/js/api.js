@@ -1,9 +1,12 @@
 /**
  * Helper unificado para llamadas a la API PHP
  * Detecta automáticamente la ruta base de la aplicación (raíz o subdirectorio /proyecto/)
+ * Cliente común de la API PHP usado por los módulos de stock, ventas, informes y autenticación.
+ * Centraliza la ruta, los encabezados JSON y el tratamiento de respuestas HTTP.
  */
 const API = (function() {
     // Determinar la ruta base hacia la carpeta api/
+    // Calcular la carpeta api/ desde la URL actual para admitir despliegues en raíz o subdirectorios.
     function getApiBaseUrl() {
         const path = window.location.pathname;
         const dir = path.substring(0, path.lastIndexOf('/'));
@@ -14,6 +17,7 @@ const API = (function() {
 
     const API_BASE = getApiBaseUrl();
 
+    // Ejecutar solicitudes con configuración común y propagar errores con estado y cuerpo para los formularios.
     async function request(endpoint, options = {}) {
         const url = `${API_BASE}/${endpoint}`;
         const defaultHeaders = {
@@ -58,10 +62,12 @@ const API = (function() {
         }
     }
 
+    // Exponer operaciones de dominio; las vistas llaman estos métodos sin construir URLs ni payloads manualmente.
     return {
         baseUrl: API_BASE,
 
         // Inventario
+        // Lectura y reemplazo del inventario compartido por el panel de stock y la venta.
         async getInventario() {
             return await request('inventario.php', { method: 'GET', cache: 'no-store' });
         },
@@ -74,6 +80,7 @@ const API = (function() {
         },
 
         // Ventas
+        // Acceso al historial y registro, actualización o eliminación de ventas.
         async getVentas() {
             return await request('ventas.php', { method: 'GET', cache: 'no-store' });
         },
@@ -99,6 +106,7 @@ const API = (function() {
         },
 
         // Usuarios y Autenticación
+        // Operaciones de usuario y sesión que utiliza el formulario de login.
         async getUsers() {
             return await request('users.php', { method: 'GET' });
         },

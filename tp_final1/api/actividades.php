@@ -9,6 +9,7 @@ $method = requestMethod();
 $currentUser = getApiUser();
 
 if ($method === 'GET') {
+    // El feed y sus métricas solo se exponen a administradores; el Super Admin ve todos los roles.
     // Administradores pueden consultar el registro general de actividades.
     requireAdminApi();
 
@@ -16,6 +17,7 @@ if ($method === 'GET') {
     $filtroUsuario = trim((string)($_GET['usuario'] ?? ''));
     $filtroTipo = trim((string)($_GET['tipo'] ?? ''));
     $limit = min(500, max(1, (int)($_GET['limit'] ?? 200)));
+    // Carga señales de seguridad y normaliza filtros comunes antes de consultar el historial.
     $amenazaStmt = $db->query("
         SELECT `id_amenaza`, `regla`, `clave`, `titulo`, `descripcion`, `usuario`, `ip`,
                `intentos`, `fecha`, `ventana_minutos`
@@ -49,6 +51,7 @@ if ($method === 'GET') {
         'roles'          => 0
     ];
 
+    // Construye el filtro con parámetros enlazados, excluyendo cuentas Super Admin si corresponde.
     try {
         $where = [];
         $params = [];
@@ -176,6 +179,7 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    // Permite registrar una acción de la sesión actual con datos estructurados opcionales.
     $body = getJsonBody();
     $usuario = trim((string)($body['usuario'] ?? ($currentUser['usuario'] ?? 'Sistema')));
     $tipo = trim((string)($body['tipo'] ?? 'accion_general'));

@@ -1,9 +1,11 @@
 <?php
 /**
  * API para Gestión de Autenticación y Sesión
+ * Endpoints de consulta y cierre de sesión, consumidos por assets/js/api.js.
  */
 require_once __DIR__ . '/config.php';
 
+// Aceptar la acción por query, formulario o JSON para mantener compatibilidad con distintos clientes.
 $action = $_GET['action'] ?? ($_POST['action'] ?? null);
 
 if (!$action) {
@@ -11,6 +13,7 @@ if (!$action) {
     $action = $payload['action'] ?? 'check';
 }
 
+// Responder según la operación solicitada; todas las respuestas terminan mediante los helpers JSON.
 switch ($action) {
     case 'check':
         if (!empty($_SESSION['logged_in']) && !empty($_SESSION['usuario'])) {

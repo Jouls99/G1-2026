@@ -2,8 +2,10 @@
 declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
 
+// Esta vista concentra la auditoría y queda restringida al Super Administrador.
 requireSuperAdmin('venta.php');
 
+// La cabecera y la navegación reciben el título, el estilo propio y la sección activa.
 $pageTitle = 'Centro de auditoría';
 $customCss = 'css/auditoria.css';
 $activePage = 'configuracion';
@@ -12,6 +14,7 @@ require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/navbar.php';
 ?>
 <main class="audit-shell">
+    <!-- Resume el propósito del panel y ofrece la recarga manual del registro. -->
     <section class="audit-heading" aria-labelledby="audit-title">
         <div>
             <p class="eyebrow">Administración / Seguridad</p>
@@ -23,6 +26,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </button>
     </section>
 
+    <!-- Métricas generales que auditoria.js completa con las estadísticas de la API. -->
     <section class="audit-metrics" aria-label="Resumen de actividad">
         <article class="metric">
             <span class="metric-label">Eventos registrados</span>
@@ -46,6 +50,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </article>
     </section>
 
+    <!-- Indica el estado de consulta y la hora de la última respuesta del servicio. -->
     <section class="system-status" aria-live="polite">
         <span class="status-indicator" id="status-indicator"></span>
         <strong id="system-status-title">Consultando registro</strong>
@@ -53,12 +58,14 @@ require_once __DIR__ . '/includes/navbar.php';
         <time id="last-updated"></time>
     </section>
 
+    <!-- Las pestañas alternan entre sesiones, actividad general y alertas detectadas. -->
     <nav class="audit-tabs" aria-label="Secciones de auditoría" role="tablist">
         <button type="button" class="audit-tab is-active" id="tab-sessions" role="tab" aria-selected="true" aria-controls="panel-sessions" data-panel="panel-sessions">Sesiones</button>
         <button type="button" class="audit-tab" id="tab-activity" role="tab" aria-selected="false" aria-controls="panel-activity" data-panel="panel-activity">Actividad y logs</button>
         <button type="button" class="audit-tab" id="tab-threats" role="tab" aria-selected="false" aria-controls="panel-threats" data-panel="panel-threats">Amenazas <span class="tab-count" id="threat-tab-count">0</span></button>
     </nav>
 
+    <!-- Cada panel deja el destino vacío para que auditoria.js lo rellene al consultar la API. -->
     <section class="audit-panel is-visible" id="panel-sessions" role="tabpanel" aria-labelledby="tab-sessions">
         <div class="panel-heading">
             <div>
@@ -78,6 +85,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </section>
 
+    <!-- Busca y lista eventos de ventas, inventario, usuarios y demás módulos. -->
     <section class="audit-panel" id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
         <div class="panel-heading">
             <div>
@@ -97,6 +105,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </section>
 
+    <!-- Expone alertas derivadas de reglas sobre intentos fallidos y explica su alcance. -->
     <section class="audit-panel" id="panel-threats" role="tabpanel" aria-labelledby="tab-threats" hidden>
         <div class="panel-heading">
             <div>

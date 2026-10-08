@@ -1,7 +1,9 @@
+// El carrito sigue sin persistirse hasta confirmar; el catálogo de muestra es reemplazado por el inventario leído.
 let productosCargados = [];
 let inventarioProductos = [];
 
         // Elementos del DOM
+        // Referencias a los controles de captura, sugerencias, avisos y resumen de la venta.
         const formulario = document.getElementById('formulario-producto');
         const tablaProductos = document.getElementById('tabla-productos');
         const totalMonto = document.getElementById('total-monto');
@@ -16,6 +18,7 @@ let inventarioProductos = [];
         const datalist = document.getElementById('productos-datalist');
 
         // Cargar inventario al iniciar
+        // Consultar el catálogo al abrir la vista para sugerir solo artículos que pueden venderse.
         async function cargarInventarioParaVentas() {
             try {
                 const response = await fetch('/api/inventario', { cache: 'no-store' });
@@ -28,6 +31,7 @@ let inventarioProductos = [];
             }
         }
 
+        // Construir las opciones de autocompletado a partir de los productos con stock positivo.
         function actualizarDatalist() {
             if (!datalist) return;
             datalist.innerHTML = '';
@@ -41,6 +45,7 @@ let inventarioProductos = [];
         }
 
         // Escuchar cambios en el nombre del producto
+        // Al reconocer un producto, completar código, precio y máximo vendible en el formulario.
         inputNombre.addEventListener('input', () => {
             const val = inputNombre.value.trim().toLowerCase();
             const prod = inventarioProductos.find(p => p.nombre.trim().toLowerCase() === val);
@@ -59,6 +64,7 @@ let inventarioProductos = [];
             }
         });
 
+        // Mostrar validaciones y resultados cerca del carrito con el estilo asociado al tipo de aviso.
         function mostrarMensaje(texto, tipo) {
             if (!mensageError) return;
             mensageError.textContent = texto;
@@ -66,12 +72,14 @@ let inventarioProductos = [];
             mensageError.style.display = 'block';
         }
 
+        // Limpiar el aviso anterior antes de iniciar el registro de una venta.
         function limpiarMensaje() {
             if (!mensageError) return;
             mensageError.textContent = '';
             mensageError.style.display = 'none';
         }
 
+        // Volver a dibujar el carrito y calcular su total, incluyendo el estado vacío.
         function actualizarTabla() {
             if (productosCargados.length === 0) {
                 tablaProductos.innerHTML = `
@@ -105,6 +113,7 @@ let inventarioProductos = [];
         }
 
         // 1. EVENTO: Capturar el formulario y añadir a la tabla
+        // Validar producto, cantidad acumulada y precio antes de agregar o consolidar una fila del carrito.
         formulario.addEventListener('submit', (e) => {
             e.preventDefault();
 
@@ -158,6 +167,7 @@ let inventarioProductos = [];
         });
 
         // 3. EVENTO: Registrar Venta (actualiza stock y guarda en JSON)
+        // Releer el inventario, descontar unidades y guardar el stock actualizado junto al nuevo comprobante.
         btnRegistrar.addEventListener('click', async () => {
             if (productosCargados.length === 0) {
                 mostrarMensaje('❌ Agregá al menos un producto antes de registrar.', 'error');
@@ -228,6 +238,7 @@ let inventarioProductos = [];
         });
 
         // 4. EVENTO: Eliminar / Cancelar Venta (Si no se concreta)
+        // Vaciar el carrito sin alterar datos persistidos cuando el usuario decide no concretar la venta.
         btnCancelar.addEventListener('click', () => {
             if (productosCargados.length === 0) {
                 mostrarMensaje('ℹ️ No hay productos para cancelar.', 'correcto');
@@ -242,4 +253,5 @@ let inventarioProductos = [];
         });
 
         // Inicializar al cargar
+        // Recuperar inventario inicial para activar autocompletado y controles de stock.
         cargarInventarioParaVentas();

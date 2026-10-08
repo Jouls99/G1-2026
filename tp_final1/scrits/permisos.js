@@ -1,6 +1,7 @@
 const permissionsBody = document.getElementById('seller-permissions-body');
 const permissionsMessage = document.getElementById('permissions-message');
 
+// Consulta vendedores autorizables y construye sus controles de permisos en la tabla.
 async function loadSellerPermissions() {
   try {
     const response = await fetch('api/permisos.php', { cache: 'no-store' });
@@ -30,18 +31,21 @@ async function loadSellerPermissions() {
   }
 }
 
+// Escapa los caracteres reservados antes de insertar nombres procedentes de la API en HTML.
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   })[character]);
 }
 
+// Actualiza la etiqueta de estado en el acto y guarda los cambios de cada fila al confirmar.
 permissionsBody.addEventListener('change', (event) => {
   const checkbox = event.target.closest('[data-permission]');
   if (!checkbox) return;
   checkbox.nextElementSibling.textContent = checkbox.checked ? 'Habilitado' : 'Deshabilitado';
 });
 
+// Envía los permisos marcados de una fila y comunica éxito/error sin bloquear otras filas.
 permissionsBody.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-save-permissions]');
   if (!button) return;

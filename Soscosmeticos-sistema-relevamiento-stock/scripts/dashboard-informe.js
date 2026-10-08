@@ -1,3 +1,8 @@
+/**
+ * Lógica del dashboard de informes, gráficos SVG y edición de historial de ventas
+ * Genera métricas, visualizaciones e interacción con el historial cargados desde la API.
+ */
+// Datos de demostración que mantienen el panel visualizable si la API no entrega un inventario.
 const fallbackInventory = [
   { categoria: 'Maquillaje', nombre: 'Base Matte', codigo: 'MQL-001', precio: 18000, cantidad: 15, total: 270000, fecha: '2026-07-01', hora: '09:30', dia: 'Lunes' },
   { categoria: 'Maquillaje', nombre: 'Rubor Cream', codigo: 'MQL-002', precio: 9500, cantidad: 22, total: 209000, fecha: '2026-07-02', hora: '11:20', dia: 'Martes' },
@@ -9,6 +14,7 @@ const fallbackInventory = [
   { categoria: 'Fragancias', nombre: 'Perfume Floral', codigo: 'FRG-001', precio: 32000, cantidad: 6, total: 192000, fecha: '2026-07-06', hora: '15:35', dia: 'Sábado' }
 ];
 
+// Estado compartido por filtros, series y renderizado del dashboard heredado.
 const state = {
   inventory: [],
   sales: [],
@@ -16,12 +22,14 @@ const state = {
   period: 'diario'
 };
 
+// Unificar la presentación monetaria del informe en pesos argentinos.
 const currencyFormatter = new Intl.NumberFormat('es-AR', {
   style: 'currency',
   currency: 'ARS',
   maximumFractionDigits: 0
 });
 
+// Definir las etiquetas que se muestran en el gráfico según la escala temporal elegida.
 function getPeriodLabels(period) {
   switch (period) {
     case 'semanal':
@@ -34,6 +42,7 @@ function getPeriodLabels(period) {
   }
 }
 
+// Ubicar cada fecha en la casilla diaria, semanal o mensual correspondiente.
 function getSeriesIndex(date, period, length) {
   switch (period) {
     case 'semanal':
@@ -46,6 +55,7 @@ function getSeriesIndex(date, period, length) {
   }
 }
 
+// Agregar unidades e importes de ventas de una categoría en las casillas de la serie seleccionada.
 function buildSeries(category, period) {
   const labels = getPeriodLabels(period);
   const series = {
@@ -83,6 +93,7 @@ function buildSeries(category, period) {
   return series;
 }
 
+// Crear los filtros disponibles desde las categorías que aparecen en el inventario.
 function renderCategoryButtons() {
   const categories = [...new Set(state.inventory.map((item) => item.categoria))];
   const container = document.getElementById('categoryButtons');
@@ -101,6 +112,7 @@ function renderCategoryButtons() {
   });
 }
 
+// Generar botones para alternar la agrupación diaria, semanal o mensual de los datos.
 function renderPeriodButtons() {
   const periods = ['diario', 'semanal', 'mensual'];
   const container = document.getElementById('periodButtons');
@@ -119,6 +131,7 @@ function renderPeriodButtons() {
   });
 }
 
+// Actualizar tarjetas y título con el último valor de la serie visible.
 function renderMetrics(series) {
   const sold = series.sold.at(-1) || 0;
   const revenue = series.revenue.at(-1) || 0;
@@ -130,6 +143,7 @@ function renderMetrics(series) {
   document.getElementById('dashboardTitle').textContent = `${state.category} · ${state.period.charAt(0).toUpperCase() + state.period.slice(1)}`;
 }
 
+// Dibujar cuadrícula, ejes y líneas SVG que comparan ventas e importes.
 function renderChart(series) {
   const svg = document.getElementById('lineChart');
   const width = 640;
@@ -160,6 +174,7 @@ function renderChart(series) {
   `;
 }
 
+// Sumar unidades vendidas por código para reutilizarlas en el listado y la tabla consolidada.
 function buildSoldSummary() {
   const soldCounts = {};
 
@@ -173,6 +188,7 @@ function buildSoldSummary() {
   return soldCounts;
 }
 
+// Localizar la fecha más reciente de venta de un artículo para completar sus datos resumidos.
 function getLastSaleInfo(codigo) {
   const codigoKey = String(codigo || '').toLowerCase();
   const salesForProduct = state.sales.filter((sale) =>
@@ -195,6 +211,7 @@ function getLastSaleInfo(codigo) {
   };
 }
 
+// Mostrar los productos de la categoría actual junto a unidades vendidas y disponibles.
 function renderProducts() {
   const list = document.getElementById('productList');
   const soldSummary = buildSoldSummary();
@@ -219,6 +236,7 @@ function renderProducts() {
     .join('');
 }
 
+// Completar la tabla de stock con venta acumulada, valorización y datos de la última venta.
 function renderInventoryTable() {
   const soldSummary = buildSoldSummary();
   const tbody = document.getElementById('stockTableBody');
@@ -245,6 +263,7 @@ function renderInventoryTable() {
   }).join('');
 }
 
+// Ordenar el historial cronológicamente y generar la acción de edición de cada comprobante.
 function renderSalesHistory() {
   const tbody = document.getElementById('salesHistoryBody');
   const count = document.getElementById('salesCount');
@@ -275,6 +294,7 @@ function renderSalesHistory() {
   }).join('');
 }
 
+// Mantener sincronizados los campos de fecha, hora y día visibles en el encabezado.
 function updateClock() {
   const now = new Date();
   document.getElementById('liveDate').textContent = now.toLocaleDateString('es-AR');
@@ -282,6 +302,7 @@ function updateClock() {
   document.getElementById('liveDay').textContent = now.toLocaleDateString('es-AR', { weekday: 'long' });
 }
 
+// Coordinar el repintado de todos los componentes a partir de los filtros y datos actuales.
 function render() {
   renderCategoryButtons();
   renderPeriodButtons();
@@ -294,6 +315,7 @@ function render() {
   updateClock();
 }
 
+// Cargar inventario e historial desde Express; usar datos de muestra solo para el inventario si falla su lectura.
 async function loadInventory() {
   try {
     const response = await fetch('/api/inventario', { cache: 'no-store' });
@@ -321,20 +343,24 @@ async function loadInventory() {
   render();
 }
 
+// Inicializar datos y reloj una vez que los elementos del informe están disponibles.
 window.addEventListener('DOMContentLoaded', () => {
   loadInventory();
   setInterval(updateClock, 1000);
 });
+// Volver a cargar cuando otra pestaña anuncie cambios persistidos en el inventario.
 window.addEventListener('storage', (event) => {
   if (event.key === 'inventarioUpdated') {
     loadInventory();
   }
 });
+// Volver a cargar ante la notificación de cambios generada en la propia pestaña.
 window.addEventListener('inventario-updated', () => {
   loadInventory();
 });
 
 // === MODAL DE EDICIÓN DE VENTAS ===
+// Preparar la venta y sus cantidades editables, incluyendo el stock que se libera al modificarla.
 function abrirModalEdicion(saleId) {
   const sale = state.sales.find(s => s.id === saleId);
   if (!sale) return;
@@ -375,12 +401,14 @@ function abrirModalEdicion(saleId) {
     `;
 
     // Quitar producto click
+    // Marcar una fila como eliminada poniendo su cantidad en cero y recalcular inmediatamente el total.
     row.querySelector('.btn-remove-prod').addEventListener('click', () => {
       row.querySelector('.edit-product-qty').value = 0;
       recalcularTotalModal();
       row.style.opacity = '0.4';
     });
 
+    // Limitar cada edición al stock disponible y actualizar el importe mientras se escribe.
     row.querySelector('.edit-product-qty').addEventListener('input', () => {
       const input = row.querySelector('.edit-product-qty');
       let val = parseInt(input.value) || 0;
@@ -403,6 +431,7 @@ function abrirModalEdicion(saleId) {
   document.getElementById('editSaleModal').style.display = 'block';
 }
 
+// Recalcular el importe del formulario con las cantidades indicadas en cada fila.
 function recalcularTotalModal() {
   const container = document.getElementById('edit-sale-products-container');
   const rows = container.querySelectorAll('.edit-product-row');
@@ -419,6 +448,7 @@ function recalcularTotalModal() {
 }
 
 // Cerrar modal
+// Cerrar el modal mediante el botón o al pulsar fuera de su contenido.
 document.getElementById('closeModalBtn').addEventListener('click', () => {
   document.getElementById('editSaleModal').style.display = 'none';
 });
@@ -431,6 +461,7 @@ window.addEventListener('click', (event) => {
 });
 
 // Guardar cambios modal
+// Restaurar temporalmente las unidades originales, validar cantidades nuevas y persistir venta e inventario.
 document.getElementById('edit-sale-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -532,6 +563,7 @@ document.getElementById('edit-sale-form').addEventListener('submit', async (e) =
 });
 
 // Eliminar venta
+// Quitar una venta del historial y devolver las unidades de sus productos al stock disponible.
 async function eliminarVentaDirecto(saleId) {
   const sale = state.sales.find(s => s.id === saleId);
   if (!sale) return;
@@ -574,6 +606,7 @@ async function eliminarVentaDirecto(saleId) {
   }
 }
 
+// Confirmar la eliminación desde el modal antes de invocar la operación de devolución de stock.
 document.getElementById('btnDeleteSale').addEventListener('click', async () => {
   const saleId = document.getElementById('edit-sale-id').value;
   if (!saleId) return;
@@ -583,4 +616,5 @@ document.getElementById('btnDeleteSale').addEventListener('click', async () => {
   }
 });
 
+// Exponer la acción usada por los botones de edición agregados dinámicamente en el historial.
 window.abrirModalEdicion = abrirModalEdicion;

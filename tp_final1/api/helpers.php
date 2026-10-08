@@ -8,6 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once dirname(__DIR__) . '/database/conexion.php';
 require_once dirname(__DIR__) . '/includes/security_monitor.php';
 
+// Convierte los resultados de los endpoints en respuestas HTTP JSON uniformes.
 /**
  * Envía una respuesta en formato JSON con los encabezados adecuados.
  */
@@ -52,6 +53,7 @@ function getJsonBody(): ?array
     return null;
 }
 
+// Centraliza la conexión obligatoria de las rutas de API y comunica indisponibilidad al cliente.
 function requireApiDatabase(): PDO
 {
     $db = getDBConnection();
@@ -77,6 +79,7 @@ function getApiUser(): ?array
     return $_SESSION['user'] ?? null;
 }
 
+// Además de autenticar, renueva el latido persistente usado para detectar sesiones activas.
 /**
  * Protege un endpoint de la API exigiendo una sesión activa.
  */
@@ -134,6 +137,7 @@ function isAdminApi(): bool
     return in_array($role, ['administrador', 'admin'], true);
 }
 
+// Permite a las rutas aplicar las autorizaciones delegables configuradas desde la consola.
 /** Comprueba un permiso delegable consultando la fuente persistente del usuario. */
 function hasUserPermissionApi(string $permission): bool
 {
@@ -173,6 +177,7 @@ function canModifyReportsApi(): bool
     return isAdminApi() || hasUserPermissionApi('puede_modificar_informes');
 }
 
+// Las siguientes guardas terminan la petición temprano si el rol no cubre la operación.
 /**
  * Protege un endpoint de la API exigiendo rol de Administrador o superior.
  */
@@ -201,6 +206,7 @@ function requireSuperAdminApi(): void
     }
 }
 
+// Agrupa intentos recientes por IP/cuenta para convertir patrones repetidos en alertas persistentes.
 function logThreatIfDetected(PDO $db): void
 {
     $stmt = $db->query("
@@ -306,6 +312,7 @@ function appendThreatOnce(PDO $db, array $threat): void
 /**
  * Registra una acción o interacción de usuario en MySQL.
  */
+// Persiste acciones de la aplicación y actualiza las reglas de alerta al registrar un fallo de login.
 function logActivity(string $usuario, string $tipo, string $descripcion, ?array $detalles = null, ?int $idUsuario = null): bool
 {
     $fecha = date('Y-m-d H:i:s');
@@ -332,4 +339,5 @@ function logActivity(string $usuario, string $tipo, string $descripcion, ?array 
     return true;
 }
 
+// Ejecuta la inspección temprana de solicitudes entrantes para que sus señales lleguen a auditoría.
 monitorRequestForMaliciousInput();

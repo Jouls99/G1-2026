@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 
+// Obtiene el contexto de usuario para resaltar la sección y mostrar identidad/rol en la barra.
 $activePage = $activePage ?? '';
 $currentUser = getCurrentUser();
 $userName = $currentUser['usuario'] ?? 'Invitado';
 $userRole = $currentUser['role'] ?? 'vendedor';
 $userInitial = strtoupper(substr($userName, 0, 1));
 ?>
+<!-- Navegación compartida: enlaces administrativos y credenciales visibles según los permisos. -->
 <nav class="app-navbar">
     <a href="venta.php" class="brand">
         <span>S.O.S cosméticos</span>

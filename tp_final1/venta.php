@@ -7,12 +7,14 @@ require_once __DIR__ . '/database/conexion.php';
 // Proteger vista: requiere sesión activa
 requireAuth('registroinicio.php');
 
+// Prepara el contexto de la pantalla y obtiene productos activos para el selector inicial.
 $pageTitle = 'Panel de Gestión de Ventas (POS)';
 $customCss = 'css/prueba2.css';
 $activePage = 'ventas';
 $puedeVerEstadoBase = isSuperAdmin();
 
 // Cargar productos directamente desde MySQL (tabla producto y categoria)
+// Valida categorías y carga desde MySQL el catálogo disponible para la caja.
 $productosDB = [];
 $dbConectada = false;
 $errorDB = null;
@@ -66,6 +68,7 @@ require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/navbar.php';
 ?>
 
+<!-- El estado de la conexión se reserva al Super Administrador para soporte. -->
 <header style="margin-top: 15px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
     <h1>🛒 Panel de Gestión de Ventas</h1>
     <?php if ($puedeVerEstadoBase): ?>
@@ -77,6 +80,7 @@ require_once __DIR__ . '/includes/navbar.php';
 
 <main>
     <div class="container">
+        <!-- Carrito temporal: muestra productos seleccionados, total y acciones de venta. -->
         <!-- Panel Izquierdo: Resumen de Venta Actual -->
         <div class="panel panel-izquierdo">
             <div>
@@ -117,6 +121,7 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
         </div>
 
+        <!-- Catálogo y formulario de carga; preuba2.js completa datos y valida stock antes de vender. -->
         <!-- Panel Derecho: Carga de Artículos -->
         <div class="panel" style="height: fit-content;">
             <h2>📥 Ingreso de Artículos</h2>

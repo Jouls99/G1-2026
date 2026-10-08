@@ -9,6 +9,7 @@ let filtroTipoActividad = 'todas';
 const activityStream = document.getElementById('activity-stream');
 const inputSearchActivity = document.getElementById('search-activity');
 
+// Se usa al iniciar la consola y al cambiar filtros para obtener actividad y estadísticas recientes.
 /**
  * Cargar y separar el feed de logins y actividades
  */
@@ -56,6 +57,7 @@ async function cargarLoginsYActividades() {
     }
 }
 
+// Se llama desde el campo de búsqueda y el cambio de pestaña para volver a pintar el feed general.
 /**
  * Renderizar la lista cronológica de actividades generales
  */
@@ -138,4 +140,3 @@ function renderActividades() {
         `;
     }).join('');
 }
-

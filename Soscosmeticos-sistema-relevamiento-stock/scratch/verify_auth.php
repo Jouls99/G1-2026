@@ -1,6 +1,7 @@
 <?php
 // Test de verificación de seguridad y control de acceso
 
+// Reutilizar el archivo de cookies para simular una sesión real entre solicitudes HTTP de la prueba.
 $cookieFile = __DIR__ . '/test_cookie.txt';
 if (file_exists($cookieFile)) unlink($cookieFile);
 
@@ -25,6 +26,7 @@ function testUrl($url, $cookieFile = null, $postData = null) {
     return ['code' => $httpCode, 'redirect' => $redirectUrl, 'body' => $response];
 }
 
+// Comprobar que páginas y APIs rechacen solicitudes sin autenticar.
 echo "=== 1. VERIFICACIÓN DE ACCESO ANÓNIMO (DEBE ESTAR BLOQUEADO) ===\n";
 $views = ['index.php', 'control_stock.php', 'informe.php'];
 foreach ($views as $view) {
@@ -38,6 +40,7 @@ foreach ($apis as $api) {
     echo "$api -> Código HTTP: {$res['code']} | Respuesta: {$res['body']}\n";
 }
 
+// Crear o autenticar un usuario y volver a consultar las rutas con la cookie de sesión.
 echo "\n=== 2. REGISTRO E INICIO DE SESIÓN DE USUARIO ===\n";
 $registerRes = testUrl("http://localhost/proyecto/api/users.php", $cookieFile, [
     'usuario' => 'vendedora_maria',

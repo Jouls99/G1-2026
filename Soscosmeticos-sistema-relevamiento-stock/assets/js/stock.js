@@ -1,6 +1,9 @@
 /**
  * Lógica del panel de control de stock y categorías
+ * Estado, persistencia y renderizado del panel de stock cargado por control_stock.php.
+ * La misma estructura alimenta la API plana y la interfaz de categorías/subcategorías.
  */
+// Datos de demostración iniciales: se reemplazan al leer persistencia disponible.
 let inventario = [
   {
     id: "cat-1",
@@ -45,6 +48,7 @@ let categoriaSeleccionada = null;
 let productoSeleccionado = null;
 let categoryContextMenu = null;
 
+// Aplanar categorías y subcategorías para el formato de la API y publicar cambios a otras vistas abiertas.
 async function guardarInventario() {
     const flat = [];
     inventario.forEach(cat => {
@@ -85,6 +89,7 @@ async function guardarInventario() {
     }
 }
 
+// Reconstruir la jerarquía visual desde la respuesta API; si falla, recuperar el respaldo local o los datos iniciales.
 async function cargarInventario() {
     try {
         const flat = await API.getInventario();
@@ -146,6 +151,7 @@ async function cargarInventario() {
     }
 }
 
+// Dibujar navegación de categorías y vincular selección y menú contextual de eliminación.
 function renderCategories() {
     const container = document.getElementById('categoriesContainer');
     if (!container) return;
@@ -161,6 +167,7 @@ function renderCategories() {
     });
 }
 
+// Retirar del DOM el menú contextual anterior para evitar superposiciones y elementos obsoletos.
 function hideCategoryContextMenu() {
     if (categoryContextMenu) {
         categoryContextMenu.remove();
@@ -168,6 +175,7 @@ function hideCategoryContextMenu() {
     }
 }
 
+// Crear el menú que permite eliminar la categoría elegida con el botón secundario.
 function showCategoryContextMenu(event, categoria) {
     event.preventDefault();
     hideCategoryContextMenu();
@@ -188,6 +196,7 @@ function showCategoryContextMenu(event, categoria) {
     categoryContextMenu = menu;
 }
 
+// Confirmar la baja y sincronizar selección, tabla y detalle después de quitar la categoría y sus productos.
 function deleteCategory(catId) {
     const categoria = inventario.find(c => c.id === catId);
     if (!categoria) {
@@ -222,6 +231,7 @@ function deleteCategory(catId) {
     hideCategoryContextMenu();
 }
 
+// Crear una categoría vacía desde el control lateral y abrirla para cargar productos.
 function addCategory() {
     const input = document.getElementById('newCatName');
     if (!input) return;
@@ -243,6 +253,7 @@ function addCategory() {
     renderTable(categoriaSeleccionada);
 }
 
+// Actualizar la categoría activa y reiniciar el producto seleccionado antes de renderizar sus paneles.
 function selectCategory(catId) {
     categoriaSeleccionada = inventario.find(c => c.id === catId);
     productoSeleccionado = null;
@@ -251,6 +262,7 @@ function selectCategory(catId) {
     renderDetailPanel();
 }
 
+// Renderizar formulario, productos y valorización total de la categoría activa.
 function renderTable(categoria) {
     const content = document.getElementById('mainContent');
     if (!content || !categoria) return;
@@ -332,6 +344,7 @@ function renderTable(categoria) {
     content.innerHTML = html;
 }
 
+// Resolver el producto seleccionado dentro de la categoría y mostrar sus datos en el panel lateral.
 function selectProduct(codigo, catId) {
     const cat = inventario.find(c => c.id === catId);
     if (!cat) return;
@@ -340,6 +353,7 @@ function selectProduct(codigo, catId) {
     renderDetailPanel();
 }
 
+// Mostrar los detalles del producto o la instrucción inicial si aún no hay selección.
 function renderDetailPanel() {
     const panel = document.getElementById('detailPanel');
     if (!panel) return;
@@ -366,6 +380,7 @@ function renderDetailPanel() {
     `;
 }
 
+// Validar datos del formulario, incorporar el producto en su categoría/subcategoría y persistir el inventario.
 function addProduct() {
     const name = document.getElementById('prodName').value.trim();
     const code = document.getElementById('prodCode').value.trim();
@@ -408,6 +423,7 @@ function addProduct() {
     if (form) form.reset();
 }
 
+// Abrir desde los resultados de búsqueda el producto y su categoría en los paneles principales.
 function selectProductFromSearch(codigo, catId) {
     const cat = inventario.find(c => c.id === catId);
     if (!cat) return;
@@ -422,6 +438,7 @@ function selectProductFromSearch(codigo, catId) {
     renderCategories();
     renderTable(categoriaSeleccionada);
     renderDetailPanel();
+    // Buscar por nombre o código en productos principales y secundarios y reemplazar la tabla por coincidencias.
     const searchInput = document.getElementById('globalSearch');
     if (searchInput) searchInput.value = '';
 }
@@ -476,6 +493,7 @@ if (searchInput) {
     });
 }
 
+// Descargar una copia JSON de la jerarquía actual para respaldo o intercambio de datos.
 function exportarJSON() {
     const dataStr = JSON.stringify(inventario, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -487,12 +505,14 @@ function exportarJSON() {
     URL.revokeObjectURL(url);
 }
 
+// Cerrar el menú contextual con clic externo o Escape para mantener limpia la interacción del panel.
 document.addEventListener('click', hideCategoryContextMenu);
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') hideCategoryContextMenu();
 });
 
 // Inicializar
+// Cargar primero la fuente persistida y después dibujar todos los paneles iniciales.
 (async () => {
     await cargarInventario();
     renderCategories();
@@ -500,6 +520,7 @@ document.addEventListener('keydown', (event) => {
     renderDetailPanel();
 })();
 
+// Sincronizar pestañas distintas cuando localStorage anuncia una actualización de inventario.
 window.addEventListener('storage', async (event) => {
     if (event.key === 'inventarioUpdated') {
         await cargarInventario();
@@ -509,6 +530,7 @@ window.addEventListener('storage', async (event) => {
     }
 });
 
+// Refrescar en la misma pestaña cuando ventas u otro módulo emite el evento de inventario.
 window.addEventListener('inventario-updated', async () => {
     await cargarInventario();
     renderCategories();

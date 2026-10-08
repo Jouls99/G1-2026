@@ -12,6 +12,7 @@ $currentUser = getApiUser();
 // Administradores y Super Administradores pueden gestionar cuentas.
 requireAdminApi();
 
+// Funciones auxiliares para mantener roles únicos y aplicar límites de administración de cuentas.
 function roleHasOccupant(PDO $db, string $role, int $exceptUserId = 0): bool
 {
     $aliases = $role === 'superadmin'
@@ -66,6 +67,7 @@ function generateTemporaryPassword(): string
     return implode('', $password);
 }
 
+// Valida los requisitos de contraseña que se aplican al alta y al cambio de credenciales.
 function passwordMeetsPolicy(string $password): bool
 {
     return strlen($password) >= 26
@@ -96,6 +98,7 @@ function canManageUserTarget(array $target, ?array $currentUser): bool
 
 // GET: Listar usuarios con métricas de ventas, logins e interacciones
 if ($method === 'GET') {
+    // El detalle privado es exclusivo del Super Admin; el listado devuelve métricas resumidas.
     $action = $_GET['action'] ?? 'list';
 
     // Si se solicita el detalle de interacción y logins de un usuario específico
@@ -283,6 +286,7 @@ if ($method === 'GET') {
 
 // POST: Crear nuevo usuario desde la consola del Super Admin
 if ($method === 'POST') {
+    // Crea una cuenta autorizada y devuelve la contraseña temporal una sola vez al panel.
     $body = getJsonBody();
     $usuario = trim((string) ($body['usuario'] ?? ''));
     $role = trim((string) ($body['role'] ?? 'vendedor'));
@@ -370,6 +374,7 @@ if ($method === 'POST') {
 
 // PUT: Modificar usuario o cambiar su rol (Solo Super Admin)
 if ($method === 'PUT') {
+    // Actualiza identidad, rol o contraseña comprobando permisos sobre la cuenta destino.
     $body = getJsonBody();
     $id = isset($body['id']) ? (int)$body['id'] : null;
     $usuario = trim((string)($body['usuario'] ?? ''));
@@ -521,6 +526,7 @@ if ($method === 'PUT') {
 
 // DELETE: Eliminar usuario (Solo Super Admin)
 if ($method === 'DELETE') {
+    // Impide que se eliminen cuentas protegidas y registra el cambio en la auditoría.
     $id = $_GET['id'] ?? null;
     if (!$id) {
         $body = getJsonBody();

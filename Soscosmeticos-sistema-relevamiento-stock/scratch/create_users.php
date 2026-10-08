@@ -1,4 +1,5 @@
 <?php
+// Script auxiliar manual para regenerar usuarios de prueba con hashes y roles iniciales.
 $users = [
     [
         'usuario' => 'admin',

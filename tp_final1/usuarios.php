@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
+// Conserva el rol antes de exigir privilegios para decidir qué paneles mostrar.
 $esSuperAdmin = isSuperAdmin();
 requireAdmin('venta.php');
 
@@ -16,6 +17,7 @@ require_once __DIR__ . '/includes/navbar.php';
 ?>
 
 <main class="usuarios-container">
+    <!-- Presentación y accesos de gestión, adaptados al administrador autenticado. -->
     <header class="usuarios-header superadmin-header">
         <div class="title-area">
             <h1><?= $esSuperAdmin ? '👑 Consola Super Admin' : '🛡️ Gestión de Usuarios' ?></h1>
@@ -30,6 +32,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
     </header>
 
+    <!-- Indicadores que usuarios.js completa con las cuentas, roles, logins y ventas consultados. -->
     <section class="kpi-grid" aria-label="Métricas del sistema">
         <article class="kpi-card">
             <div class="kpi-icon purple">👤</div>
@@ -74,6 +77,7 @@ require_once __DIR__ . '/includes/navbar.php';
         </article>
     </section>
 
+    <!-- Selector entre las funciones de cuentas, monitoreo de accesos y actividad registrada. -->
     <div class="tabs-container" role="tablist" aria-label="Paneles de administración">
         <button type="button" class="tab-btn active" data-tab="tab-usuarios" role="tab" aria-selected="true">👥 Gestión de Usuarios</button>
         <?php if ($esSuperAdmin): ?>
@@ -83,6 +87,7 @@ require_once __DIR__ . '/includes/navbar.php';
     </div>
 
     <!-- PESTAÑA 1: GESTIÓN DE USUARIOS -->
+    <!-- Filtros y tabla que usuarios.js utiliza para editar cuentas y sus roles. -->
     <section id="tab-usuarios" class="tab-content active" role="tabpanel">
         <div class="panel-layout">
             <div class="filters-card">
@@ -131,6 +136,7 @@ require_once __DIR__ . '/includes/navbar.php';
 
     <?php if ($esSuperAdmin): ?>
     <!-- PESTAÑA 2: MONITOREO DE LOGINS (EXCLUSIVO SUPER ADMIN) -->
+    <!-- Registro detallado de autenticaciones, visible únicamente para el Super Administrador. -->
     <section id="tab-logins" class="tab-content" role="tabpanel" aria-hidden="true">
         <div class="panel-layout">
             <div class="filters-card">
@@ -175,6 +181,7 @@ require_once __DIR__ . '/includes/navbar.php';
     <?php endif; ?>
 
     <!-- PESTAÑA 3: TODAS LAS ACTIVIDADES DEL SISTEMA -->
+    <!-- Feed de acciones del sistema que se filtra y renderiza desde el cliente. -->
     <section id="tab-actividades" class="tab-content" role="tabpanel" aria-hidden="true">
         <div class="panel-layout">
             <div class="filters-card">

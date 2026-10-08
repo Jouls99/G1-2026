@@ -3,6 +3,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Carga los datos persistentes antes de pintar categorías, productos y opciones de precio.
     await cargarInventario();
     renderCategoryFilter();
     renderCategorySelector();
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Busca en todo el inventario y genera una tabla agregada sin perder la categoría de cada coincidencia.
     // Buscador global de productos
     const searchInput = document.getElementById('globalSearch');
     if (searchInput) {
@@ -153,6 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('applyPriceAdjustment')?.addEventListener('click', aplicarAjustePrecios);
     document.getElementById('togglePriceHistory')?.addEventListener('click', cargarHistorialPrecios);
 
+    // Confirma o cancela bajas lógicas y cierra el cuadro al pulsar fuera de él.
     // Modal de confirmación de eliminación
     const btnConfirmarEliminar = document.getElementById('btn-confirmar-eliminar');
     const btnCancelarEliminar = document.getElementById('btn-cancelar-eliminar');
@@ -172,6 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Cierra los menús contextuales globales y vuelve a cargar la vista cuando otra acción actualiza stock.
     // Ocultar menús contextuales al hacer clic en cualquier lugar
     document.addEventListener('click', () => {
         hideCategoryContextMenu();

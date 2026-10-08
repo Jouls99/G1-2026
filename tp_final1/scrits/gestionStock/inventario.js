@@ -134,6 +134,7 @@ function renderCategorySelector() {
     }
 }
 
+// Selecciona una categoría y actualiza tabla, detalle y filtros de ajustes asociados.
 function selectCategory(catId) {
     categoriaSeleccionada = inventario.find(c => c.id === catId);
     productoSeleccionado = null;
@@ -147,6 +148,7 @@ function selectCategory(catId) {
     renderDetailPanel();
 }
 
+// Filtra por rol/tipo y presenta productos, stock y valorización para la categoría activa.
 function renderTable(categoria) {
     const content = document.getElementById('mainContent');
     if (!categoria) {
@@ -217,6 +219,7 @@ function renderTable(categoria) {
     content.innerHTML = html;
 }
 
+// Resuelve un producto activo de la categoría elegida para que el panel lateral lo detalle.
 function selectProduct(codigo, catId) {
     const cat = inventario.find(c => c.id === catId);
     if (!cat) return;
@@ -224,6 +227,9 @@ function selectProduct(codigo, catId) {
     renderDetailPanel();
 }
 
+/**
+ * Renderizar panel de detalle lateral
+ */
 /**
  * Renderizar panel de detalle lateral
  */

@@ -54,11 +54,14 @@ function normalizarRol(role) {
     return 'vendedor';
 }
 
+// Evita asignar un rol administrativo ya ocupado y deshabilita opciones no disponibles en formularios.
+// Determina si otra cuenta ya ocupa un rol reservado, excluyendo el usuario que se edita.
 function rolOcupado(role, exceptUserId = 0) {
     if (role === 'vendedor') return false;
     return listaUsuarios.some(user => Number(user.id) !== Number(exceptUserId) && normalizarRol(user.role) === role);
 }
 
+// Actualiza la disponibilidad visual de opciones administrativas en el formulario indicado.
 function actualizarDisponibilidadRoles(formId, exceptUserId = 0) {
     const form = document.getElementById(formId);
     if (!form) return;
@@ -117,6 +120,7 @@ function timeAgo(isoString) {
 /**
  * Interpretar User Agent para extraer Navegador y Sistema Operativo amigable
  */
+// Resume navegador y sistema operativo a partir del agente recibido en los eventos de login.
 function parseUserAgent(ua) {
     if (!ua || typeof ua !== 'string') return 'Navegador Web';
 
@@ -163,6 +167,7 @@ async function cargarUsuarios() {
 /**
  * Actualizar las métricas KPI superiores
  */
+// Calcula los indicadores superiores con las cuentas y métricas recibidas del endpoint.
 function renderKPIs() {
     const totalUsers = listaUsuarios.length;
     const superAdmins = listaUsuarios.filter(u => (u.role || '').toLowerCase() === 'superadmin').length;
@@ -178,6 +183,7 @@ function renderKPIs() {
     if (kpiVentasTotal) kpiVentasTotal.textContent = formatMoney(totalVentasDinero);
 }
 
+// Aplica búsqueda/filtro de rol y compone controles para inspeccionar o modificar cuentas.
 /**
  * Renderizar la tabla de usuarios con filtros y selector de rol
  */
@@ -514,6 +520,7 @@ async function verDetalleUsuario(username) {
 /**
  * Alternar subpestaña dentro del modal de detalle
  */
+// Alterna los subpaneles del diálogo de detalle y marca el control seleccionado.
 function cambiarSubtabDetalle(btn, targetId) {
     document.querySelectorAll('.detalle-subtab-content').forEach(el => el.style.display = 'none');
     document.querySelectorAll('#detalle-usuario-body .chip-filter').forEach(el => el.classList.remove('active'));
@@ -526,6 +533,7 @@ function cambiarSubtabDetalle(btn, targetId) {
 /**
  * Abrir modal de creación de usuario con selector de 3 roles
  */
+// Prepara el formulario de alta con los roles disponibles y abre el diálogo de creación.
 function abrirModalNuevoUsuario() {
     const form = document.getElementById('form-nuevo-usuario');
     if (form) form.reset();
@@ -542,6 +550,7 @@ function abrirModalNuevoUsuario() {
 /**
  * Abrir modal de edición de usuario con selector de 3 roles
  */
+// Rellena y abre el editor de una cuenta existente, restringiendo roles según disponibilidad.
 function abrirModalEditar(id, usuario, rolActual) {
     const formEditar = document.getElementById('form-editar-usuario');
     if (formEditar) formEditar.dataset.rolActual = rolActual;
@@ -637,6 +646,7 @@ function escapeHtml(text) {
 // ==========================================================================
 // Event Listeners e Inicialización
 // ==========================================================================
+// Conecta carga inicial, filtros, pestañas y formularios con las funciones de la consola.
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Cargar datos iniciales
     cargarUsuarios();

@@ -6,6 +6,7 @@ const refreshButton = document.getElementById('refresh-audit');
 let auditEvents = [];
 let detectedThreats = [];
 
+// Convierte contenido de API a texto seguro y normaliza campos variables de los eventos.
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, character => ({
         '&': '&amp;',
@@ -16,6 +17,7 @@ function escapeHtml(value) {
     })[character]);
 }
 
+// Adaptadores de eventos: unifican tipos/detalles y generan etiquetas humanas para el panel.
 function eventType(event) {
     return String(event.tipo ?? event.tipo_accion ?? '').toLowerCase();
 }
@@ -60,6 +62,7 @@ function areaLabel(event) {
     return 'Sistema';
 }
 
+// Dibuja por separado accesos, actividad y amenazas usando los filtros visibles del panel.
 function renderSessions() {
     const query = document.getElementById('session-search').value.trim().toLowerCase();
     const rows = auditEvents.filter(isAuthenticationEvent).filter(event => {
@@ -121,6 +124,7 @@ function renderThreats() {
     </article>`).join('');
 }
 
+// Refleja el resultado de la última consulta en el indicador accesible de estado del servicio.
 function setStatus(ok, detail) {
     auditStatus.classList.toggle('is-ok', ok);
     auditStatus.classList.toggle('is-error', !ok);
@@ -131,6 +135,7 @@ function setStatus(ok, detail) {
         : '';
 }
 
+// Consulta la API, actualiza las métricas y repinta los paneles; el bloque de error evita estados vacíos.
 async function loadAudit() {
     refreshButton.disabled = true;
     try {
@@ -161,6 +166,7 @@ async function loadAudit() {
     }
 }
 
+// Los tabs cambian qué panel se muestra; búsqueda y botón de actualización vuelven a renderizar datos.
 document.querySelectorAll('.audit-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.audit-tab').forEach(otherTab => {
