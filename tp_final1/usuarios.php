@@ -107,7 +107,7 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
 
             <div class="table-card">
-                <table class="users-table">
+                <table class="users-table<?= $esSuperAdmin ? ' superadmin-users-table' : '' ?>">
                     <thead>
                         <tr>
                             <th>Usuario</th>

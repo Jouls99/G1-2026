@@ -56,7 +56,9 @@ function isSuperAdmin(): bool
         return false;
     }
     $role = strtolower(trim((string)($_SESSION['user']['role'] ?? $_SESSION['user']['rol'] ?? '')));
-    return in_array($role, ['superadmin', 'super administrador', 'super_admin', 'super-admin'], true);
+    $roleClean = preg_replace('/[\s_-]+/', ' ', $role);
+    return in_array($role, ['superadmin', 'super admin', 'super administrador', 'super_admin', 'super-admin', 'super_administrador', 'super-administrador', 'superadministrator', 'super administrator'], true)
+        || in_array($roleClean, ['superadmin', 'super admin', 'super administrador', 'super administrator'], true);
 }
 
 /**

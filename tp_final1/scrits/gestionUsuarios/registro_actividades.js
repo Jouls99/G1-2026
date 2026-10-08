@@ -30,16 +30,20 @@ async function cargarLoginsYActividades() {
             return tipo.startsWith('login') || tipo.startsWith('registro') || tipo.includes('logout');
         });
 
-        if (kpiLoginsHoy && metricasGenerales.logins_hoy !== undefined) {
-            kpiLoginsHoy.textContent = metricasGenerales.logins_hoy;
+        const kpiLoginsEl = document.getElementById('kpi-logins-hoy');
+        if (kpiLoginsEl && metricasGenerales.logins_hoy !== undefined) {
+            kpiLoginsEl.textContent = metricasGenerales.logins_hoy;
         }
 
-        renderTablaLogins();
+        if (typeof renderTablaLogins === 'function') {
+            renderTablaLogins();
+        }
         renderActividades();
     } catch (error) {
         console.error('Error cargando actividades y logins:', error);
-        if (tbodyLogins) {
-            tbodyLogins.innerHTML = `
+        const tbodyLoginsEl = document.getElementById('tbody-logins');
+        if (tbodyLoginsEl) {
+            tbodyLoginsEl.innerHTML = `
                 <tr>
                     <td colspan="7" style="text-align:center; padding: 30px; color: #ef4444;">
                         ❌ Error al cargar registro de logins: ${error.message}
@@ -47,8 +51,9 @@ async function cargarLoginsYActividades() {
                 </tr>
             `;
         }
-        if (activityStream) {
-            activityStream.innerHTML = `
+        const activityStreamEl = document.getElementById('activity-stream');
+        if (activityStreamEl) {
+            activityStreamEl.innerHTML = `
                 <div style="text-align: center; padding: 30px; color: #ef4444;">
                     ❌ No se pudo cargar el historial de interacciones: ${error.message}
                 </div>

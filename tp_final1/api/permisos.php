@@ -30,9 +30,46 @@ if ($method === 'GET') {
 }
 
 if ($method === 'PUT') {
-    // Acepta cambios parciales, verifica que el destino sea vendedor y registra quién los hizo.
+    // Acepta cambios parciales, verifica que el destino sea vendedor, valida la contraseña del admin y registra quién los hizo.
     $body = getJsonBody() ?? [];
     $id = (int)($body['id'] ?? 0);
+    $adminPassword = (string)($body['password'] ?? $body['admin_password'] ?? '');
+
+    if (trim($adminPassword) === '') {
+        sendJson(['ok' => false, 'error' => 'password_required', 'message' => 'Ingresá tu contraseña de administrador para confirmar los cambios.'], 400);
+    }
+
+    $actor = getApiUser();
+    $actorId = (int)($actor['id'] ?? 0);
+    $changedBy = (string)($actor['usuario'] ?? 'Administrador');
+
+    if ($actorId <= 0 && $changedBy === '') {
+        sendJson(['ok' => false, 'error' => 'unauthorized', 'message' => 'Sesión no válida o expirada.'], 401);
+    }
+
+    try {
+        $adminStmt = $db->prepare("SELECT `id_usuario`, `password` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+        $adminStmt->execute([
+            ':id' => $actorId,
+            ':nombre' => $changedBy
+        ]);
+        $adminRow = $adminStmt->fetch();
+
+        if (!$adminRow || !password_verify($adminPassword, (string)($adminRow['password'] ?? ''))) {
+            logActivity(
+                $changedBy,
+                'permisos_delegacion_rechazada',
+                "Intento fallido de actualizar permisos de vendedor: contraseña de administrador incorrecta",
+                ['id_vendedor' => $id],
+                $actorId > 0 ? $actorId : null
+            );
+            sendJson(['ok' => false, 'error' => 'invalid_password', 'message' => 'La contraseña ingresada es incorrecta.'], 401);
+        }
+    } catch (Exception $e) {
+        error_log('Error al validar contraseña del administrador: ' . $e->getMessage());
+        sendJson(['ok' => false, 'message' => 'Error al validar credenciales.'], 500);
+    }
+
     $permissionFields = ['puede_registrar_stock', 'puede_modificar_informes'];
     $updates = [];
     foreach ($permissionFields as $permission) {
@@ -66,17 +103,15 @@ if ($method === 'PUT') {
         sendJson(['ok' => false, 'message' => 'No se pudieron actualizar los permisos.'], 500);
     }
 
-    $actor = getApiUser();
-    $changedBy = (string)($actor['usuario'] ?? 'Administrador');
     logActivity(
         $changedBy,
         'permisos_vendedor_actualizados',
         "Permisos del vendedor '{$targetName}' actualizados por {$changedBy}",
         ['vendedor' => $targetName, 'permisos' => $updates],
-        isset($actor['id']) ? (int)$actor['id'] : null
+        $actorId > 0 ? $actorId : null
     );
 
-    sendJson(['ok' => true, 'message' => 'Permisos actualizados correctamente.']);
+    sendJson(['ok' => true, 'message' => "Permisos de '{$targetName}' actualizados correctamente."]);
 }
 
 sendJson(['ok' => false, 'message' => 'Método no permitido.'], 405);

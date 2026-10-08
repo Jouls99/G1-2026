@@ -28,16 +28,17 @@ Consulta los vendedores y sus permisos en MySQL.
 
 `PUT api/permisos.php`
 
-El cuerpo JSON debe incluir `id` y al menos uno de estos campos:
+El cuerpo JSON debe incluir `id`, `password` (la contraseña de inicio de sesión del administrador) y al menos uno de estos campos:
 
 - `puede_registrar_stock`
 - `puede_modificar_informes`
 
-Los valores se convierten a booleanos. Solo se permiten esos nombres de permiso. El usuario objetivo debe ser un vendedor; si se encuentra, actualiza MySQL y registra `permisos_vendedor_actualizados` con el administrador que hizo el cambio.
+Los valores se convierten a booleanos. Solo se permiten esos nombres de permiso. El sistema valida la contraseña del administrador actual mediante `password_verify` antes de aplicar cualquier modificación. El usuario objetivo debe ser un vendedor; si se encuentra y la contraseña es válida, actualiza MySQL y registra `permisos_vendedor_actualizados` con el administrador que hizo el cambio. Si la contraseña no coincide, se deniega la acción y se registra el intento fallido.
 
 Errores:
 
-- `400`: ID inválido o no se incluyó ningún permiso.
+- `400`: ID inválido, falta la contraseña o no se incluyó ningún permiso.
+- `401`: contraseña de administrador incorrecta o sesión no válida.
 - `404`: el usuario no existe o no es vendedor.
 - `503`: base de datos no disponible.
 - `403`: el solicitante no tiene rol administrativo.

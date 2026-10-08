@@ -435,10 +435,44 @@ body {
     overflow: hidden;
     border: 1px solid var(--border-color);
 }
+#tab-usuarios .table-card,
+#tab-logins .table-card,
+#tab-actividades .activity-card {
+    overflow-x: scroll;
+    overflow-y: hidden;
+    scrollbar-color: #7c3aed #ede9fe;
+    scrollbar-width: auto;
+}
+#tab-usuarios .table-card::-webkit-scrollbar,
+#tab-logins .table-card::-webkit-scrollbar,
+#tab-actividades .activity-card::-webkit-scrollbar {
+    height: 12px;
+}
+#tab-usuarios .table-card::-webkit-scrollbar-track,
+#tab-logins .table-card::-webkit-scrollbar-track,
+#tab-actividades .activity-card::-webkit-scrollbar-track {
+    background: #ede9fe;
+}
+#tab-usuarios .table-card::-webkit-scrollbar-thumb,
+#tab-logins .table-card::-webkit-scrollbar-thumb,
+#tab-actividades .activity-card::-webkit-scrollbar-thumb {
+    background: #7c3aed;
+    border: 2px solid #ede9fe;
+    border-radius: 999px;
+}
 .users-table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+}
+#tab-usuarios .users-table {
+    min-width: 1000px;
+}
+#tab-usuarios .superadmin-users-table {
+    min-width: 1300px;
+}
+#tab-logins .logins-table {
+    min-width: 1200px;
 }
 .users-table th {
     background: #faf5ff;
@@ -541,6 +575,10 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: nowrap;
+}
+#tab-usuarios .users-table td:last-child {
+    white-space: nowrap;
 }
 .btn-action-sm {
     border: 1px solid transparent;
@@ -627,6 +665,10 @@ body {
     align-items: flex-start;
     gap: 14px;
     transition: all 0.2s;
+}
+#tab-actividades .activity-item {
+    min-width: 1200px;
+    box-sizing: border-box;
 }
 .activity-item:hover {
     background: #fdf2f8;

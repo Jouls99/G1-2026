@@ -80,7 +80,7 @@ if ($method === 'GET') {
             $where[] = "NOT EXISTS (
                 SELECT 1
                 FROM `usuario` superadmin
-                WHERE LOWER(TRIM(superadmin.`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin')
+                WHERE LOWER(TRIM(superadmin.`rol`)) IN ('superadmin', 'super admin', 'super administrador', 'super_admin', 'super-admin', 'super_administrador', 'super-administrador', 'superadministrator', 'super administrator')
                   AND (
                       superadmin.`id_usuario` = a.`id_usuario`
                       OR LOWER(superadmin.`nombre`) = LOWER(a.`usuario`)
@@ -145,7 +145,7 @@ if ($method === 'GET') {
             " . (isSuperAdminApi() ? "" : "WHERE NOT EXISTS (
                 SELECT 1
                 FROM `usuario` superadmin
-                WHERE LOWER(TRIM(superadmin.`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin')
+                WHERE LOWER(TRIM(superadmin.`rol`)) IN ('superadmin', 'super admin', 'super administrador', 'super_admin', 'super-admin', 'super_administrador', 'super-administrador', 'superadministrator', 'super administrator')
                   AND (
                       superadmin.`id_usuario` = a.`id_usuario`
                       OR LOWER(superadmin.`nombre`) = LOWER(a.`usuario`)

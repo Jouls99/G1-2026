@@ -15,9 +15,9 @@ requireAdminApi();
 // Funciones auxiliares para mantener roles únicos y aplicar límites de administración de cuentas.
 function roleHasOccupant(PDO $db, string $role, int $exceptUserId = 0): bool
 {
-    $aliases = $role === 'superadmin'
-        ? ['superadmin', 'super administrador', 'super_admin', 'super-admin']
-        : ['administrador', 'admin'];
+    $aliases = isSuperAdminRole($role)
+        ? ['superadmin', 'super admin', 'super administrador', 'super_admin', 'super-admin', 'super_administrador', 'super-administrador', 'superadministrator', 'super administrator']
+        : ['administrador', 'admin', 'administrator'];
     $placeholders = [];
     $params = [':except_id' => $exceptUserId];
     foreach ($aliases as $index => $alias) {
@@ -33,7 +33,10 @@ function roleHasOccupant(PDO $db, string $role, int $exceptUserId = 0): bool
 
 function isSuperAdminRole(string $role): bool
 {
-    return in_array(strtolower(trim($role)), ['superadmin', 'super administrador', 'super_admin', 'super-admin'], true);
+    $r = strtolower(trim($role));
+    $rc = preg_replace('/[\s_-]+/', ' ', $r);
+    return in_array($r, ['superadmin', 'super admin', 'super administrador', 'super_admin', 'super-admin', 'super_administrador', 'super-administrador', 'superadministrator', 'super administrator'], true)
+        || in_array($rc, ['superadmin', 'super admin', 'super administrador', 'super administrator'], true);
 }
 
 function generateTemporaryPassword(): string
