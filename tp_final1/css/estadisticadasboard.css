@@ -536,6 +536,16 @@ th {
     .pdf-sales-table tr {
         break-inside: avoid;
     }
+
+    .pdf-sales-table tfoot td {
+        padding: 6px;
+        font-weight: bold;
+    }
+
+    .pdf-monthly-summary {
+        margin-bottom: 24px;
+        break-after: auto;
+    }
 }
 
 .switch-user-input {

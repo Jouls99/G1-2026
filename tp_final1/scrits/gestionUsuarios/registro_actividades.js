@@ -15,7 +15,7 @@ const inputSearchActivity = document.getElementById('search-activity');
  */
 async function cargarLoginsYActividades() {
     try {
-        const response = await fetch('api/actividades.php?limit=250', { cache: 'no-store' });
+        const response = await fetch('api/actividades.php?limit=50', { cache: 'no-store' });
         if (!response.ok) {
             throw new Error('Error al consultar el registro de actividades.');
         }

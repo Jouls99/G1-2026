@@ -23,7 +23,7 @@ La aplicación utiliza PHP para sus páginas y API, JavaScript para las interacc
 | Ruta | Responsabilidad |
 | --- | --- |
 | `index.php`, `registroinicio.php`, `logout.php` | Entrada, autenticación y cierre de sesión. |
-| `ControlStock.php` | Vista de inventario y operaciones de stock. |
+| `ControlStock.php` | Vista de inventario y operaciones de stock, con búsqueda de categorías en la barra lateral. |
 | `venta.php` | Módulo de ventas. |
 | `informe.php` | Dashboard de ventas e inventario. |
 | `Auditoria.php` | Vista de sesiones, actividad y alertas para Super Administradores. |
@@ -104,7 +104,7 @@ Los valores monetarios y la palabra “ganancia” corresponden a las métricas 
 2. **Actividad y logs:** acciones registradas por autenticación, usuarios, ventas e inventario.
 3. **Amenazas:** señales calculadas a partir de intentos fallidos recientes.
 
-La página obtiene la información de `api/actividades.php`. El endpoint requiere el rol Administrador o Super Administrador y limita a 500 los eventos devueltos (el valor predeterminado es 200). Calcula métricas de accesos exitosos, accesos del día e intentos fallidos consultando MySQL.
+La página obtiene la información de `api/actividades.php`. El endpoint requiere el rol Administrador o Super Administrador. La vista carga sesiones, actividad y amenazas en lotes de 50 y permite solicitar 50 registros adicionales en cada panel. Calcula métricas de accesos exitosos, accesos del día e intentos fallidos consultando MySQL.
 
 La interfaz informa estas reglas de detección en una ventana de 15 minutos: cinco fallos asociados a una misma combinación de IP y usuario, o diez fallos desde una IP entre distintos usuarios. Las alertas son indicios calculados por la aplicación; no reemplazan un sistema externo de monitoreo o seguridad.
 

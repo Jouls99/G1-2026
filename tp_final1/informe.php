@@ -38,7 +38,7 @@ require_once __DIR__ . '/includes/navbar.php';
     <!-- Controles, indicadores y visualizaciones que dashboard-informe.js calcula con la API. -->
     <section id="dashboard-informe">
         <div class="dashboard-header">
-            <h2>Dashboard dinámico</h2>
+            <h2>dashboard-controls</h2>
             <p>Seleccioná una categoría y un periodo para ver el comportamiento del inventario.</p>
         </div>
         <p id="dashboardLoadError" class="dashboard-load-error" role="alert" hidden></p>

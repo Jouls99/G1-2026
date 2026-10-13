@@ -208,10 +208,10 @@ function buildChartMarkup(series) {
     <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#dabad3" stroke-width="1"></line>
     <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#dabad3" stroke-width="1"></line>
     ${[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-      const yPos = padding + (height - padding * 2) * ratio;
-      const value = Math.round(maxValue * (1 - ratio));
-      return `<line x1="${padding}" y1="${yPos}" x2="${width - padding}" y2="${yPos}" stroke="#f2dbe9" stroke-width="1"></line><text x="10" y="${yPos + 4}" fill="#6f4b63" font-size="11">${value}</text>`;
-    }).join('')}
+    const yPos = padding + (height - padding * 2) * ratio;
+    const value = Math.round(maxValue * (1 - ratio));
+    return `<line x1="${padding}" y1="${yPos}" x2="${width - padding}" y2="${yPos}" stroke="#f2dbe9" stroke-width="1"></line><text x="10" y="${yPos + 4}" fill="#6f4b63" font-size="11">${value}</text>`;
+  }).join('')}
     ${series.labels.map((label, index) => `<text x="${padding + index * stepX}" y="${height - 10}" text-anchor="middle" fill="#6f4b63" font-size="11">${label}</text>`).join('')}
     <polyline points="${soldPoints}" fill="none" stroke="#7b2cbf" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
     <polyline points="${revenuePoints}" fill="none" stroke="#e0558d" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></polyline>
@@ -301,11 +301,25 @@ function renderInventoryTable() {
   const soldSummary = buildSoldSummary();
   const tbody = document.getElementById('stockTableBody');
   if (!tbody) return;
-  tbody.innerHTML = state.inventory.map((item) => {
+
+  if (!state.inventory.length) {
+    tbody.innerHTML = '<tr><td colspan="10">No hay productos cargados en el inventario.</td></tr>';
+    return;
+  }
+
+  let totalVendidas = 0;
+  let totalDisponibles = 0;
+  let totalGanancias = 0;
+
+  const rows = state.inventory.map((item) => {
     const sold = soldSummary[String(item.codigo || '').toLowerCase()] || 0;
     const saleInfo = getLastSaleInfo(item.codigo);
-    const available = item.cantidad || 0;
-    const totalValue = item.total != null ? item.total : (item.precio || 0) * available;
+    const available = Number(item.cantidad) || 0;
+    const totalValue = item.total != null ? Number(item.total) : (Number(item.precio) || 0) * available;
+
+    totalVendidas += sold;
+    totalDisponibles += available;
+    totalGanancias += totalValue;
 
     return `
       <tr>
@@ -322,6 +336,21 @@ function renderInventoryTable() {
       </tr>
     `;
   }).join('');
+
+  const totalRow = `
+    <tr class="summary-total-row" style="font-weight: bold; background-color: #fdf2f8; border-top: 2px solid #e0558d;">
+      <td colspan="3" style="text-align: right; letter-spacing: 1px;">TOTAL:</td>
+      <td>${totalVendidas}</td>
+      <td>${totalDisponibles}</td>
+      <td>-</td>
+      <td>${currencyFormatter.format(totalGanancias)}</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  `;
+
+  tbody.innerHTML = rows + totalRow;
 }
 
 // Presenta ventas recientes o el historial filtrado, con acciones solo si el permiso lo permite.
@@ -493,15 +522,99 @@ function renderPdfReport() {
   });
   const sortedCategories = [...categories].sort((a, b) => a.localeCompare(b, 'es'));
 
+  // Tabla mensual de productos más vendidos y ganancia general
+  let monthlySummaryMarkup = '';
+  if (state.period === 'mensual') {
+    const productsMap = new Map();
+    let grandTotalSold = 0;
+    let grandTotalRevenue = 0;
+
+    salesInRange.forEach((sale) => {
+      (sale.productos || []).forEach((product) => {
+        const code = String(product.codigo || '').trim().toLowerCase();
+        const key = code || String(product.nombre || '').trim().toLowerCase();
+        const quantity = Number(product.cantidad) || 0;
+        const price = Number(product.precio) || 0;
+        const total = quantity * price;
+
+        grandTotalSold += quantity;
+        grandTotalRevenue += total;
+
+        const inventoryItem = state.inventory.find((item) =>
+          String(item.codigo || '').trim().toLowerCase() === code
+        );
+
+        if (!productsMap.has(key)) {
+          productsMap.set(key, {
+            nombre: product.nombre || inventoryItem?.nombre || 'Producto sin nombre',
+            codigo: product.codigo || inventoryItem?.codigo || '-',
+            categoria: pdfCategoryName(product.categoria || inventoryItem?.categoria),
+            marca: product.marca || inventoryItem?.marca || '-',
+            cantidad: 0,
+            ganancia: 0
+          });
+        }
+
+        const entry = productsMap.get(key);
+        entry.cantidad += quantity;
+        entry.ganancia += total;
+      });
+    });
+
+    // Ordenar del más vendido al menos vendido (ranking de mayor a menor ventas)
+    const sortedRanking = Array.from(productsMap.values())
+      .sort((a, b) => b.cantidad - a.cantidad || b.ganancia - a.ganancia);
+
+    monthlySummaryMarkup = `
+      <article class="pdf-category-report pdf-monthly-summary">
+        <h3 style="color: #581c87; border-bottom: 2px solid #e0558d; padding-bottom: 6px; margin-bottom: 12px;">🏆 Resumen mensual: Productos más vendidos y ganancia general</h3>
+        <table class="pdf-sales-table">
+          <thead>
+            <tr style="background-color: #f4d9e7;">
+              <th style="width: 35px; text-align: center;">#</th>
+              <th>Producto</th>
+              <th>Código</th>
+              <th>Categoría</th>
+              <th>Marca</th>
+              <th style="text-align: center;">Cantidad vendida</th>
+              <th style="text-align: right;">Total ganancia</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedRanking.length ? sortedRanking.map((p, idx) => `
+              <tr>
+                <td style="font-weight: bold; text-align: center;">${idx + 1}</td>
+                <td><strong>${escapeHtml(p.nombre)}</strong></td>
+                <td>${escapeHtml(p.codigo)}</td>
+                <td>${escapeHtml(p.categoria)}</td>
+                <td>${escapeHtml(p.marca)}</td>
+                <td style="text-align: center; font-weight: bold;">${p.cantidad}</td>
+                <td style="text-align: right; font-weight: bold;">${currencyFormatter.format(p.ganancia)}</td>
+              </tr>
+            `).join('') : '<tr><td colspan="7" style="text-align: center;">No hay ventas registradas en este período mensual.</td></tr>'}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background-color: #fdf2f8; border-top: 2px solid #e0558d;">
+              <td colspan="5" style="text-align: right; letter-spacing: 0.5px;">TOTAL GENERAL DEL MES:</td>
+              <td style="text-align: center;">${grandTotalSold}</td>
+              <td style="text-align: right;">${currencyFormatter.format(grandTotalRevenue)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </article>
+    `;
+  }
+
   container.innerHTML = `
     <header class="pdf-report-heading">
       <h2>Historial de ventas · ${escapeHtml(period)}</h2>
       <p>${escapeHtml(rangeText)}</p>
     </header>
+    ${monthlySummaryMarkup}
     ${sortedCategories.length ? sortedCategories.map((category) => {
-      const entries = productsByCategory.get(category)
-        .sort((a, b) => new Date(b.sale.fecha) - new Date(a.sale.fecha));
-      return `
+    const entries = productsByCategory.get(category)
+      .sort((a, b) => new Date(b.sale.fecha) - new Date(a.sale.fecha));
+    return `
         <article class="pdf-category-report">
           <h3>${escapeHtml(category)}</h3>
           <table class="pdf-sales-table">
@@ -511,10 +624,10 @@ function renderPdfReport() {
               <th>Cantidad</th><th>Total</th>
             </tr></thead>
             <tbody>${entries.length ? entries.map(({ sale, product }) => {
-              const date = new Date(sale.fecha);
-              const quantity = Number(product.cantidad) || 0;
-              const itemTotal = quantity * (Number(product.precio) || 0);
-              return `<tr>
+      const date = new Date(sale.fecha);
+      const quantity = Number(product.cantidad) || 0;
+      const itemTotal = quantity * (Number(product.precio) || 0);
+      return `<tr>
                 <td>${date.toLocaleDateString('es-AR')}</td>
                 <td>${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
                 <td>${date.toLocaleDateString('es-AR', { weekday: 'long' })}</td>
@@ -525,11 +638,11 @@ function renderPdfReport() {
                 <td>${quantity}</td>
                 <td>${currencyFormatter.format(itemTotal)}</td>
               </tr>`;
-            }).join('') : '<tr><td colspan="9">No hay ventas registradas para esta categoría en el período.</td></tr>'}</tbody>
+    }).join('') : '<tr><td colspan="9">No hay ventas registradas para esta categoría en el período.</td></tr>'}</tbody>
           </table>
         </article>
       `;
-    }).join('') : '<p>No hay categorías para mostrar en el informe.</p>'}
+  }).join('') : '<p>No hay categorías para mostrar en el informe.</p>'}
   `;
 }
 
@@ -624,6 +737,9 @@ window.addEventListener('storage', (event) => {
     loadInventory();
   }
 });
+
+
+
 // Sincroniza la vista con actualizaciones publicadas por los otros módulos de la misma aplicación.
 window.addEventListener('inventario-updated', () => {
   loadInventory();
@@ -700,7 +816,7 @@ function abrirModalEdicion(saleId) {
 
   document.getElementById('edit-sale-id').value = sale.id;
   document.getElementById('edit-sale-fecha').value = new Date(sale.fecha).toLocaleString('es-AR');
-  
+
   const container = document.getElementById('edit-sale-products-container');
   container.innerHTML = '';
 
@@ -746,7 +862,7 @@ function abrirModalEdicion(saleId) {
       if (val < 0) val = 0;
       if (val > stockDisponibleRestaurado) val = stockDisponibleRestaurado;
       input.value = val;
-      
+
       if (val === 0) {
         row.style.opacity = '0.4';
       } else {
@@ -767,7 +883,7 @@ function recalcularTotalModal() {
   if (!container) return;
   const rows = container.querySelectorAll('.edit-product-row');
   let total = 0;
-  
+
   rows.forEach(row => {
     const qtyInput = row.querySelector('.edit-product-qty');
     const qty = parseInt(qtyInput.value) || 0;

@@ -494,7 +494,7 @@ if ($method === 'POST') {
 
     try {
         // Verificar si el código ya existe
-        $checkStmt = $db->prepare("SELECT `ID_stock`, `ID_categoria`, `fase` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) LIMIT 1");
+        $checkStmt = $db->prepare("SELECT `ID_stock`, `fase` FROM `producto` WHERE LOWER(`codigo`) = LOWER(:codigo) LIMIT 1");
         $checkStmt->execute([':codigo' => $codigo]);
         $existing = $checkStmt->fetch();
         if ($existing) {
@@ -503,17 +503,26 @@ if ($method === 'POST') {
                 if (!isAdminApi()) {
                     sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo un administrador puede rehabilitar productos deshabilitados.'], 403);
                 }
-                $subcategoryName = !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null;
-                $subcategoryId = findOrCreateSubcategory(
-                    $db,
-                    $existing['ID_categoria'] !== null ? (int)$existing['ID_categoria'] : null,
-                    $subcategoryName
-                );
+                $catStmt = $db->prepare("SELECT `ID_categoria` FROM `categoria` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+                $catStmt->execute([':nombre' => $categoriaName]);
+                $catId = $catStmt->fetchColumn();
+                if (!$catId) {
+                    $insertCat = $db->prepare("INSERT INTO `categoria` (`nombre`) VALUES (:nombre)");
+                    $insertCat->execute([':nombre' => $categoriaName]);
+                    $catId = (int)$db->lastInsertId();
+                } else {
+                    $catId = (int)$catId;
+                }
+
+                $subcategoryName = trim((string)($body['subcategoria'] ?? ''));
+                $subcategoryName = $subcategoryName !== '' ? $subcategoryName : null;
+                $subcategoryId = findOrCreateSubcategory($db, $catId, $subcategoryName);
                 $updRehab = $db->prepare("
                     UPDATE `producto`
                     SET `nombre` = :nom, `marca` = :marca, `sub_nombre` = :sub_nombre,
                         `cantTotal` = :cant, `precio` = :prec, `subcategoria` = :subcategoria,
-                        `ID_sub_categoria` = :subcategory_id, `fase` = 'habilitado'
+                        `ID_categoria` = :category_id, `ID_sub_categoria` = :subcategory_id,
+                        `fase` = 'habilitado'
                     WHERE `ID_stock` = :id
                 ");
                 $updRehab->execute([
@@ -523,11 +532,27 @@ if ($method === 'POST') {
                     ':cant' => $cantidad,
                     ':prec' => $precio,
                     ':subcategoria' => $subcategoryName,
+                    ':category_id' => $catId,
                     ':subcategory_id' => $subcategoryId,
                     ':id'   => (int)$existing['ID_stock']
                 ]);
 
-                sendJson(['ok' => true, 'message' => 'Producto existente rehabilitado y actualizado.', 'item' => ['codigo' => $codigo, 'fase' => 'habilitado']]);
+                sendJson([
+                    'ok' => true,
+                    'message' => 'Producto existente rehabilitado y actualizado.',
+                    'item' => [
+                        'id' => (int)$existing['ID_stock'],
+                        'ID_stock' => (int)$existing['ID_stock'],
+                        'codigo' => $codigo,
+                        'nombre' => $nombre,
+                        'categoria' => $categoriaName,
+                        'ID_categoria' => $catId,
+                        'subcategoria' => $subcategoryName,
+                        'ID_sub_categoria' => $subcategoryId,
+                        'fase' => 'habilitado',
+                        'rehabilitado' => true
+                    ]
+                ]);
             }
             sendJson(['error' => 'item_exists', 'message' => 'Ya existe un producto activo con este código.'], 409);
         }
@@ -545,7 +570,8 @@ if ($method === 'POST') {
             $catId = (int)$catId;
         }
 
-        $subcategoryName = !empty($body['subcategoria']) ? trim((string)$body['subcategoria']) : null;
+        $subcategoryName = trim((string)($body['subcategoria'] ?? ''));
+        $subcategoryName = $subcategoryName !== '' ? $subcategoryName : null;
         $subcategoryId = findOrCreateSubcategory($db, $catId, $subcategoryName);
         $brand = trim((string)($body['marca'] ?? '')) ?: null;
         $secondaryName = trim((string)($body['sub_nombre'] ?? '')) ?: null;

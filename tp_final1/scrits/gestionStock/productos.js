@@ -259,12 +259,10 @@ async function deleteCategory(catId) {
         return;
     }
 
-    if (categoriaFiltro === catId) categoriaFiltro = '';
     if (selectedCategoryId === catId) productoSeleccionado = null;
     await cargarInventario();
     categoriaSeleccionada = inventario.find(cat => cat.id === selectedCategoryId) || inventario[0] || null;
     renderCategories();
-    renderCategoryFilter();
     renderCategorySelector();
     renderPriceCategoryFilter();
 
@@ -299,7 +297,6 @@ async function addCategory() {
         await cargarInventario();
         categoriaSeleccionada = inventario.find(cat => cat.ID_categoria === Number(data.categoria.ID_categoria)) || inventario[0] || null;
         renderCategories();
-        renderCategoryFilter();
         renderCategorySelector();
         renderPriceCategoryFilter();
         if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
@@ -515,36 +512,46 @@ async function addProduct() {
         if (!res.ok || data.error) {
             throw new Error(data.message || 'Error al guardar producto.');
         }
-        if (data.item?.ID_categoria) {
-            catTarget.ID_categoria = data.item.ID_categoria;
-        }
-
-        const newId = data.item ? data.item.id : Date.now();
-        const newProduct = {
-            id: newId,
-            ID_stock: newId,
-            nombre: name,
-            marca: brand || undefined,
-            sub_nombre: subName || undefined,
-            codigo: code,
-            precio: price,
-            stock: stock,
-            fase: 'habilitado',
-            subcategoria: subcategory || undefined
-        };
-
-        catTarget.productos = catTarget.productos || [];
-        catTarget.productos.push(newProduct);
-
-        if (subcategory) {
-            catTarget.subcategorias = catTarget.subcategorias || [];
-            let sub = catTarget.subcategorias.find(s => s.nombre.toLowerCase() === subcategory.toLowerCase());
-            if (!sub) {
-                sub = { id: `sub-${Date.now()}`, nombre: subcategory, productos: [] };
-                catTarget.subcategorias.push(sub);
+        if (data.item?.rehabilitado) {
+            await cargarInventario();
+            categoriaSeleccionada = inventario.find(cat =>
+                cat.ID_categoria === Number(data.item.ID_categoria)
+            ) || null;
+            if (!categoriaSeleccionada) {
+                throw new Error('El producto se rehabilitó, pero no se pudo actualizar su categoría en pantalla. Recargá el inventario.');
             }
-            sub.productos = sub.productos || [];
-            sub.productos.push(newProduct);
+        } else {
+            if (data.item?.ID_categoria) {
+                catTarget.ID_categoria = data.item.ID_categoria;
+            }
+
+            const newId = data.item ? data.item.id : Date.now();
+            const newProduct = {
+                id: newId,
+                ID_stock: newId,
+                nombre: name,
+                marca: brand || undefined,
+                sub_nombre: subName || undefined,
+                codigo: code,
+                precio: price,
+                stock: stock,
+                fase: 'habilitado',
+                subcategoria: subcategory || undefined
+            };
+
+            catTarget.productos = catTarget.productos || [];
+            catTarget.productos.push(newProduct);
+
+            if (subcategory) {
+                catTarget.subcategorias = catTarget.subcategorias || [];
+                let sub = catTarget.subcategorias.find(s => s.nombre.toLowerCase() === subcategory.toLowerCase());
+                if (!sub) {
+                    sub = { id: `sub-${Date.now()}`, nombre: subcategory, productos: [] };
+                    catTarget.subcategorias.push(sub);
+                }
+                sub.productos = sub.productos || [];
+                sub.productos.push(newProduct);
+            }
         }
 
         localStorage.setItem('inventarioUpdated', Date.now().toString());
@@ -553,7 +560,7 @@ async function addProduct() {
         document.getElementById('stockProductForm')?.reset();
         renderCategorySelector();
         renderPriceTypeFilter();
-        document.getElementById('prodCat').value = catId;
+        document.getElementById('prodCat').value = categoriaSeleccionada?.id || catId;
         renderCategories();
         renderTable(categoriaSeleccionada);
         alert(`✅ Producto "${name}" agregado exitosamente.`);

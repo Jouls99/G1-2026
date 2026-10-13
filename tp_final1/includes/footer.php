@@ -3,11 +3,25 @@ declare(strict_types=1);
 ?>
 <!-- Pie común con el año vigente para evitar duplicar el cierre visual en cada página. -->
     <footer style="text-align: center; padding: 20px; font-size: 0.85rem; color: #94a3b8; font-family: sans-serif;">
-        <p>&copy; <?= date('Y') ?> Sistema de Gestión y Stock - Desarrollado en PHP 8</p>
+        <p>&copy; <?= date('Y') ?> Sistema de Gestión y Stock - Desarrollado por</p>
+        <div>
+           <i class="Mensage_interactivo" id="F_abajo" onclick='window.alert("")'></i> 
+           <div class="DESARROLLADORES">
+            <ol >
+                <li>< Gomez Santiago/></li>
+                <li>< Fernandez María de la esperanza/> </li>
+                <li>< Fabricio Barrios/></li>
+            </ol>
+           </div>
+        </div>
+        
     </footer>
     <?php if (function_exists('isLoggedIn') && isLoggedIn()): ?>
     <!-- Mantiene el seguimiento de la sesión activa y permite aplicar el cierre de jornada. -->
     <script>
+        const MensajeInteractivo = document.getElementById('F_abajo')
+        
+
         const registrarLatidoSesion = () => {
             fetch('api/session.php', {
                 method: 'POST',

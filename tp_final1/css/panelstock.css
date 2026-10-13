@@ -85,7 +85,7 @@ h1 {
     border-radius: 6px;
 }
 
-.category-filter-label {
+.category-search-label {
     display: block;
     margin: 10px 0 5px;
     color: #6b21a8;
@@ -93,7 +93,7 @@ h1 {
     font-weight: bold;
 }
 
-.category-filter {
+.category-search {
     width: 100%;
     padding: 8px;
     margin-bottom: 10px;
@@ -102,6 +102,12 @@ h1 {
     border-radius: 6px;
     background: white;
     color: #374151;
+}
+
+.category-empty {
+    margin: 10px 0;
+    color: #6b7280;
+    font-size: 0.9rem;
 }
 
 .search-box {

@@ -9,7 +9,6 @@
 
 let inventario = [];
 let categoriaSeleccionada = inventario[0];
-let categoriaFiltro = '';
 let productoSeleccionado = null;
 let productoPendienteEliminar = null;
 let categoryContextMenu = null;
@@ -89,9 +88,18 @@ function renderCategories() {
     const container = document.getElementById('categoriesContainer');
     if (!container) return;
     container.innerHTML = '';
-    inventario
-        .filter(cat => !categoriaFiltro || cat.id === categoriaFiltro)
-        .forEach(cat => {
+    const searchInput = document.getElementById('categorySearch');
+    const searchTerm = searchInput?.value.trim().toLocaleLowerCase('es') || '';
+    const categoriasVisibles = inventario.filter(cat =>
+        cat.nombre.toLocaleLowerCase('es').includes(searchTerm)
+    );
+
+    if (categoriasVisibles.length === 0) {
+        container.innerHTML = '<p class="category-empty">No se encontraron categorías.</p>';
+        return;
+    }
+
+    categoriasVisibles.forEach(cat => {
         const btn = document.createElement('button');
         btn.className = `btn ${categoriaSeleccionada?.id === cat.id ? 'btn-active' : ''}`;
         btn.innerText = cat.nombre;
@@ -101,21 +109,7 @@ function renderCategories() {
             ? 'Click para abrir • Click derecho para eliminar categoría'
             : 'Click para abrir';
         container.appendChild(btn);
-        });
-}
-
-function renderCategoryFilter() {
-    const filter = document.getElementById('categoryFilter');
-    if (!filter) return;
-
-    filter.innerHTML = '<option value="">Todas las categorías</option>';
-    inventario.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat.id;
-        option.textContent = cat.nombre;
-        filter.appendChild(option);
     });
-    filter.value = inventario.some(cat => cat.id === categoriaFiltro) ? categoriaFiltro : '';
 }
 
 function renderCategorySelector() {

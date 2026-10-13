@@ -67,10 +67,14 @@ async function cargarAuditoriaStock() {
             return;
         }
 
-        content.innerHTML = `<table class="audit-table"><thead><tr><th>Fecha</th><th>Producto</th><th>Estado</th><th>Usuario</th><th>Detalle</th></tr></thead><tbody>${data.auditoria.map(evento => {
+        content.innerHTML = `<table class="audit-table"><thead><tr><th>Fecha</th><th>Producto</th><th>Estado</th><th>Usuario</th><th>Código</th></tr></thead><tbody>${data.auditoria.map(evento => {
             const estadoHabilitado = evento.tipo === 'stock_habilitar';
-            const detalle = evento.detalles?.codigo || evento.descripcion;
-            return `<tr><td>${formatAuditDate(evento.fecha)}</td><td>${escapeHtml(evento.detalles?.nombre || evento.detalles?.codigo || 'Producto')}</td><td><span class="badge-fase badge-fase-${estadoHabilitado ? 'habilitado' : 'deshabilitado'}">${estadoHabilitado ? 'Habilitado' : 'Deshabilitado'}</span></td><td>${escapeHtml(evento.usuario)}</td><td>${escapeHtml(detalle)}</td></tr>`;
+            const codigo = String(evento.detalles?.codigo || '').trim();
+            const producto = inventario
+                .flatMap(categoria => categoria.productos || [])
+                .find(item => String(item.codigo).toLowerCase() === codigo.toLowerCase());
+            const nombreProducto = evento.detalles?.nombre || producto?.nombre || 'Producto';
+            return `<tr><td>${formatAuditDate(evento.fecha)}</td><td>${escapeHtml(nombreProducto)}</td><td><span class="badge-fase badge-fase-${estadoHabilitado ? 'habilitado' : 'deshabilitado'}">${estadoHabilitado ? 'Habilitado' : 'Deshabilitado'}</span></td><td>${escapeHtml(evento.usuario)}</td><td>${escapeHtml(codigo || '—')}</td></tr>`;
         }).join('')}</tbody></table>`;
     } catch (error) {
         content.innerHTML = `<p class="audit-error">${escapeHtml(error.message)}</p>`;

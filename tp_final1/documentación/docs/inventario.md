@@ -42,7 +42,7 @@ Por defecto, `POST api/inventario.php` crea un producto. Cuerpo JSON habitual:
 }
 ```
 
-`nombre`, `codigo` y una categoría existente son obligatorios; `precio` y `cantidad` usan 0 por defecto. Las categorías `General` y `Sin categoría` no se ofrecen ni se aceptan; `General` se conserva únicamente como agrupación del informe PDF para registros históricos sin categoría disponible. Si el código ya existe y el producto está activo, devuelve `409 item_exists`. Si existía deshabilitado, solo un administrador puede rehabilitarlo; se actualizan nombre, precio y cantidad.
+`nombre`, `codigo` y una categoría existente son obligatorios; `precio` y `cantidad` usan 0 por defecto. Las categorías `General` y `Sin categoría` no se ofrecen ni se aceptan; `General` se conserva únicamente como agrupación del informe PDF para registros históricos sin categoría disponible. Si el código ya existe y el producto está activo, devuelve `409 item_exists`. Si existía deshabilitado, solo un administrador puede rehabilitarlo; se actualizan nombre, precio, cantidad, categoría y subcategoría con los valores enviados en la carga actual. Si no se envía una subcategoría, se quita cualquier subcategoría anterior del producto.
 
 Al eliminar una categoría, se debe indicar otra categoría existente como destino. Los productos se reasignan allí y sus subcategorías se recrean o reutilizan en la categoría destino antes de borrar la categoría original.
 

@@ -145,10 +145,8 @@ require_once __DIR__ . '/includes/navbar.php';
     <div class="dashboard">
         <div class="sidebar">
             <h3>Categorías</h3>
-            <label for="categoryFilter" class="category-filter-label">Filtrar categoría</label>
-            <select id="categoryFilter" class="category-filter">
-                <option value="">Todas las categorías</option>
-            </select>
+            <label for="categorySearch" class="category-search-label">Buscar categoría</label>
+            <input type="search" id="categorySearch" class="category-search" placeholder="Nombre de categoría..." autocomplete="off">
             <div id="categoriesContainer"></div>
             <hr style="margin: 15px 0; border: 0; border-top: 1px solid #e5e7eb;">
             <?php if (!$soloLectura): ?>

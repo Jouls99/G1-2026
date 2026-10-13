@@ -18,15 +18,22 @@ Parámetros opcionales:
 | --- | --- |
 | `usuario` | Filtra por nombre de usuario. Los valores vacíos o `todos` no filtran. |
 | `tipo` | Filtra por tipo de acción. Reconoce `venta`, `login`, `stock`, `roles`/`rol`; cualquier otro valor se compara como tipo exacto. `todas` no filtra. |
-| `limit` | Cantidad máxima de eventos. Predeterminado: 200; rango efectivo: 1–500. |
+| `limit` | Cantidad máxima de registros por lote. Predeterminado: 50; rango efectivo: 1–50. |
+| `stream` | Selecciona `activity` (excluye eventos de autenticación), `sessions` (solo autenticación), `threats` o `all` (predeterminado). |
+| `before_id` | Cursor exclusivo de actividad por ID: devuelve eventos con ID inferior, para pedir el siguiente lote sin repetir registros. |
+| `threat_before_id` | Cursor exclusivo de amenazas por ID para pedir el siguiente lote sin repetir señales. |
 
-Consulta `actividad_usuario` y `amenaza` en MySQL, agrega el rol del usuario e interpreta `detalles` como JSON si puede. Para Administradores, el servidor excluye de la lista y de las métricas todas las actividades atribuibles a cuentas Super Admin; los eventos de vendedores y demás usuarios siguen visibles. El Super Administrador conserva acceso a toda la actividad. La respuesta exitosa contiene:
+Consulta `actividad_usuario` y `amenaza` en MySQL, agrega el rol del usuario e interpreta `detalles` como JSON si puede. La vista de auditoría carga sesiones, actividad y amenazas en lotes de 50; las respuestas incluyen cursores y banderas de disponibilidad para solicitar el siguiente lote. Para Administradores, el servidor excluye de la lista y de las métricas todas las actividades atribuibles a cuentas Super Admin; los eventos de vendedores y demás usuarios siguen visibles. El Super Administrador conserva acceso a toda la actividad. La respuesta exitosa contiene:
 
 ```json
 {
   "ok": true,
   "actividades": [],
+  "has_more": false,
+  "next_cursor": null,
   "amenazas": [],
+  "has_more_threats": false,
+  "next_threat_cursor": null,
   "stats": {
     "total": 0,
     "ventas": 0,

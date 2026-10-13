@@ -16,15 +16,40 @@ if ($method === 'GET') {
     $db = requireApiDatabase();
     $filtroUsuario = trim((string)($_GET['usuario'] ?? ''));
     $filtroTipo = trim((string)($_GET['tipo'] ?? ''));
-    $limit = min(500, max(1, (int)($_GET['limit'] ?? 200)));
-    // Carga señales de seguridad y normaliza filtros comunes antes de consultar el historial.
-    $amenazaStmt = $db->query("
+    $limit = min(50, max(1, (int)($_GET['limit'] ?? 50)));
+    $stream = (string)($_GET['stream'] ?? 'all');
+    $beforeId = filter_var($_GET['before_id'] ?? null, FILTER_VALIDATE_INT);
+    $threatBeforeId = filter_var($_GET['threat_before_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!in_array($stream, ['all', 'activity', 'sessions', 'threats'], true)) {
+        sendJson(['ok' => false, 'message' => 'El tipo de registro solicitado no es válido.'], 400);
+    }
+    if (isset($_GET['before_id']) && ($beforeId === false || $beforeId < 1)) {
+        sendJson(['ok' => false, 'message' => 'El cursor de actividad no es válido.'], 400);
+    }
+    if (isset($_GET['threat_before_id']) && ($threatBeforeId === false || $threatBeforeId < 1)) {
+        sendJson(['ok' => false, 'message' => 'El cursor de amenazas no es válido.'], 400);
+    }
+    // Carga hasta un lote de señales y conserva un cursor independiente de la actividad.
+    $threatWhere = $threatBeforeId !== false && $threatBeforeId !== null
+        ? 'WHERE `id_amenaza` < :threat_before_id'
+        : '';
+    $threatStmt = $db->prepare("
         SELECT `id_amenaza`, `regla`, `clave`, `titulo`, `descripcion`, `usuario`, `ip`,
                `intentos`, `fecha`, `ventana_minutos`
         FROM `amenaza`
-        ORDER BY `fecha` DESC
-        LIMIT 1000
-    ");
+        {$threatWhere}
+        ORDER BY `id_amenaza` DESC
+        LIMIT " . ($limit + 1)
+    );
+    if ($threatBeforeId !== false && $threatBeforeId !== null) {
+        $threatStmt->bindValue(':threat_before_id', $threatBeforeId, PDO::PARAM_INT);
+    }
+    $threatStmt->execute();
+    $threatRows = $threatStmt->fetchAll();
+    $hasMoreThreats = count($threatRows) > $limit;
+    if ($hasMoreThreats) {
+        array_pop($threatRows);
+    }
     $amenazas = array_map(static function (array $row): array {
         return [
             'id' => (string)$row['id_amenaza'],
@@ -38,7 +63,7 @@ if ($method === 'GET') {
             'fecha' => date('c', strtotime((string)$row['fecha'])),
             'ventana_minutos' => (int)$row['ventana_minutos']
         ];
-    }, $amenazaStmt->fetchAll());
+    }, $threatRows);
 
     $actividades = [];
     $stats = [
@@ -76,6 +101,23 @@ if ($method === 'GET') {
             }
         }
 
+        if ($stream === 'activity') {
+            $where[] = "a.`tipo_accion` NOT LIKE 'login%'
+                AND a.`tipo_accion` NOT LIKE 'registro%'
+                AND a.`tipo_accion` <> 'logout'";
+        } elseif ($stream === 'sessions') {
+            $where[] = "(a.`tipo_accion` LIKE 'login%'
+                OR a.`tipo_accion` LIKE 'registro%'
+                OR a.`tipo_accion` = 'logout')";
+        } elseif ($stream === 'threats') {
+            $where[] = '1 = 0';
+        }
+
+        if ($beforeId !== false && $beforeId !== null) {
+            $where[] = 'a.`id_actividad` < :before_id';
+            $params[':before_id'] = $beforeId;
+        }
+
         if (!isSuperAdminApi()) {
             $where[] = "NOT EXISTS (
                 SELECT 1
@@ -105,12 +147,16 @@ if ($method === 'GET') {
                 OR (a.`id_usuario` IS NULL AND LOWER(a.`usuario`) = LOWER(u.`nombre`))
             {$whereSql}
             ORDER BY a.`id_actividad` DESC
-            LIMIT {$limit}
+            LIMIT " . ($limit + 1) . "
         ";
 
         $stmt = $db->prepare($query);
         $stmt->execute($params);
         $rows = $stmt->fetchAll();
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            array_pop($rows);
+        }
 
         foreach ($rows as $row) {
             $detalles = null;
@@ -168,7 +214,11 @@ if ($method === 'GET') {
         sendJson([
             'ok'          => true,
             'actividades' => $actividades,
+            'has_more'    => $hasMore,
+            'next_cursor' => $actividades ? $actividades[count($actividades) - 1]['id'] : null,
             'amenazas'    => $amenazas,
+            'has_more_threats' => $hasMoreThreats,
+            'next_threat_cursor' => $amenazas ? $amenazas[count($amenazas) - 1]['id'] : null,
             'stats'       => $stats,
             'fuente'      => 'mysql'
         ]);

@@ -5,14 +5,15 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // Carga los datos persistentes antes de pintar categorías, productos y opciones de precio.
     await cargarInventario();
-    renderCategoryFilter();
     renderCategorySelector();
     renderPriceCategoryFilter();
 
     const btnVerStock = document.getElementById('btn-ver-stock');
     const stockWorkspace = document.getElementById('stock-workspace');
     const stockEmptyState = document.getElementById('stock-empty-state');
+    const auditoria = document.getElementById('auditoria-stock');
     const mostrarWorkspaceStock = () => {
+        if (auditoria) auditoria.hidden = true;
         stockWorkspace.hidden = false;
         stockEmptyState.hidden = true;
         if (btnVerStock) btnVerStock.hidden = true;
@@ -41,10 +42,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const btnAuditoria = document.getElementById('btn-auditoria-stock');
-    const auditoria = document.getElementById('auditoria-stock');
     const btnCerrarAuditoria = document.getElementById('btn-cerrar-auditoria');
+    let stockWorkspaceVisibleBeforeAudit = false;
+    let stockButtonVisibleBeforeAudit = false;
     if (btnAuditoria && auditoria) {
         btnAuditoria.addEventListener('click', async () => {
+            stockWorkspaceVisibleBeforeAudit = !stockWorkspace.hidden;
+            stockButtonVisibleBeforeAudit = Boolean(btnVerStock && !btnVerStock.hidden);
+            stockWorkspace.hidden = true;
+            stockEmptyState.hidden = true;
+            if (btnVerStock) btnVerStock.hidden = true;
             auditoria.hidden = false;
             await cargarAuditoriaStock();
         });
@@ -52,6 +59,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnCerrarAuditoria && auditoria) {
         btnCerrarAuditoria.addEventListener('click', () => {
             auditoria.hidden = true;
+            stockWorkspace.hidden = !stockWorkspaceVisibleBeforeAudit;
+            stockEmptyState.hidden = stockWorkspaceVisibleBeforeAudit;
+            if (btnVerStock) btnVerStock.hidden = !stockButtonVisibleBeforeAudit;
         });
     }
 
@@ -124,13 +134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    const categoryFilter = document.getElementById('categoryFilter');
-    if (categoryFilter) {
-        categoryFilter.addEventListener('change', (event) => {
-            categoriaFiltro = event.target.value;
-            renderCategories();
-        });
-    }
+    const categorySearch = document.getElementById('categorySearch');
+    if (categorySearch) categorySearch.addEventListener('input', renderCategories);
 
     const priceCategory = document.getElementById('priceCategory');
     if (priceCategory) {

@@ -31,7 +31,7 @@ require_once __DIR__ . '/includes/navbar.php';
         <article class="metric">
             <span class="metric-label">Eventos registrados</span>
             <strong id="metric-total">--</strong>
-            <span class="metric-note">Hasta 500 eventos recientes en las tablas</span>
+            <span class="metric-note">Lotes de 50 registros</span>
         </article>
         <article class="metric">
             <span class="metric-label">Accesos hoy</span>
@@ -83,6 +83,10 @@ require_once __DIR__ . '/includes/navbar.php';
                 <tbody id="sessions-body"><tr><td colspan="4" class="table-message">Cargando sesiones...</td></tr></tbody>
             </table>
         </div>
+        <div class="activity-pagination">
+            <span id="sessions-pagination-status" aria-live="polite">Cargando sesiones...</span>
+            <button type="button" class="load-more-button" id="load-more-sessions" hidden>Cargar 50 registros más</button>
+        </div>
     </section>
 
     <!-- Busca y lista eventos de ventas, inventario, usuarios y demás módulos. -->
@@ -103,6 +107,10 @@ require_once __DIR__ . '/includes/navbar.php';
                 <tbody id="activity-body"><tr><td colspan="4" class="table-message">Cargando actividad...</td></tr></tbody>
             </table>
         </div>
+        <div class="activity-pagination">
+            <span id="activity-pagination-status" aria-live="polite">Cargando actividad...</span>
+            <button type="button" class="load-more-button" id="load-more-activity" hidden>Cargar 50 registros más</button>
+        </div>
     </section>
 
     <!-- Expone alertas derivadas de reglas sobre intentos fallidos y explica su alcance. -->
@@ -116,6 +124,10 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
         <div id="threats-list" class="threats-list" aria-live="polite">
             <p class="table-message">Analizando eventos disponibles...</p>
+        </div>
+        <div class="activity-pagination">
+            <span id="threats-pagination-status" aria-live="polite">Cargando señales...</span>
+            <button type="button" class="load-more-button" id="load-more-threats" hidden>Cargar 50 registros más</button>
         </div>
         <p class="audit-disclaimer">Estas alertas son indicios basados en el registro de la aplicación; no sustituyen un sistema de monitoreo de red o antivirus.</p>
     </section>
