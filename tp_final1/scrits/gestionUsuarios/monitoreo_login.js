@@ -97,4 +97,8 @@ function renderTablaLogins() {
             </tr>
         `;
     }).join('');
+
+    if (typeof actualizarTodasLasTablasTranspuestas === 'function') {
+        actualizarTodasLasTablasTranspuestas();
+    }
 }

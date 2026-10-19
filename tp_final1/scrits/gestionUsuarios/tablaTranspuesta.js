@@ -3,7 +3,7 @@
  * La primera fila de origen son los nombres de columna; el resultado
  * deja esos nombres como primera columna y apila los datos en cada fila.
  */
-/* function transponerMatriz(tabla) {
+function transponerMatriz(tabla) {
     if (!Array.isArray(tabla) || tabla.length === 0) {
         return [];
     }
@@ -96,15 +96,22 @@ function actualizarTablaTranspuesta(table) {
 
         miniTabla.appendChild(tbody);
         destino.appendChild(miniTabla);
+
+        // Sincronizar el valor seleccionado del select en la miniTabla si existe
+        const origSelect = tr.querySelector('select');
+        const miniSelect = miniTabla.querySelector('select');
+        if (origSelect && miniSelect) {
+            miniSelect.value = origSelect.value;
+        }
     });
 }
 
 function actualizarTodasLasTablasTranspuestas() {
-    document.querySelectorAll('.table-card > table.users-table').forEach(actualizarTablaTranspuesta);
+    document.querySelectorAll('.table-card > table').forEach(actualizarTablaTranspuesta);
 }
 
 function observarTablasParaTransponer() {
-    document.querySelectorAll('.table-card > table.users-table tbody').forEach((tbody) => {
+    document.querySelectorAll('.table-card > table tbody').forEach((tbody) => {
         if (tbody.dataset.transpuestaObservada === '1') {
             return;
         }
@@ -112,12 +119,17 @@ function observarTablasParaTransponer() {
         const observador = new MutationObserver(() => {
             actualizarTablaTranspuesta(tbody.closest('table'));
         });
-        observador.observe(tbody, { childList: true });
+        observador.observe(tbody, { childList: true, subtree: true });
         actualizarTablaTranspuesta(tbody.closest('table'));
     });
 }
 
-observarTablasParaTransponer();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observarTablasParaTransponer);
+} else {
+    observarTablasParaTransponer();
+}
+
 window.transponerMatriz = transponerMatriz;
+window.actualizarTablaTranspuesta = actualizarTablaTranspuesta;
 window.actualizarTodasLasTablasTranspuestas = actualizarTodasLasTablasTranspuestas;
- */

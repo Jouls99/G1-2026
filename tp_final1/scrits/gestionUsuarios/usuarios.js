@@ -299,6 +299,10 @@ function renderTablaUsuarios() {
             </tr>
         `;
     }).join('');
+
+    if (typeof actualizarTodasLasTablasTranspuestas === 'function') {
+        actualizarTodasLasTablasTranspuestas();
+    }
 }
 
 /**
@@ -799,6 +803,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderTablaLogins();
             } else if (targetTab === 'tab-actividades') {
                 renderActividades();
+            } else if (targetTab === 'tab-usuarios') {
+                renderTablaUsuarios();
+            }
+
+            if (typeof actualizarTodasLasTablasTranspuestas === 'function') {
+                actualizarTodasLasTablasTranspuestas();
             }
         });
     });
