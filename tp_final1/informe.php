@@ -29,7 +29,6 @@ require_once __DIR__ . '/includes/navbar.php';
             <a href="ControlStock.php" class="btn-secondary">📦 Control de Stock</a>
             <a href="venta.php" class="btn-secondary">🛒 Ir a Ventas</a>
             <?php if (isSuperAdmin()): ?>
-                <button type="button" class="btn-secondary" id="openSwitchUserBtn">🔄 Cambiar usuario</button>
                 <a href="usuarios.php" class="btn-secondary" style="background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:bold;">👑 Gestión de Usuarios</a>
             <?php endif; ?>
         </div>
@@ -38,7 +37,7 @@ require_once __DIR__ . '/includes/navbar.php';
     <!-- Controles, indicadores y visualizaciones que dashboard-informe.js calcula con la API. -->
     <section id="dashboard-informe">
         <div class="dashboard-header">
-            <h2>dashboard-controls</h2>
+            <h2>Dashboard de ventas</h2>
             <p>Seleccioná una categoría y un periodo para ver el comportamiento del inventario.</p>
         </div>
         <p id="dashboardLoadError" class="dashboard-load-error" role="alert" hidden></p>
@@ -99,7 +98,7 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
             <?php if (isAdmin()): ?>
             <div class="sales-history-filters">
-                <label for="historyWeekSelect">Semana</label>
+                <label for="historyWeekSelect">Período</label>
                 <select id="historyWeekSelect"></select>
                 <label for="historyDateSelect">Día exacto</label>
                 <input type="date" id="historyDateSelect">
@@ -149,31 +148,6 @@ require_once __DIR__ . '/includes/navbar.php';
     <section id="reportPdfContent" class="report-pdf-only" aria-hidden="true"></section>
 </main>
 
-<?php if (isSuperAdmin()): ?>
-<!-- Modal exclusivo para que el Super Administrador cambie de cuenta autenticándose en el servidor. -->
-<div id="switchUserModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="switchUserTitle">
-    <div class="modal-content switch-user-modal-content">
-        <button type="button" class="close-btn" id="closeSwitchUserBtn" aria-label="Cerrar">&times;</button>
-        <h2 id="switchUserTitle">🔄 Cambiar usuario</h2>
-        <p class="switch-user-description">Ingresá el nombre y la contraseña de la cuenta a la que querés cambiar.</p>
-        <form id="switchUserForm">
-            <div class="form-group-modal">
-                <label for="switchUserName">Nombre de usuario</label>
-                <input type="text" id="switchUserName" class="switch-user-input" required autocomplete="username">
-            </div>
-            <div class="form-group-modal">
-                <label for="switchUserPassword">Contraseña</label>
-                <input type="password" id="switchUserPassword" class="switch-user-input" required autocomplete="current-password">
-            </div>
-            <p id="switchUserMessage" class="switch-user-message" role="alert" aria-live="polite"></p>
-            <div class="modal-buttons">
-                <button type="submit" class="btn btn-save" id="switchUserSubmit">Ingresar</button>
-                <button type="button" class="btn btn-delete-sale" id="cancelSwitchUserBtn">Cancelar</button>
-            </div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
 
 <!-- Modal de Edición de Venta -->
 <!-- Permite modificar los productos de una venta y recalcular su total antes de persistirla. -->

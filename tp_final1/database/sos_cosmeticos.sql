@@ -209,9 +209,53 @@ INSERT INTO `Estado_fase` (`nombre`) VALUES
   ('habilitado'),
   ('deshabilitado');
 
+-- Tabla para diferenciar y registrar productos deshabilitados del inventario
+CREATE TABLE IF NOT EXISTS `productos_deshabilitados` (
+  `id_deshabilitado` int(11) NOT NULL AUTO_INCREMENT,
+  `ID_stock` int(11) NOT NULL,
+  `codigo` varchar(100) DEFAULT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `fecha_deshabilitado` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `usuario` varchar(100) DEFAULT NULL,
+  `motivo` varchar(255) DEFAULT 'Deshabilitado desde el panel',
+  PRIMARY KEY (`id_deshabilitado`),
+  UNIQUE KEY `uq_prod_deshabilitado_stock` (`ID_stock`),
+  KEY `idx_prod_deshabilitado_codigo` (`codigo`),
+  CONSTRAINT `fk_prod_deshabilitado_stock`
+    FOREIGN KEY (`ID_stock`) REFERENCES `producto` (`ID_stock`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+
 INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
 VALUES
   ('gomez11', '$2y$10$YRaYHgD0mlNkI0PXn.cKUeBflEdGDLx97LVrGtc2sufPLOeHa/x22', 'superadmin', NOW()),
   ('GOMEZ ADMIN', '$2y$10$JyH3Uir2a6822VOa.gOdx.swjfuYetdL1.EB7wr5DiXBOgtQwKJZK', 'administrador', NOW())
 ON DUPLICATE KEY UPDATE
   `rol` = VALUES(`rol`);
+
+
+/* tabla de marcas */
+/* En esta tabla se guardan las marcas de los productos, las cuales se podrán seleccionar al gestionar stock y se visualizarán en las distintas pantallas del sistema. */
+CREATE TABLE IF NOT EXISTS `marcas` (
+  `ID_marcas` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre_marca` varchar(150) NOT NULL,
+  `ID_stock` int(11) NOT NULL,
+  PRIMARY KEY (`ID_marcas`),
+  KEY `idx_marcas_stock` (`ID_stock`),
+  CONSTRAINT `fk_marcas_producto`
+    FOREIGN KEY (`ID_stock`) REFERENCES `producto` (`ID_stock`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+
+-- Agrega a la tabla marcas todas las marcas de los productos existentes y elimina la columna marca de producto
+
+-- 1. Insertar marcas existentes
+INSERT INTO `marcas` (`nombre_marca`, `ID_stock`)
+SELECT DISTINCT
+  `marca`, `ID_stock`
+FROM `producto`
+WHERE `marca` IS NOT NULL AND TRIM(`marca`) <> '';
+
+-- 2. Eliminar la columna marca de producto
+ALTER TABLE `producto` DROP COLUMN `marca`;
+

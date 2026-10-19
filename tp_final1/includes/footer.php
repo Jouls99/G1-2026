@@ -7,7 +7,7 @@ declare(strict_types=1);
         <div>
            <i class="Mensage_interactivo" id="F_abajo" onclick='window.alert("")'></i> 
            <div class="DESARROLLADORES">
-            <ol >
+            <ol style="list-style-type: none;" >
                 <li>< Gomez Santiago/></li>
                 <li>< Fernandez María de la esperanza/> </li>
                 <li>< Fabricio Barrios/></li>

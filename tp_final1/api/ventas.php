@@ -32,7 +32,7 @@ if ($method === 'GET') {
             $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
             $today = new DateTimeImmutable('today', $timezone);
             $currentWeek = $today->modify('monday this week');
-            $oldestWeek = $currentWeek->modify('-3 weeks');
+            $oldestWeek = $currentWeek->modify('-4 weeks');
             $selectedDate = null;
 
             if ($historyDate !== null) {
@@ -52,13 +52,20 @@ if ($method === 'GET') {
 
             if ($selectedWeek < $oldestWeek || $selectedWeek > $currentWeek
                 || ($selectedDate !== null && $selectedDate > $today)) {
-                sendJson(['ok' => false, 'error' => 'outside_retention', 'message' => 'La fecha o semana solicitada está fuera de las últimas cuatro semanas disponibles.'], 400);
+                sendJson(['ok' => false, 'error' => 'outside_retention', 'message' => 'La fecha o semana solicitada está fuera del período disponible.'], 400);
             }
 
             $rangeStart = $selectedDate ?? $selectedWeek;
-            $rangeEnd = $selectedDate
-                ? $selectedDate->modify('+1 day')
-                : $selectedWeek->modify('+1 week');
+            if ($selectedDate !== null) {
+                $rangeEnd = $selectedDate->modify('+1 day');
+            } else {
+                // Para "Esta semana", no mezclar las ventas del día actual (quedan reservadas a ventas diarias)
+                if ($selectedWeek->format('Y-m-d') === $currentWeek->format('Y-m-d')) {
+                    $rangeEnd = $today;
+                } else {
+                    $rangeEnd = $selectedWeek->modify('+1 week');
+                }
+            }
             $startSql = $rangeStart->format('Y-m-d 00:00:00');
             $endSql = $rangeEnd->format('Y-m-d 00:00:00');
             $historyFilter = $selectedDate !== null
@@ -86,7 +93,7 @@ if ($method === 'GET') {
         } else {
             $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
             $today = new DateTimeImmutable('today', $timezone);
-            $retentionStart = $today->modify('monday this week')->modify('-3 weeks')->format('Y-m-d 00:00:00');
+            $retentionStart = $today->modify('monday this week')->modify('-4 weeks')->format('Y-m-d 00:00:00');
             $tomorrow = $today->modify('+1 day')->format('Y-m-d 00:00:00');
             $sourceQuery = "
                 SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 0 AS archivada
@@ -224,7 +231,8 @@ if ($method === 'POST') {
 
             $stmtFindProd = $db->prepare("
                 SELECT p.`ID_stock`, p.`cantTotal`, p.`cantVendida`, p.`precio`, p.`nombre`,
-                       p.`ID_categoria`, c.`nombre` AS `categoria`
+                       p.`ID_categoria`, c.`nombre` AS `categoria`,
+                       COALESCE(p.`fase`, 'habilitado') AS `fase`
                 FROM `producto` p
                 INNER JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
                 WHERE (LOWER(p.`codigo`) = LOWER(:codigo) OR p.`ID_stock` = :id)
@@ -263,6 +271,16 @@ if ($method === 'POST') {
                 if (!$dbProd || empty($dbProd['ID_categoria'])) {
                     $db->rollBack();
                     sendJson(['error' => 'product_category_required', 'message' => 'El producto no existe o no tiene una categoría asignada.'], 409);
+                }
+
+                if (strtolower(trim((string)($dbProd['fase'] ?? 'habilitado'))) === 'deshabilitado') {
+                    $db->rollBack();
+                    sendJson(['error' => 'product_disabled', 'message' => "El producto '{$dbProd['nombre']}' está deshabilitado y no se pueden registrar ventas de él."], 409);
+                }
+
+                if ((int)$dbProd['cantTotal'] < $cantidad) {
+                    $db->rollBack();
+                    sendJson(['error' => 'insufficient_stock', 'message' => "Stock insuficiente para '{$dbProd['nombre']}'. Disponible: {$dbProd['cantTotal']}, solicitado: {$cantidad}."], 409);
                 }
                 $idStock = (int)$dbProd['ID_stock'];
                 $categoria = (string)$dbProd['categoria'];
@@ -412,7 +430,7 @@ if ($method === 'PUT') {
         try {
             $db->beginTransaction();
             $find = $db->prepare("
-                    SELECT f.`ID_factura`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`codigo`
+                    SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`codigo`
                     FROM `ventas` f
                     LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
                     WHERE f.`ID_factura` = :id
@@ -423,6 +441,14 @@ if ($method === 'PUT') {
             if (!$row) {
                 $db->rollBack();
                 sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta.'], 404);
+            }
+
+            $saleTz = new DateTimeZone('America/Argentina/Buenos_Aires');
+            $saleDateObj = new DateTimeImmutable((string)$row['fecha'], $saleTz);
+            $todayStartObj = new DateTimeImmutable('today', $saleTz);
+            if ($saleDateObj < $todayStartObj) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'past_sale_readonly', 'message' => 'Las ventas de días anteriores son de solo lectura y no se pueden modificar.'], 403);
             }
 
             $deletedQty = (int)$row['cantidadVendida'];
@@ -476,7 +502,8 @@ if ($method === 'PUT') {
     try {
         $db->beginTransaction();
         $find = $db->prepare("
-                SELECT f.`ID_factura`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`cantTotal`, p.`cantVendida`, p.`codigo`
+                SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`cantTotal`, p.`cantVendida`, p.`codigo`,
+                       COALESCE(p.`fase`, 'habilitado') AS `fase`
                 FROM `ventas` f
                 JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
                 WHERE f.`ID_factura` = :id
@@ -495,6 +522,14 @@ if ($method === 'PUT') {
             $db->rollBack();
             sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta.'], 404);
         }
+
+        $saleTz = new DateTimeZone('America/Argentina/Buenos_Aires');
+        $saleDateObj = new DateTimeImmutable((string)$invoice['fecha'], $saleTz);
+        $todayStartObj = new DateTimeImmutable('today', $saleTz);
+        if ($saleDateObj < $todayStartObj) {
+            $db->rollBack();
+            sendJson(['ok' => false, 'error' => 'past_sale_readonly', 'message' => 'Las ventas de días anteriores son de solo lectura y no se pueden modificar.'], 403);
+        }
                 $oldQuantity = (int)$invoice['cantidadVendida'];
                 $productId = (int)($invoice['ID_stock'] ?? 0);
                 $currentStock = (int)($invoice['cantTotal'] ?? 0);
@@ -503,6 +538,10 @@ if ($method === 'PUT') {
                 $productName = (string)($invoice['nombre'] ?? $productName);
 
                 $difference = $newQuantity - $oldQuantity;
+                if ($difference > 0 && strtolower(trim((string)($invoice['fase'] ?? 'habilitado'))) === 'deshabilitado') {
+                    $db->rollBack();
+                    sendJson(['ok' => false, 'error' => 'product_disabled', 'message' => "No se puede aumentar la cantidad vendida porque el producto '{$productName}' está deshabilitado."], 409);
+                }
                 if ($difference > 0 && $currentStock < $difference) {
                     $db->rollBack();
                     sendJson(['ok' => false, 'message' => "Stock insuficiente para '{$productName}'. Disponible: {$currentStock}, Requerido adicional: {$difference}"], 409);
@@ -583,7 +622,7 @@ if ($method === 'DELETE') {
         $db->beginTransaction();
 
         $find = $db->prepare("
-                SELECT f.`ID_factura`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`codigo`
+                SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`ID_stock`, f.`precioFinal`, p.`nombre`, p.`codigo`
                 FROM `ventas` f
                 LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
                 WHERE f.`ID_factura` = :id
@@ -594,6 +633,14 @@ if ($method === 'DELETE') {
         if (!$row) {
             $db->rollBack();
             sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta.'], 404);
+        }
+
+        $saleTz = new DateTimeZone('America/Argentina/Buenos_Aires');
+        $saleDateObj = new DateTimeImmutable((string)$row['fecha'], $saleTz);
+        $todayStartObj = new DateTimeImmutable('today', $saleTz);
+        if ($saleDateObj < $todayStartObj) {
+            $db->rollBack();
+            sendJson(['ok' => false, 'error' => 'past_sale_readonly', 'message' => 'Las ventas de días anteriores son de solo lectura y no se pueden eliminar.'], 403);
         }
 
         $deletedQty = (int)$row['cantidadVendida'];

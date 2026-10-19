@@ -30,8 +30,7 @@ Campos requeridos: `usuario` y `password`.
 2. Al autenticar, crea `$_SESSION['user']` y actualiza el último acceso en MySQL.
 3. Registra `login_exitoso` o `login_fallido` mediante `logActivity()`. El evento contiene IP y agente de usuario; el fallo incluye también el motivo.
 4. Después de cuatro contraseñas incorrectas consecutivas para el mismo usuario, bloquea nuevos intentos durante 10 segundos. Un inicio correcto reinicia el contador. La restricción también se aplica a nombres de usuario que no existen.
-
-Si ya hay una sesión activa, solo el Super Administrador puede usar esta acción para cambiar a otra cuenta. Las sesiones de vendedores y administradores reciben `403 forbidden`.
+Si ya hay una sesión activa, no es posible iniciar sesión con otra cuenta sin antes cerrar la sesión actual (`400 already_logged_in`).
 
 Respuestas relevantes:
 

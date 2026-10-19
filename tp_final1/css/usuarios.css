@@ -87,6 +87,7 @@ body {
     display: flex;
     gap: 12px;
     align-items: center;
+   /*  flex-wrap: wrap; */
 }
 .btn-primary {
     background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
@@ -305,7 +306,9 @@ body {
     gap: 10px;
     margin-bottom: 18px;
     border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 2px;
+    padding-bottom: 2px;/* 
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; */
 }
 .tab-btn {
     background: transparent;
@@ -989,7 +992,129 @@ body {
     .form-row-2 {
         grid-template-columns: 1fr;
     }
+}/* 
+.tablas-transpuestas {
+    display: none;
 }
+.tabla-transpuesta {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid var(--border-purple);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    table-layout: fixed;
+}
+.tabla-transpuesta th,
+.tabla-transpuesta td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    word-break: break-word;
+}
+.tabla-transpuesta th {
+    width: 38%;
+    text-align: left;
+    background: #faf5ff;
+    color: #4b5563;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid #ede9fe;
+    border-right: 1px solid #ede9fe;
+}
+.tabla-transpuesta td {
+    width: 62%;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.92rem;
+}
+.tabla-transpuesta tr:last-child th,
+.tabla-transpuesta tr:last-child td {
+    border-bottom: none;
+}
+.tabla-transpuesta .table-actions {
+    flex-wrap: wrap;
+}
+.tabla-transpuesta .role-select-box {
+    width: 100%;
+    max-width: 100%;
+}
+.tabla-transpuesta-vacia {
+    text-align: center;
+    padding: 28px 16px;
+    color: #6b7280;
+}
+@media (max-width: 900px) {
+    .usuarios-container {
+        margin: 12px auto 40px;
+        padding: 0 12px;
+    }
+    .usuarios-header {
+        padding: 18px 16px;
+    }
+    .usuarios-header .title-area h1 {
+        font-size: 1.35rem;
+    }
+    .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .header-actions .btn-primary,
+    .header-actions .btn-secondary,
+    .header-actions .admin-security-badge {
+        justify-content: center;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+    .tab-btn {
+        white-space: nowrap;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+    }
+    .filters-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filters-card .search-box {
+        min-width: 0;
+        width: 100%;
+    }
+    #tab-usuarios .table-card,
+    #tab-logins .table-card {
+        overflow: visible;
+    }
+    .table-card > table.users-table,
+    #tab-usuarios .users-table,
+    #tab-usuarios .superadmin-users-table,
+    #tab-logins .logins-table {
+        display: none;
+        min-width: 0;
+    }
+    .tablas-transpuestas {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+    }
+    .modal-overlay {
+        padding: 12px;
+        align-items: flex-end;
+    }
+    .modal-content,
+    .modal-content.modal-sm,
+    .modal-content.modal-lg,
+    .modal-overlay.large .modal-content {
+        max-width: 100%;
+        max-height: 92vh;
+        overflow-y: auto;
+    }
+    .toast-notification {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+    }
+} */
 /* ==========================================================================
    Estilos Especiales: Super Admin & Monitoreo de Logins
    ========================================================================== */

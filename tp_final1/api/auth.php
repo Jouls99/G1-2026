@@ -95,12 +95,12 @@ if ($action === 'check') {
 // 2. Iniciar sesión (Login)
 // Verifica acceso, limita intentos fallidos, crea la sesión y registra la auditoría.
 if ($action === 'login' && $method === 'POST') {
-    if (is_array(getApiUser()) && !isSuperAdminApi()) {
+    if (is_array(getApiUser())) {
         sendJson([
             'ok' => false,
-            'error' => 'forbidden',
-            'message' => 'Solo el Super Administrador puede cambiar de usuario mientras tiene una sesión activa.'
-        ], 403);
+            'error' => 'already_logged_in',
+            'message' => 'Ya hay una sesión activa. Cerrá sesión para ingresar con otra cuenta.'
+        ], 400);
     }
 
     $body = getJsonBody();

@@ -383,6 +383,11 @@ if ($method === 'PUT') {
     $usuario = trim((string)($body['usuario'] ?? ''));
     $newRole = isset($body['role']) ? trim((string)$body['role']) : null;
     $newPassword = isset($body['password']) && trim((string)$body['password']) !== '' ? (string)$body['password'] : null;
+    $action = trim((string)($body['action'] ?? ($_GET['action'] ?? '')));
+    $isRegenerate = $action === 'regenerar_password' || $action === 'regenerate_password' || !empty($body['regenerar_password']);
+    if ($isRegenerate) {
+        $newPassword = generateTemporaryPassword();
+    }
 
     if ($newPassword !== null && !passwordMeetsPolicy($newPassword)) {
         sendJson([
@@ -508,7 +513,7 @@ if ($method === 'PUT') {
             );
         }
 
-        sendJson([
+        $responseData = [
             'ok'      => true,
             'message' => "Usuario '{$nombreFinal}' actualizado correctamente.",
             'user'    => [
@@ -516,7 +521,12 @@ if ($method === 'PUT') {
                 'usuario' => $nombreFinal,
                 'role'    => $newRole ?? $currentRole
             ]
-        ]);
+        ];
+        if ($isRegenerate && $newPassword !== null) {
+            $responseData['temporary_password'] = $newPassword;
+            $responseData['message'] = "Contraseña de '{$nombreFinal}' regenerada correctamente.";
+        }
+        sendJson($responseData);
     } catch (PDOException $e) {
         if ($e->getCode() === '23000') {
             sendJson(['ok' => false, 'error' => 'role_limit_reached', 'message' => 'Ese rol administrativo ya está asignado a otra cuenta.'], 409);

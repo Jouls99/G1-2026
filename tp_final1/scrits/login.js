@@ -34,7 +34,7 @@ if (formIngreso) {
         const result = await loginUsuario(usuario, password);
         if (result.ok) {
             localStorage.setItem('usuarioActual', usuario);
-            window.location.href = 'venta.php';
+            window.location.href = 'pantallaCarga.php';
         } else {
             alert(result.message);
         }

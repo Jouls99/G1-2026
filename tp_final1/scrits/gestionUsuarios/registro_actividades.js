@@ -50,6 +50,9 @@ async function cargarLoginsYActividades() {
                     </td>
                 </tr>
             `;
+            if (typeof actualizarTodasLasTablasTranspuestas === 'function') {
+                actualizarTodasLasTablasTranspuestas();
+            }
         }
         const activityStreamEl = document.getElementById('activity-stream');
         if (activityStreamEl) {

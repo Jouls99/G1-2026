@@ -159,6 +159,89 @@ function renderPeriodButtons() {
 
 // Actualiza totales de venta y valorización de stock para la categoría/período seleccionado.
 function renderMetrics(series) {
+  // Agrega un botón para mostrar el total general de ganancia de todas las categorias por el periodo de tiempo seleccionado
+  // Creamos un botón que permite mostrar el total general de ganancia de todas las categorías por el periodo seleccionado
+  let dashboardMetricsHeader = document.getElementById('dashboardMetricsHeader');
+  if (!dashboardMetricsHeader) {
+    // Si no existe, crear un contenedor para el header de métricas (antes de las métricas)
+    const metricsGrid = document.querySelector('.metrics-grid');
+    if (metricsGrid) {
+      dashboardMetricsHeader = document.createElement('div');
+      dashboardMetricsHeader.id = 'dashboardMetricsHeader';
+      dashboardMetricsHeader.style.marginBottom = '10px';
+      metricsGrid.parentNode.insertBefore(dashboardMetricsHeader, metricsGrid);
+    }
+  }
+
+  // Crear un checkbox para activar/desactivar el total general
+  let showTotalGeneral = state.showTotalGeneral ?? false;
+  let totalGeneralEl = document.getElementById('showTotalGeneral');
+  if (!totalGeneralEl) {
+    // Solo crea el checkbox si no existe ya
+    const metricsContainer = document.getElementById('dashboardMetricsHeader');
+    if (metricsContainer) {
+      const label = document.createElement('label');
+      label.style.display = 'inline-flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '0.5em';
+      totalGeneralEl = document.createElement('input');
+      totalGeneralEl.type = 'checkbox';
+      totalGeneralEl.id = 'showTotalGeneral';
+      totalGeneralEl.checked = !!showTotalGeneral;
+      totalGeneralEl.addEventListener('change', (e) => {
+        state.showTotalGeneral = e.target.checked;
+        render();
+      });
+      label.appendChild(totalGeneralEl);
+      label.appendChild(document.createTextNode('Mostrar total general del período'));
+      metricsContainer.appendChild(label);
+    }
+  } else {
+    totalGeneralEl.checked = !!state.showTotalGeneral;
+  }
+
+  // Si está activada la opción, mostrar el total general del periodo seleccionado (de todas las categorías)
+  let totalGeneralSummary = null;
+  if (state.showTotalGeneral) {
+    // Sumar la ganancia (summary) de todas las categorías, usando el mismo periodo/series pero para todas
+    // Asumimos que existe una función getSeries(category, period) que obtiene la serie por categoría y periodo.
+    // Si no existe, puedes reemplazarlo por el precálculo de todas las categorías.
+    const categories = [...new Set([
+      ...state.inventory.map((item) => item.categoria),
+      ...state.sales.flatMap((sale) => (sale.productos || []).map((product) => product.categoria))
+    ].filter(Boolean))];
+
+    totalGeneralSummary = 0;
+    categories.forEach(cat => {
+      // Obtiene la serie de cada categoría: asume getSeries está en scope
+      let ser = (typeof getSeries === "function")
+        ? getSeries(cat, state.period)
+        : null;
+
+      if (ser && ser.summary) {
+        totalGeneralSummary += ser.summary.reduce((t, v) => t + v, 0);
+      }
+    });
+
+    // Mostrarlo en el dashboard (de forma simple: debajo del metricSummary)
+    let totalGeneralMetric = document.getElementById('metricTotalGeneral');
+    if (!totalGeneralMetric) {
+      const elSum = document.getElementById('metricSummary');
+      if (elSum && elSum.parentElement) {
+        totalGeneralMetric = document.createElement('div');
+        totalGeneralMetric.id = 'metricTotalGeneral';
+        totalGeneralMetric.style.marginTop = '0.5em';
+        totalGeneralMetric.style.fontWeight = 'bold';
+        elSum.parentElement.appendChild(totalGeneralMetric);
+      }
+    }
+    if (totalGeneralMetric)
+      totalGeneralMetric.textContent = 'Total general ganancia: ' + currencyFormatter.format(totalGeneralSummary);
+  } else {
+    // Si está desactivado, ocultar el div si existe
+    const totalGeneralMetric = document.getElementById('metricTotalGeneral');
+    if (totalGeneralMetric) totalGeneralMetric.textContent = '';
+  }
   const sold = series.sold.reduce((total, value) => total + value, 0);
   const revenue = series.revenue.reduce((total, value) => total + value, 0);
   const summary = series.summary.reduce((total, value) => total + value, 0);
@@ -359,18 +442,28 @@ function renderSalesHistory() {
   const count = document.getElementById('salesCount');
   if (!tbody) return;
 
-  const sourceSales = state.historySales || state.sales;
+  let sourceSales = state.historySales;
+  if (!sourceSales) {
+    const todayStr = formatLocalDate(new Date());
+    sourceSales = state.sales.filter((sale) => {
+      const saleDate = new Date(sale.fecha);
+      return !Number.isNaN(saleDate.getTime()) && formatLocalDate(saleDate) === todayStr;
+    });
+  }
   const sales = [...sourceSales].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-  if (count) count.textContent = `${sales.length} ventas`;
+  if (count) count.textContent = `${sales.length} venta${sales.length === 1 ? '' : 's'}`;
 
   if (!sales.length) {
-    tbody.innerHTML = '<tr><td colspan="6">No hay ventas registradas todavía.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">No hay ventas registradas para este período.</td></tr>';
     return;
   }
 
+  const todayStr = formatLocalDate(new Date());
   tbody.innerHTML = sales.map((sale) => {
     const date = new Date(sale.fecha);
+    const isToday = !Number.isNaN(date.getTime()) && formatLocalDate(date) === todayStr;
+    const canModify = puedeModificarInforme && !sale.archivada && isToday;
     const productoText = (sale.productos || []).map((producto) => {
       const metadata = [
         producto.sub_nombre,
@@ -392,12 +485,12 @@ function renderSalesHistory() {
         <td>${productoText}</td>
         <td>${currencyFormatter.format(sale.total || 0)}</td>
         <td>
-          ${puedeModificarInforme && !sale.archivada ? `
+          ${canModify ? `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button type="button" class="btn-edit-action" onclick="abrirModalEdicion('${sale.id}')" title="Editar venta">✏️ Editar</button>
               <button type="button" class="btn-delete-action" onclick="confirmarEliminarVenta('${sale.id}')" title="Eliminar venta">🗑️ Eliminar</button>
             </div>
-          ` : `<span style="color:#6b7280; font-size:0.85rem;">${sale.archivada ? 'Archivada' : 'Solo lectura'}</span>`}
+          ` : `<span style="color:#6b7280; font-size:0.85rem;" title="${!isToday ? 'Las ventas de días anteriores son de solo lectura' : 'Solo lectura'}">${sale.archivada ? 'Archivada' : 'Solo lectura'}</span>`}
         </td>
       </tr>
     `;
@@ -428,22 +521,52 @@ function configureHistoryFilters() {
 
   const currentWeek = getWeekStartDate();
   const oldestWeek = new Date(currentWeek);
-  oldestWeek.setDate(oldestWeek.getDate() - 21);
+  oldestWeek.setDate(oldestWeek.getDate() - 28);
   weekSelect.innerHTML = '';
-  for (let offset = 0; offset < 4; offset += 1) {
+
+  // 1. Opción inicial por defecto: Ventas diarias (Hoy)
+  const optToday = document.createElement('option');
+  optToday.value = 'hoy';
+  optToday.textContent = 'Ventas diarias (Hoy)';
+  optToday.selected = true;
+  weekSelect.appendChild(optToday);
+
+  // 2. Opciones de semanas: Esta semana, Semana pasada, Hace 2 semanas, Hace 3 semanas, Hace 4 semanas
+  const weekLabels = [
+    'Esta semana',
+    'Semana pasada',
+    'Hace 2 semanas',
+    'Hace 3 semanas',
+    'Hace 4 semanas'
+  ];
+
+  for (let offset = 0; offset <= 4; offset += 1) {
     const weekStart = new Date(currentWeek);
     weekStart.setDate(weekStart.getDate() - offset * 7);
     const option = document.createElement('option');
-    option.value = formatLocalDate(weekStart);
-    option.textContent = offset === 0 ? 'Esta semana' : offset === 1 ? 'Semana pasada' : `Hace ${offset} semanas`;
+    option.value = 'semana:' + formatLocalDate(weekStart);
+    option.textContent = weekLabels[offset];
     weekSelect.appendChild(option);
   }
+
   dateSelect.min = formatLocalDate(oldestWeek);
   dateSelect.max = formatLocalDate(new Date());
 
-  weekSelect.addEventListener('change', () => loadHistorySales('semana', weekSelect.value));
+  weekSelect.addEventListener('change', () => {
+    if (weekSelect.value === 'hoy') {
+      if (dateSelect) dateSelect.value = '';
+      loadHistorySales('fecha', formatLocalDate(new Date()));
+    } else if (weekSelect.value.startsWith('semana:')) {
+      if (dateSelect) dateSelect.value = '';
+      loadHistorySales('semana', weekSelect.value.replace('semana:', ''));
+    }
+  });
+
   dateSelect.addEventListener('change', () => {
-    if (dateSelect.value) loadHistorySales('fecha', dateSelect.value);
+    if (dateSelect.value) {
+      weekSelect.value = '';
+      loadHistorySales('fecha', dateSelect.value);
+    }
   });
 }
 
@@ -473,7 +596,13 @@ function refreshSelectedHistory() {
     return;
   }
   const selectedWeek = document.getElementById('historyWeekSelect')?.value;
-  if (selectedWeek) loadHistorySales('semana', selectedWeek);
+  if (selectedWeek === 'hoy') {
+    loadHistorySales('fecha', formatLocalDate(new Date()));
+    return;
+  }
+  if (selectedWeek && selectedWeek.startsWith('semana:')) {
+    loadHistorySales('semana', selectedWeek.replace('semana:', ''));
+  }
 }
 
 // Actualiza la fecha/hora/día visibles sin requerir una nueva consulta al servidor.
@@ -726,8 +855,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   loadInventory();
   if (usuarioEsAdminInforme) {
-    const currentWeek = formatLocalDate(getWeekStartDate());
-    loadHistorySales('semana', currentWeek);
+    const today = formatLocalDate(new Date());
+    loadHistorySales('fecha', today);
   }
   setInterval(updateClock, 1000);
 });
@@ -745,74 +874,21 @@ window.addEventListener('inventario-updated', () => {
   loadInventory();
 });
 
-// Cambiar de cuenta usando la autenticación del servidor y su rol real.
-const switchUserModal = document.getElementById('switchUserModal');
-const switchUserForm = document.getElementById('switchUserForm');
-const switchUserMessage = document.getElementById('switchUserMessage');
-const switchUserSubmit = document.getElementById('switchUserSubmit');
-
-function closeSwitchUserModal() {
-  if (!switchUserModal) return;
-  switchUserModal.style.display = 'none';
-  switchUserForm?.reset();
-  if (switchUserMessage) switchUserMessage.textContent = '';
-}
-
-// Gestiona apertura/cierre y autentica en el servidor el cambio de cuenta del Super Admin.
-document.getElementById('openSwitchUserBtn')?.addEventListener('click', () => {
-  if (!switchUserModal) return;
-  switchUserModal.style.display = 'flex';
-  document.getElementById('switchUserName')?.focus();
-});
-document.getElementById('closeSwitchUserBtn')?.addEventListener('click', closeSwitchUserModal);
-document.getElementById('cancelSwitchUserBtn')?.addEventListener('click', closeSwitchUserModal);
-
-switchUserForm?.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const usuario = document.getElementById('switchUserName').value.trim();
-  const password = document.getElementById('switchUserPassword').value;
-  if (!usuario || !password) return;
-
-  switchUserSubmit.disabled = true;
-  switchUserSubmit.textContent = 'Verificando...';
-  switchUserMessage.textContent = '';
-
-  try {
-    const response = await fetch('api/auth.php?action=login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario, password })
-    });
-    const result = await response.json();
-
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message || 'Usuario o contraseña incorrectos.');
-    }
-
-    const role = result.user?.role || 'vendedor';
-    const roleLabels = {
-      superadmin: 'Super Admin',
-      administrador: 'Administrador',
-      admin: 'Administrador',
-      vendedor: 'Vendedor'
-    };
-    localStorage.setItem('usuarioActual', result.user.usuario);
-    alert(`Sesión cambiada correctamente. Rol detectado: ${roleLabels[role.toLowerCase()] || role}.`);
-    window.location.reload();
-  } catch (error) {
-    switchUserMessage.textContent = error.message;
-  } finally {
-    switchUserSubmit.disabled = false;
-    switchUserSubmit.textContent = 'Ingresar';
-  }
-});
 
 // === MODAL DE EDICIÓN DE VENTAS ===
 // Pinta la venta elegida y limita cantidades según el stock que volvería al inventario.
 function abrirModalEdicion(saleId) {
   if (!puedeModificarInforme) return;
-  const sale = state.sales.find(s => String(s.id) === String(saleId));
+  const sourceSales = state.historySales || state.sales;
+  const sale = sourceSales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
+
+  const todayStr = formatLocalDate(new Date());
+  const saleDateStr = formatLocalDate(new Date(sale.fecha));
+  if (saleDateStr !== todayStr) {
+    alert('Las ventas de días anteriores son de solo lectura y no se pueden modificar.');
+    return;
+  }
 
   document.getElementById('edit-sale-id').value = sale.id;
   document.getElementById('edit-sale-fecha').value = new Date(sale.fecha).toLocaleString('es-AR');
@@ -1019,6 +1095,16 @@ async function eliminarVentaDirecto(saleId) {
 // Pide confirmación antes de delegar la baja en el mismo flujo de eliminación de la API.
 function confirmarEliminarVenta(saleId) {
   if (!puedeModificarInforme) return;
+  const sourceSales = state.historySales || state.sales;
+  const sale = sourceSales.find(s => String(s.id) === String(saleId));
+  if (sale) {
+    const todayStr = formatLocalDate(new Date());
+    const saleDateStr = formatLocalDate(new Date(sale.fecha));
+    if (saleDateStr !== todayStr) {
+      alert('Las ventas de días anteriores son de solo lectura y no se pueden eliminar.');
+      return;
+    }
+  }
   if (confirm('⚠️ ¿Estás seguro de que querés eliminar esta venta del historial?\nEl stock de los productos se devolverá automáticamente al inventario.')) {
     eliminarVentaDirecto(saleId);
   }

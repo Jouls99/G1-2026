@@ -55,7 +55,8 @@ function actualizarDatalist() {
     if (!datalist) return;
     datalist.innerHTML = '';
     inventarioProductos.forEach(prod => {
-        if (prod.cantidad > 0) {
+        const esDeshabilitado = (prod.fase || 'habilitado').toLowerCase() === 'deshabilitado';
+        if (prod.cantidad > 0 && !esDeshabilitado) {
             const option = document.createElement('option');
             option.value = prod.nombre;
             option.dataset.codigo = prod.codigo;
@@ -74,9 +75,18 @@ inputNombre.addEventListener('input', () => {
     if (prod) {
         inputCodigo.value = prod.codigo;
         inputPrecio.value = prod.precio;
-        stockInfo.textContent = `(Stock disponible: ${prod.cantidad})`;
-        stockInfo.style.display = 'inline';
-        inputCantidad.max = prod.cantidad;
+        const esDeshabilitado = (prod.fase || 'habilitado').toLowerCase() === 'deshabilitado';
+        if (esDeshabilitado) {
+            stockInfo.textContent = '⛔ PRODUCTO DESHABILITADO (No permite ventas)';
+            stockInfo.style.color = '#dc2626';
+            stockInfo.style.display = 'inline';
+            inputCantidad.removeAttribute('max');
+        } else {
+            stockInfo.textContent = `(Stock disponible: ${prod.cantidad})`;
+            stockInfo.style.color = '#ae3c1d';
+            stockInfo.style.display = 'inline';
+            inputCantidad.max = prod.cantidad;
+        }
     } else {
         stockInfo.textContent = '';
         stockInfo.style.display = 'none';
@@ -93,9 +103,18 @@ inputCodigo.addEventListener('input', () => {
     if (prod) {
         inputNombre.value = prod.nombre;
         inputPrecio.value = prod.precio;
-        stockInfo.textContent = `(Stock disponible: ${prod.cantidad})`;
-        stockInfo.style.display = 'inline';
-        inputCantidad.max = prod.cantidad;
+        const esDeshabilitado = (prod.fase || 'habilitado').toLowerCase() === 'deshabilitado';
+        if (esDeshabilitado) {
+            stockInfo.textContent = '⛔ PRODUCTO DESHABILITADO (No permite ventas)';
+            stockInfo.style.color = '#dc2626';
+            stockInfo.style.display = 'inline';
+            inputCantidad.removeAttribute('max');
+        } else {
+            stockInfo.textContent = `(Stock disponible: ${prod.cantidad})`;
+            stockInfo.style.color = '#ae3c1d';
+            stockInfo.style.display = 'inline';
+            inputCantidad.max = prod.cantidad;
+        }
     }
 });
 
@@ -184,6 +203,11 @@ formulario.addEventListener('submit', (e) => {
 
     if (!item) {
         mostrarMensaje('❌ Seleccioná un producto existente en la base de datos.', 'error');
+        return;
+    }
+
+    if ((item.fase || 'habilitado').toLowerCase() === 'deshabilitado') {
+        mostrarMensaje(`❌ El producto "${item.nombre}" está deshabilitado y no se puede vender.`, 'error');
         return;
     }
 

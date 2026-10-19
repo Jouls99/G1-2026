@@ -556,7 +556,15 @@ function abrirModalEditar(id, usuario, rolActual) {
     if (formEditar) formEditar.dataset.rolActual = rolActual;
     document.getElementById('edit-user-id').value = id;
     document.getElementById('edit-username').value = usuario;
-    document.getElementById('edit-password').value = '';
+    const editPassInput = document.getElementById('edit-password');
+    if (editPassInput) {
+        editPassInput.type = 'password';
+        editPassInput.value = '';
+    }
+    const previewContainer = document.getElementById('regenerated-password-preview');
+    if (previewContainer) {
+        previewContainer.style.display = 'none';
+    }
     
     const radioSuper = document.getElementById('role-edit-superadmin');
     const radioAdmin = document.getElementById('role-edit-admin');
@@ -642,6 +650,77 @@ function escapeHtml(text) {
     };
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
+
+/**
+ * Genera una contraseña aleatoria de 32 caracteres que cumple rigurosamente con la política:
+ * minúsculas, mayúsculas, dígitos, $, %, operador y símbolo especial.
+ */
+function generarContraseñaSegura() {
+    const characterGroups = [
+        'abcdefghijklmnopqrstuvwxyz',
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        '0123456789',
+        '$',
+        '%',
+        '+-*/=<>',
+        '!@#&()[]{}:;_.,~^|\\'
+    ];
+    const passwordChars = [];
+
+    // Garantizar al menos un carácter obligatorio de cada grupo
+    characterGroups.forEach(group => {
+        const randIndex = Math.floor(Math.random() * group.length);
+        passwordChars.push(group[randIndex]);
+    });
+
+    const allCharacters = characterGroups.join('');
+    while (passwordChars.length < 32) {
+        const randIndex = Math.floor(Math.random() * allCharacters.length);
+        passwordChars.push(allCharacters[randIndex]);
+    }
+
+    // Mezclar con algoritmo de Fisher-Yates
+    for (let i = passwordChars.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [passwordChars[i], passwordChars[j]] = [passwordChars[j], passwordChars[i]];
+    }
+
+    return passwordChars.join('');
+}
+
+/**
+ * Regenera una nueva contraseña para el usuario en edición, la coloca en el campo,
+ * la muestra legible, la copia al portapapeles y notifica al usuario.
+ */
+function regenerarContraseña() {
+    const nuevaPassword = generarContraseñaSegura();
+    const inputPass = document.getElementById('edit-password');
+    const previewContainer = document.getElementById('regenerated-password-preview');
+    const previewVal = document.getElementById('regenerated-password-val');
+
+    if (inputPass) {
+        inputPass.type = 'text';
+        inputPass.value = nuevaPassword;
+        inputPass.focus();
+    }
+
+    if (previewVal) {
+        previewVal.textContent = nuevaPassword;
+    }
+
+    if (previewContainer) {
+        previewContainer.style.display = 'block';
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(nuevaPassword).catch(() => {});
+    }
+
+    showToast('🔑 Nueva contraseña generada y copiada al portapapeles. Recordá hacer clic en "Actualizar" para guardarla.');
+}
+
+window.generarContraseñaSegura = generarContraseñaSegura;
+window.regenerarContraseña = regenerarContraseña;
 
 // ==========================================================================
 // Event Listeners e Inicialización
@@ -859,4 +938,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // 11. Eventos para Regenerar Contraseña en edición
+    document.getElementById('regenerar-contraseña')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        regenerarContraseña();
+    });
+
+    document.getElementById('btn-copy-regenerated')?.addEventListener('click', async () => {
+        const passText = document.getElementById('regenerated-password-val')?.textContent || document.getElementById('edit-password')?.value || '';
+        if (!passText) return;
+        try {
+            await navigator.clipboard.writeText(passText);
+            showToast('📋 Contraseña copiada al portapapeles.');
+        } catch (err) {
+            showToast('No se pudo copiar automáticamente. Copiala manualmente.', true);
+        }
+    });
 });
