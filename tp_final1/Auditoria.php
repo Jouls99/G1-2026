@@ -64,6 +64,14 @@ require_once __DIR__ . '/includes/navbar.php';
         <button type="button" class="audit-tab" id="tab-activity" role="tab" aria-selected="false" aria-controls="panel-activity" data-panel="panel-activity">Actividad y logs</button>
         <button type="button" class="audit-tab" id="tab-threats" role="tab" aria-selected="false" aria-controls="panel-threats" data-panel="panel-threats">Amenazas <span class="tab-count" id="threat-tab-count">0</span></button>
     </nav>
+    <section class="regenerate-section" aria-label="Utilidades avanzadas" style="margin-bottom: 1.7rem; margin-top:0.2rem;">
+        <button type="button" id="regenerate-data" class="btn btn-danger" style="background: #fbbf24; color: #78350f; font-weight: bold; border: 1px solid #f59e42; display: flex; align-items: center; gap: 0.6em; margin-bottom: 0.6em;">
+            <span aria-hidden="true" style="font-size: 1.35em;">&#8634;</span>
+            Regenerar datos: stock, productos y auditoría
+        </button>
+        <span id="regenerate-status" style="display: block; margin-top: 3px; font-size: 0.97em; color: #888;"></span>
+        <p style="margin-top:3px; color:#ba661c; font-size:0.93em;">Solo visible para administradores. Actualiza las tablas principales de auditoría para testeo o mantenimiento.</p>
+    </section>
 
     <!-- Cada panel deja el destino vacío para que auditoria.js lo rellene al consultar la API. -->
     <section class="audit-panel is-visible" id="panel-sessions" role="tabpanel" aria-labelledby="tab-sessions">

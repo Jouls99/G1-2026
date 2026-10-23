@@ -90,6 +90,236 @@ require_once __DIR__ . '/includes/navbar.php';
         <!-- Historial de ventas y resumen de inventario se despliegan bajo demanda. -->
         <button type="button" id="btn-despliegueventas" aria-controls="seccion-ventas" aria-expanded="false">Desplegar Ventas</button>
         <button type="button" id="btn-despliegueresumen" aria-controls="seccion-resumen" aria-expanded="false">Desplegar Resumen</button>
+        <div id="edit-history-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" id="closeEditHistoryModalBtn">&times;</span>
+            <h2>📜 Historial de Edición de Venta</h2>
+            <div id="edit-history-content">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Acción</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Detalle de cambios</th>
+                        </tr>
+                    </thead>
+                    <tbody id="edit-history-table-body">
+                        <!-- Filas agregadas dinámicamente mediante JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-history" id="btnViewEditHistory" style="margin-top:12px;">🔍 Ver historial de edición</button>
+
+    <script>
+    // --- MODAL E HISTORIAL DE EDICIONES ---
+    // --- Diagnóstico y ajuste de carga de historial de ediciones de venta ---
+
+    /*
+    Observaciones:
+      - La tabla se muestra, pero el historial no se carga, o siempre se muestra vacío.
+      - Al cargar el historial se ejecuta cargarHistorialEdiciones().
+      - El fetch apunta a 'api/ventas/ediciones_historial.php', espera array de ediciones JSON.
+      - En renderizarTablaHistorial, la variable window.usuarioEsAdminInforme a veces podría no estar inicializada o estar indefinida.
+
+    Correcciones y sugerencias:
+      1. Asegúrate de que window.usuarioEsAdminInforme esté definida ANTES de usarla en renderizarTablaHistorial.
+         (Está inicializada en otro bloque <script>, por lo que, si el orden o el caché JS lo impiden, podría ser undefined.)
+      2. Registra en consola lo recibido por el fetch para descartar una respuesta malinterpretada (ej: error backend, no array).
+      3. Mejora el filtro/acceso defensivo en renderizarTablaHistorial.
+      4. Asegúrate de que los campos de la edición coincidan con lo esperado (rol, usuario_id, etc).
+    */
+
+    // 1. DEBUG: Log el resultado del fetch para detectar problemas de datos.
+    function cargarHistorialEdiciones() {
+        fetch('api/ventas/ediciones_historial.php')
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP error');
+                return res.json();
+            })
+            .then(data => {
+                // DEBUG: log data para diagnóstico
+                console.log("[Historial Edit] Datos recibidos:", data);
+
+                // Si la respuesta no es array, mostrar error
+                if (!Array.isArray(data)) {
+                    document.getElementById('edit-history-table-body').innerHTML = '<tr><td colspan="6">Respuesta inesperada del servidor.</td></tr>';
+                    return;
+                }
+                renderizarTablaHistorial(data);
+            })
+            .catch((e) => {
+                // DEBUG: log error
+                console.error("[Historial Edit] Error cargando historial:", e);
+                document.getElementById('edit-history-table-body').innerHTML = '<tr><td colspan="6">No se pudo cargar el historial.</td></tr>';
+            });
+    }
+
+    // 2. Reforzar control de variables globales y tolerancia si no están aún definidas
+    function renderizarTablaHistorial(ediciones) {
+        // Obtener flags desde window, con fallback
+        const esSuperAdmin = typeof window.usuarioEsSuperAdmin !== 'undefined'
+            ? (window.usuarioEsSuperAdmin === true || window.usuarioEsSuperAdmin === 'true')
+            : false;
+        const userId = typeof window.usuarioIdActual !== 'undefined'
+            ? (window.usuarioIdActual && window.usuarioIdActual !== "null" ? window.usuarioIdActual : null)
+            : null;
+        const esAdmin = typeof window.usuarioEsAdminInforme !== 'undefined'
+            ? (window.usuarioEsAdminInforme === true || window.usuarioEsAdminInforme === 'true')
+            : false;
+
+        // DEBUG: mostrar usuario y roles actuales en consola:
+        console.log("[Historial Edit] usuarioIdActual:", userId, "esAdmin:", esAdmin, "esSuperAdmin:", esSuperAdmin);
+
+        // Filtrado defensivo del historial según permisos (ajusta lógica según tu backend/API real)
+        const filtrados = ediciones.filter(ed => {
+            // Chequeo básico de objetos: evitar errores si falta algún campo
+            if (!ed || typeof ed !== "object") return false;
+
+            if (esSuperAdmin) {
+                // Superadmin ve todo
+                return true;
+            }
+            if (ed.rol === 'superadmin') {
+                // No ver las de superadmin si no sos superadmin
+                return false;
+            }
+            if (esAdmin) {
+                // Admin: podría ver todo menos superadmin (ajustar si hay restricción de 'sector')
+                return true;
+            }
+            // Vendedor: solo lo propio
+            if (userId !== null && (ed.usuario_id == userId || ed.usuario_id === String(userId))) {
+                return true;
+            }
+            return false;
+        });
+
+        // DEBUG: cuántos pasan el filtro
+        console.log("[Historial Edit] cantidad tras filtrar:", filtrados.length);
+
+        // Actualizar tabla o mensaje 'sin registros'
+        const tbody = document.getElementById('edit-history-table-body');
+        if (filtrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">No hay historial de ediciones para mostrar.</td></tr>';
+            return;
+        }
+
+        // Renderizar filas
+        tbody.innerHTML = filtrados.map(ed => {
+            // Manejo seguro de campos nulos/undefined
+            const usuario = ed.usuario ?? 'Desconocido';
+            const rol = ed.rol ?? 'Desconocido';
+            const accion = ed.accion ?? '';
+            const fecha = ed.fecha ?? '';
+            const hora = ed.hora ?? '';
+            const detalle = ed.detalles_cambios ?? ed.detalle ?? '';
+
+            // (Opcional: sanitizar HTML si vienen tags peligrosos)
+            return `
+                <tr>
+                    <td>${escapeHtml(usuario)}</td>
+                    <td>${escapeHtml(rol)}</td>
+                    <td>${escapeHtml(accion)}</td>
+                    <td>${escapeHtml(fecha)}</td>
+                    <td>${escapeHtml(hora)}</td>
+                    <td>${escapeHtml(detalle)}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Se asume que escapeHtml está definido en tu dashboard-informe.js y disponible globalmente. 
+    // Si está solo en el archivo JS importado, asegurate que ese <script> se ejecuta ANTES de esta sección, 
+    // o agrega aquí una copia sencilla para evitar ReferenceError si sólo usas informe.php puro.
+
+    // Permisos PHP -> JS
+    window.usuarioEsSuperAdmin = <?= isSuperAdmin() ? 'true' : 'false' ?>;
+    window.usuarioIdActual = <?= json_encode($_SESSION['user_id'] ?? null) ?>;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const historyModal = document.getElementById('edit-history-modal');
+        const openBtn = document.getElementById('btnViewEditHistory');
+        const closeBtn = document.getElementById('closeEditHistoryModalBtn');
+        const tableBody = document.getElementById('edit-history-table-body');
+
+        openBtn.addEventListener('click', () => {
+            cargarHistorialEdiciones();
+            historyModal.style.display = 'block';
+        });
+        closeBtn.addEventListener('click', () => historyModal.style.display = 'none');
+        window.addEventListener('click', (e) => {
+            if (e.target === historyModal) historyModal.style.display = 'none';
+        });
+    });
+
+    function cargarHistorialEdiciones() {
+        // Simulación de endpoint para traer historial real:
+        fetch('api/ventas/ediciones_historial.php')
+            .then(res => res.json())
+            .then(data => {
+                renderizarTablaHistorial(data);
+            })
+            .catch(() => {
+                document.getElementById('edit-history-table-body').innerHTML = '<tr><td colspan="6">No se pudo cargar el historial.</td></tr>';
+            });
+    }
+
+    function renderizarTablaHistorial(ediciones) {
+        // Filtros por rol para mostrar solo lo correspondiente
+        const esSuperAdmin = window.usuarioEsSuperAdmin;
+        const userId = window.usuarioIdActual;
+        const esAdmin = window.usuarioEsAdminInforme;
+
+        const filtrados = ediciones.filter(ed => {
+            if (esSuperAdmin) {
+                // Ve todo
+                return true;
+            }
+            if (ed.rol === 'superadmin') {
+                // Admin/vendedor NO ve ediciones de superadmin
+                return false;
+            }
+            // Solo veo mis ediciones y las de otros vendedores/admins
+            // (Nunca superadmin)
+            // Además admin ve solo las de su sector; adaptarlo según lógica de roles
+            return ed.usuario_id == userId || ed.rol === 'admin' || ed.rol === 'vendedor';
+        });
+
+        if (filtrados.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6">No hay ediciones registradas.</td></tr>';
+            return;
+        }
+
+        tableBody.innerHTML = filtrados.map(ed => `
+            <tr>
+                <td>${ed.usuario}</td>
+                <td>${ed.rol === 'superadmin' ? 'Super Admin' : ed.rol === 'admin' ? 'Admin' : 'Vendedor'}</td>
+                <td>${ed.accion}</td>
+                <td>${ed.fecha}</td>
+                <td>${ed.hora}</td>
+                <td>
+                    <button type="button" class="btn btn-link" onclick="verDetalleEdicion(${ed.id})">Ver detalle</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Modal sencillo para mostrar detalles de cambios
+    function verDetalleEdicion(idEdicion) {
+        fetch('api/ventas/detalle_edicion.php?id=' + encodeURIComponent(idEdicion))
+            .then(res => res.json())
+            .then(data => {
+                alert('Detalle de cambios:\n' + (data.detalle || 'Sin información.'));
+            });
+    }
+    </script>
+    </div>
 
         <section id="seccion-ventas" class="panel sales-history-panel" hidden>
             <div class="sales-history-header">
@@ -144,9 +374,10 @@ require_once __DIR__ . '/includes/navbar.php';
             </table>
         </div>
     </section>
-
+    
     <section id="reportPdfContent" class="report-pdf-only" aria-hidden="true"></section>
 </main>
+
 
 
 <!-- Modal de Edición de Venta -->
@@ -179,7 +410,8 @@ require_once __DIR__ . '/includes/navbar.php';
                 </div>
             </div>
         </form>
-    </div>
+    <!-- Historial de edición de ventas -->
+    
 </div>
 
 <script>

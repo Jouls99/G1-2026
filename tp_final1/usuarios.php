@@ -319,6 +319,8 @@ require_once __DIR__ . '/includes/navbar.php';
                     <label class="role-radio-card">
                         <input type="radio" name="edit-role" id="role-edit-admin" value="administrador">
                         <span>🛡️ Admin</span>
+                        <?php /* Solo muestra el rol superadmin si el usuario actual ES superadmin */ ?>
+                   
                     </label>
                     <?php if ($esSuperAdmin): ?>
                     <label class="role-radio-card">

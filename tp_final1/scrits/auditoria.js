@@ -381,3 +381,54 @@ loadMoreSessionsButton.addEventListener('click', loadMoreSessions);
 loadMoreButton.addEventListener('click', loadMoreActivity);
 loadMoreThreatsButton.addEventListener('click', loadMoreThreats);
 loadAudit();
+// Botón para regenerar datos (stock/productos/auditoría)
+const regenerateButton = document.createElement('button');
+regenerateButton.textContent = '🔄 Regenerar datos de stock/productos/auditoría';
+regenerateButton.className = 'btn regenerate-data-btn';
+regenerateButton.style.margin = '12px 0 18px 0';
+regenerateButton.style.background = '#f3f4f6';
+regenerateButton.style.color = '#1e293b';
+regenerateButton.style.border = '1px solid #d1d5db';
+regenerateButton.style.fontWeight = 'bold';
+
+regenerateButton.addEventListener('click', async () => {
+    if (!window.confirm('¿Estás seguro que quieres regenerar los datos de productos, stock, inventario, ventas y auditoría? Esta acción NO eliminará productos, usuarios ni categorías, pero restablecerá los valores a su estado inicial.')) {
+        return;
+    }
+
+    regenerateButton.disabled = true;
+    regenerateButton.textContent = 'Regenerando...';
+
+    try {
+        // Llama un endpoint que debe implementar el reseteo de productos, stock, ventas y registros de auditoría
+        const res = await fetch('api/regenerar_datos.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+            throw new Error(data.message || 'Error al regenerar datos');
+        }
+
+        // Refresca todas las vistas relevantes después de la regeneración
+        if (typeof cargarInventario === 'function') await cargarInventario();
+        if (typeof renderSessions === 'function') renderSessions();
+        if (typeof renderActivity === 'function') renderActivity();
+        if (typeof renderThreats === 'function') renderThreats();
+        if (typeof loadAudit === 'function') await loadAudit();
+
+        alert('✅ Regeneración de datos completada con éxito.');
+    } catch (err) {
+        alert('❌ Error al regenerar datos: ' + (err.message || err));
+    } finally {
+        regenerateButton.disabled = false;
+        regenerateButton.textContent = '🔄 Regenerar datos de stock/productos/auditoría';
+    }
+});
+
+// Inserta el botón arriba de los paneles de auditoría
+const auditPanels = document.querySelector('.audit-panels') || document.querySelector('.audit-panel');
+if (auditPanels && auditPanels.parentNode) {
+    auditPanels.parentNode.insertBefore(regenerateButton, auditPanels);
+}

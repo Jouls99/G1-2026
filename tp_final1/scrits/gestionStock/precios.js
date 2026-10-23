@@ -86,7 +86,6 @@ function formatAuditDate(value) {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString('es-AR');
 }
-
 async function aplicarAjustePrecios() {
     // Valida alcance y valor en el cliente antes de enviar el lote a la API administrativa.
     if (!usuarioEsAdmin) return;
@@ -124,7 +123,6 @@ async function aplicarAjustePrecios() {
     if (!confirm(`¿Aplicar ${adjustmentValue > 0 ? '+' : ''}${adjustmentValue}${adjustmentType === 'percentage' ? '%' : ' pesos'} a ${scopeLabel}?`)) {
         return;
     }
-
     const button = document.getElementById('applyPriceAdjustment');
     button.disabled = true;
     try {
@@ -162,7 +160,6 @@ async function aplicarAjustePrecios() {
         button.disabled = false;
     }
 }
-
 // Recupera los últimos ajustes persistidos para dar trazabilidad a los cambios administrativos.
 async function cargarHistorialPrecios() {
     const container = document.getElementById('priceHistory');
@@ -178,6 +175,18 @@ async function cargarHistorialPrecios() {
         if (!data.history.length) {
             container.innerHTML = '<p>No hay ajustes de precios registrados.</p>';
             return;
+        }
+        // Filtrar entradas de historial según el rol: los admins solo ven sus propios ajustes,
+        // los superadmins ven los ajustes de todos.
+        // Filtra el historial y agrega controles de edición/eliminación para cada entrada (si autoriza el rol)
+        let filteredHistory = [];
+
+        if (usuarioEsSuperAdmin) {
+            filteredHistory = data.history; // superadmin ve todas las entradas
+        } else if (usuarioEsAdmin) {
+            filteredHistory = data.history.filter(entry => entry.usuario === usuarioActual);
+        } else {
+            filteredHistory = [];
         }
         container.innerHTML = `
             <h3>Historial reciente de ajustes</h3>
@@ -200,7 +209,3 @@ async function cargarHistorialPrecios() {
         container.innerHTML = `<p class="price-history-error">${escapeHtml(error.message)}</p>`;
     }
 }
-
-// ==========================================================================
-// Inicialización y Event Listeners
-// ==========================================================================
