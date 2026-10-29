@@ -80,7 +80,7 @@ Los detalles de actividad pueden incluir metadatos de la solicitud, como la dire
 
 ## 4. Ventas e informes
 
-El dashboard de `informe.php`, gestionado por `scrits/dashboard-informe.js`, permite seleccionar una categoría y un período y presenta:
+El dashboard de `informe.php`, gestionado por los módulos en `scrits/dashboard-informe/`, permite seleccionar una categoría y un período y presenta:
 
 - cantidad de productos vendidos y métricas monetarias;
 - valorización del inventario;

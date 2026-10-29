@@ -418,5 +418,7 @@ require_once __DIR__ . '/includes/navbar.php';
     window.puedeModificarInforme = <?= $puedeModificarInforme ? 'true' : 'false' ?>;
     window.usuarioEsAdminInforme = <?= isAdmin() ? 'true' : 'false' ?>;
 </script>
-<script src="scrits/dashboard-informe.js?v=<?= filemtime(__DIR__ . '/scrits/dashboard-informe.js') ?>"></script>
+<script src="scrits/dashboard-informe/general.js?v=<?= filemtime(__DIR__ . '/scrits/dashboard-informe/general.js') ?>"></script>
+<script src="scrits/dashboard-informe/resumenInventario.js?v=<?= filemtime(__DIR__ . '/scrits/dashboard-informe/resumenInventario.js') ?>"></script>
+<script src="scrits/dashboard-informe/ventasHistorial.js?v=<?= filemtime(__DIR__ . '/scrits/dashboard-informe/ventasHistorial.js') ?>"></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
