@@ -37,7 +37,7 @@ require_once __DIR__ . '/includes/navbar.php';
             <div class="form-grid">
                 <div>
                     <label for="prodName">Nombre</label>
-                    <input id="prodName" required pattern="[A-Za-z]+(?: [A-Za-z]+)*" title="Usá solo letras A-Z y espacios entre palabras." placeholder="Ej: Labial Matte">
+                    <input id="prodName" required pattern="[A-Za-z0-9]+(?: [A-Za-z0-9]+)*" title="Usá solo letras A-Z, números y espacios entre palabras." placeholder="Ej: Labial Matte">
                 </div>
                 <div>
                     <label for="prodBrand">Marca</label>

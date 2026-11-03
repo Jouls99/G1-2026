@@ -218,23 +218,17 @@ function renderTablaUsuarios() {
 
     tbodyUsuarios.innerHTML = filtrados.map(u => {
         const role = (u.role || 'vendedor').toLowerCase();
-        const adminOcupado = rolOcupado('administrador', u.id);
-        const superadminOcupado = rolOcupado('superadmin', u.id);
         const isSuper = role === 'superadmin' || role === 'super administrador';
         const isAdmin = isSuper || role === 'administrador' || role === 'admin';
         
         let roleBadgeHtml = '';
-        let roleSelectClass = 'role-vendedor';
 
         if (isSuper) {
             roleBadgeHtml = `<span class="badge-role superadmin">👑 Super Admin</span>`;
-            roleSelectClass = 'role-superadmin';
         } else if (isAdmin) {
             roleBadgeHtml = `<span class="badge-role admin">🛡️ Administrador</span>`;
-            roleSelectClass = 'role-admin';
         } else {
             roleBadgeHtml = `<span class="badge-role vendedor">🛒 Vendedor</span>`;
-            roleSelectClass = 'role-vendedor';
         }
 
         const avatarInitial = u.usuario ? u.usuario.charAt(0).toUpperCase() : '?';
@@ -253,13 +247,6 @@ function renderTablaUsuarios() {
                 </td>
                 <td>
                     ${roleBadgeHtml}
-                </td>
-                <td>
-                    <select class="role-select-box ${roleSelectClass}" onchange="cambiarRolUsuario(${u.id}, '${escapeHtml(u.usuario)}', this.value)">
-                        <option value="vendedor" ${role === 'vendedor' ? 'selected' : ''}>🛒 Vendedor</option>
-                        <option value="administrador" ${role === 'administrador' || role === 'admin' ? 'selected' : ''} ${adminOcupado ? 'disabled' : ''}>🛡️ Administrador</option>
-                        <option value="superadmin" ${isSuper ? 'selected' : ''} ${superadminOcupado ? 'disabled' : ''}>👑 Super Admin</option>
-                    </select>
                 </td>
                 <td>
                     <span style="font-size: 0.88rem; color: #4b5563;">
@@ -288,7 +275,7 @@ function renderTablaUsuarios() {
                         ${usuarioEsSuperAdmin ? `<button type="button" class="btn-action-sm btn-inspect" onclick="verDetalleUsuario('${escapeHtml(u.usuario)}')" title="Ver detalle, historial de logins y ventas">
                             🔍 Inspeccionar
                         </button>` : ''}
-                        <button type="button" class="btn-action-sm btn-edit" onclick="abrirModalEditar(${u.id}, '${escapeHtml(u.usuario)}', '${u.role}')" title="Editar credenciales">
+                        <button type="button" class="btn-action-sm btn-edit" onclick="abrirModalEditar(${u.id}, '${escapeHtml(u.usuario)}')" title="Editar credenciales">
                             ✏️
                         </button>
                         <button type="button" class="btn-action-sm btn-del" onclick="eliminarUsuario(${u.id}, '${escapeHtml(u.usuario)}')" title="Eliminar usuario">
@@ -551,13 +538,9 @@ function abrirModalNuevoUsuario() {
     abrirModal(modalNuevoUsuario);
 }
 
-/**
- * Abrir modal de edición de usuario con selector de 3 roles
- */
-// Rellena y abre el editor de una cuenta existente, restringiendo roles según disponibilidad.
-function abrirModalEditar(id, usuario, rolActual) {
+// Rellena y abre el editor de una cuenta existente.
+function abrirModalEditar(id, usuario) {
     const formEditar = document.getElementById('form-editar-usuario');
-    if (formEditar) formEditar.dataset.rolActual = rolActual;
     document.getElementById('edit-user-id').value = id;
     document.getElementById('edit-username').value = usuario;
     const editPassInput = document.getElementById('edit-password');
@@ -569,22 +552,6 @@ function abrirModalEditar(id, usuario, rolActual) {
     if (previewContainer) {
         previewContainer.style.display = 'none';
     }
-    
-    const radioSuper = document.getElementById('role-edit-superadmin');
-    const radioAdmin = document.getElementById('role-edit-admin');
-    const radioVendedor = document.getElementById('role-edit-vendedor');
-    
-    const roleNorm = (rolActual || '').toLowerCase();
-    if (roleNorm === 'superadmin' || roleNorm === 'super administrador') {
-        if (radioSuper) radioSuper.checked = true;
-    } else if (roleNorm === 'administrador' || roleNorm === 'admin') {
-        if (radioAdmin) radioAdmin.checked = true;
-    } else {
-        if (radioVendedor) radioVendedor.checked = true;
-    }
-
-    actualizarEstiloRadioRoles('form-editar-usuario');
-    actualizarDisponibilidadRoles('form-editar-usuario', id);
     abrirModal(modalEditarUsuario);
 }
 
@@ -900,8 +867,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = document.getElementById('edit-user-id').value;
             const usuario = document.getElementById('edit-username').value.trim();
             const password = document.getElementById('edit-password').value;
-            const role = document.querySelector('input[name="edit-role"]:checked')?.value || 'vendedor';
-
             if (password) {
                 const validPassword = /^[\x21-\x7E]{26,64}$/.test(password)
                     && /[a-z]/.test(password)
@@ -917,12 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (rolOcupado(normalizarRol(role), id)) {
-                showToast(`❌ Ya existe otra cuenta con el rol ${normalizarRol(role)}.`, true);
-                return;
-            }
-
-            const payload = { id: parseInt(id), usuario, role };
+            const payload = { id: parseInt(id), usuario };
             if (password && password.trim() !== '') {
                 payload.password = password;
             }

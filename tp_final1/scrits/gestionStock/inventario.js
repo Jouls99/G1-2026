@@ -168,8 +168,8 @@ function renderTable(categoria) {
 
         return `
             <tr class="product-row" 
-                onclick="selectProduct('${p.codigo}', '${categoria.id}')" 
-                oncontextmenu="showProductContextMenu(event, '${p.codigo}', '${categoria.id}')" 
+                onclick="selectProduct('${p.ID_stock || p.id}', '${categoria.id}')"
+                oncontextmenu="showProductContextMenu(event, '${p.ID_stock || p.id}', '${categoria.id}')"
                 title="Click izquierdo: ver detalles • Click derecho: eliminar producto">
                 ${mostrarSeleccionPrecios ? `<td><input class="price-product-checkbox" data-product-id="${productId}" type="checkbox" aria-label="Seleccionar ${escapeHtml(p.nombre)}" onclick="event.stopPropagation()" onchange="togglePriceProduct(${productId}, this.checked)" ${productosPrecioSeleccionados.has(productId) ? 'checked' : ''}></td>` : ''}
                 <td>
@@ -214,10 +214,13 @@ function renderTable(categoria) {
 }
 
 // Resuelve un producto activo de la categoría elegida para que el panel lateral lo detalle.
-function selectProduct(codigo, catId) {
+function selectProduct(productId, catId) {
     const cat = inventario.find(c => c.id === catId);
     if (!cat) return;
-    productoSeleccionado = cat.productos.find(p => String(p.codigo).toLowerCase() === String(codigo).toLowerCase() && (p.fase || 'habilitado') !== 'deshabilitado');
+    productoSeleccionado = cat.productos.find(p =>
+        String(p.ID_stock || p.id) === String(productId)
+        && (p.fase || 'habilitado') !== 'deshabilitado'
+    );
     renderDetailPanel();
 }
 

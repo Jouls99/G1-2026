@@ -60,7 +60,7 @@ try {
         }
         $dbConectada = true;
     } else {
-        throw new RuntimeException('MySQL no está en ejecución. Modo sin conexión activo.');
+        throw new RuntimeException('La base de datos no está en ejecución. Modo sin conexión activo.');
     }
 } catch (Exception $e) {
     $errorDB = $e->getMessage();
@@ -126,7 +126,7 @@ require_once __DIR__ . '/includes/navbar.php';
         <!-- Catálogo y formulario de carga; preuba2.js completa datos y valida stock antes de vender. -->
         <!-- Panel Derecho: Carga de Artículos -->
         <div class="panel" style="height: fit-content;">
-            <h2>📥 Ingreso de Artículos</h2>
+            <h2>Ingreso de Artículos</h2>
             <form id="formulario-producto" method="POST">
                 <div class="form-group">
                     <label for="nombre">Nombre del Producto</label>

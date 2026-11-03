@@ -61,7 +61,7 @@ function showCategoryContextMenu(event, categoria) {
     };
 }
 
-function showProductContextMenu(event, codigo, catId) {
+function showProductContextMenu(event, productId, catId) {
     if (!usuarioEsAdmin) return;
     event.preventDefault();
     event.stopPropagation();
@@ -71,8 +71,10 @@ function showProductContextMenu(event, codigo, catId) {
     let targetProduct = null;
     let targetCat = null;
     for (const cat of inventario) {
-        const p = (cat.productos || []).find(prod => String(prod.codigo).toLowerCase() === String(codigo).toLowerCase() && (prod.fase || 'habilitado') !== 'deshabilitado') ||
-                  (cat.subcategorias || []).flatMap(s => s.productos || []).find(prod => String(prod.codigo).toLowerCase() === String(codigo).toLowerCase() && (prod.fase || 'habilitado') !== 'deshabilitado');
+        const p = (cat.productos || []).find(prod =>
+            String(prod.ID_stock || prod.id) === String(productId)
+            && (prod.fase || 'habilitado') !== 'deshabilitado'
+        );
         if (p) {
             targetProduct = p;
             targetCat = cat;
@@ -321,7 +323,7 @@ function mostrarFormularioEdicion() {
         <div class="form-grid">
             <div>
                 <label for="editProdName">Nombre</label>
-                <input id="editProdName" required pattern="[A-Za-z]+(?: [A-Za-z]+)*" title="Usá solo letras A-Z y espacios entre palabras.">
+                <input id="editProdName" required pattern="[A-Za-z0-9]+(?: [A-Za-z0-9]+)*" title="Usá solo letras A-Z, números y espacios entre palabras.">
             </div>
             <div>
                 <label for="editProdBrand">Marca</label>
@@ -382,8 +384,8 @@ async function guardarEdicionProducto(event) {
     const stock = parseInt(document.getElementById('editProdStock').value, 10);
     const subcategoria = document.getElementById('editProdSub').value.trim();
 
-    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(nombre)) {
-        alert('El nombre solo puede contener letras de la A a la Z y espacios entre palabras.');
+    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(nombre)) {
+        alert('El nombre solo puede contener letras de la A a la Z, números y espacios entre palabras.');
         return;
     }
     if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(precioRaw)) {
@@ -455,8 +457,8 @@ async function addProduct() {
     const subcategory = document.getElementById('prodSub').value.trim();
     const catId = document.getElementById('prodCat').value;
 
-    if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(name)) {
-        alert('El nombre solo puede contener letras de la A a la Z y espacios entre palabras.');
+    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(name)) {
+        alert('El nombre solo puede contener letras de la A a la Z, números y espacios entre palabras.');
         return;
     }
     if (!/^[0-9]+$/.test(code)) {

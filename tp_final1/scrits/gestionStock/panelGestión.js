@@ -96,9 +96,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 return `
                     <tr class="product-row" 
-                        onclick="selectProduct('${p.codigo}', '${p.catId}')" 
-                        oncontextmenu="showProductContextMenu(event, '${p.codigo}', '${p.catId}')">
-                        <td><strong>${escapeHtml(p.nombre)}</strong> <small style="color:#6b7280;">(${escapeHtml(p.categoriaNombre)})</small></td>
+                        onclick="selectProduct('${p.ID_stock || p.id}', '${p.catId}')"
+                        oncontextmenu="showProductContextMenu(event, '${p.ID_stock || p.id}', '${p.catId}')">
+                        <td>
+                            <strong>${escapeHtml(p.nombre)}</strong>
+                            ${(p.marca || p.sub_nombre || p.subcategoria) ? `<small style="display:block;color:#6b7280;">${[p.marca, p.sub_nombre, p.subcategoria].filter(Boolean).map(escapeHtml).join(' · ')}</small>` : ''}
+                            <small style="color:#6b7280;">(${escapeHtml(p.categoriaNombre)})</small>
+                        </td>
                         <td><code>${escapeHtml(p.codigo)}</code></td>
                         <td>$${p.precio.toLocaleString()}</td>
                         <td>${p.stock}</td>

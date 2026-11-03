@@ -278,7 +278,7 @@ formulario.addEventListener('submit', (e) => {
     }
 
     if ((item.fase || 'habilitado').toLowerCase() === 'deshabilitado') {
-        mostrarMensaje(`❌ El producto "${item.nombre}" está deshabilitado y no se puede vender.`, 'error');
+        mostrarMensaje(`❌ El producto "${item.nombre}" producto eliminado.`, 'error');
         return;
     }
 
@@ -348,7 +348,7 @@ btnRegistrar.addEventListener('click', async () => {
         const dataVenta = await ventasResponse.json();
 
         if (!ventasResponse.ok || !dataVenta.ok) {
-            throw new Error(dataVenta.message || 'Error al guardar la venta en MySQL.');
+            throw new Error(dataVenta.message || 'Error al guardar la venta.');
         }
 
         localStorage.setItem('inventarioUpdated', Date.now().toString());
@@ -356,7 +356,7 @@ btnRegistrar.addEventListener('click', async () => {
         window.dispatchEvent(new Event('inventario-updated'));
         window.dispatchEvent(new Event('ventas-actualizadas'));
 
-        mostrarMensaje(`✅ ¡Venta registrada exitosamente en MySQL! Factura generada y stock descontado (Monto: $${montoTotalVenta.toFixed(2)}).`, 'correcto');
+        mostrarMensaje(`✅ ¡Venta registrada exitosamente! Factura generada y stock descontado (Monto: $${montoTotalVenta.toFixed(2)}).`, 'correcto');
         productosCargados = [];
         actualizarTabla();
         await cargarInventarioParaVentas();

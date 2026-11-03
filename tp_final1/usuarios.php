@@ -87,7 +87,7 @@ require_once __DIR__ . '/includes/navbar.php';
     </div>
 
     <!-- PESTAÑA 1: GESTIÓN DE USUARIOS -->
-    <!-- Filtros y tabla que usuarios.js utiliza para editar cuentas y sus roles. -->
+    <!-- Filtros y tabla que usuarios.js utiliza para administrar las cuentas. -->
     <section id="tab-usuarios" class="tab-content active" role="tabpanel">
         <div class="panel-layout">
             <div class="filters-card">
@@ -112,7 +112,6 @@ require_once __DIR__ . '/includes/navbar.php';
                         <tr>
                             <th>Usuario</th>
                             <th>Rol actual</th>
-                            <th>Cambiar rol</th>
                             <th>Creado</th>
                             <?php if ($esSuperAdmin): ?>
                             <th>Último login</th>
@@ -124,7 +123,7 @@ require_once __DIR__ . '/includes/navbar.php';
                     </thead>
                     <tbody id="tbody-usuarios">
                         <tr>
-                            <td colspan="<?= $esSuperAdmin ? '8' : '6' ?>" style="text-align: center; padding: 32px; color: #6b7280;">
+                            <td colspan="<?= $esSuperAdmin ? '7' : '5' ?>" style="text-align: center; padding: 32px; color: #6b7280;">
                                 Cargando usuarios...
                             </td>
                         </tr>
@@ -306,28 +305,6 @@ require_once __DIR__ . '/includes/navbar.php';
                         <button type="button" id="btn-copy-regenerated" class="btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">📋 Copiar contraseña</button>
                     </div>
                     <small style="display: block; color: #4b5563; margin-top: 6px;">ℹ️ Para aplicarla a la cuenta, hacé clic abajo en <strong>Actualizar</strong>.</small>
-                </div>
-            </div>
-
-            <div class="field-group">
-                <label>Rol</label>
-                <div class="role-picker role-picker-3">
-                    <label class="role-radio-card">
-                        <input type="radio" name="edit-role" id="role-edit-vendedor" value="vendedor">
-                        <span>🛒 Vendedor</span>
-                    </label>
-                    <label class="role-radio-card">
-                        <input type="radio" name="edit-role" id="role-edit-admin" value="administrador">
-                        <span>🛡️ Admin</span>
-                        <?php /* Solo muestra el rol superadmin si el usuario actual ES superadmin */ ?>
-                   
-                    </label>
-                    <?php if ($esSuperAdmin): ?>
-                    <label class="role-radio-card">
-                        <input type="radio" name="edit-role" id="role-edit-superadmin" value="superadmin">
-                        <span>👑 Super Admin</span>
-                    </label>
-                    <?php endif; ?>
                 </div>
             </div>
 

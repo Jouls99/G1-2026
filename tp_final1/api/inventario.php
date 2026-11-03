@@ -14,7 +14,7 @@ requireApiAuth();
 // Validadores compartidos por creación/edición: restringen nombres, códigos y precios recibidos.
 function isValidProductName(string $name): bool
 {
-    return preg_match('/\A[A-Za-z]+(?: [A-Za-z]+)*\z/', $name) === 1;
+    return preg_match('/\A[A-Za-z0-9]+(?: [A-Za-z0-9]+)*\z/', $name) === 1;
 }
 
 function isValidProductCode(string $code): bool
