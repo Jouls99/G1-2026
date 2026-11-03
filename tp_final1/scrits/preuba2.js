@@ -14,6 +14,7 @@ const inputCantidad = document.getElementById('cantidad');
 const inputPrecio = document.getElementById('precio');
 const stockInfo = document.getElementById('stock-info');
 const datalist = document.getElementById('productos-datalist');
+const sugerenciasProductos = document.getElementById('productos-sugerencias');
 
 // Evita que los valores numéricos locales queden negativos antes de incorporarlos a una venta.
 function normalizarNumerosNoNegativos() {
@@ -59,12 +60,74 @@ function actualizarDatalist() {
         if (prod.cantidad > 0 && !esDeshabilitado) {
             const option = document.createElement('option');
             option.value = prod.nombre;
+            option.dataset.subNombre = prod.sub_nombre || '';
+            option.dataset.marca = prod.marca || '';
             option.dataset.codigo = prod.codigo;
             option.dataset.precio = prod.precio;
             option.dataset.stock = prod.cantidad;
             datalist.appendChild(option);
         }
     });
+}
+
+function ocultarSugerencias() {
+    if (!sugerenciasProductos) return;
+    sugerenciasProductos.hidden = true;
+    sugerenciasProductos.innerHTML = '';
+}
+
+function mostrarSugerencias() {
+    if (!sugerenciasProductos) return;
+
+    const termino = inputNombre.value.trim().toLowerCase();
+    if (!termino) {
+        ocultarSugerencias();
+        return;
+    }
+
+    const productosDisponibles = inventarioProductos.filter((prod) => {
+        const esDeshabilitado = (prod.fase || 'habilitado').toLowerCase() === 'deshabilitado';
+        const textoProducto = [prod.nombre, prod.sub_nombre, prod.marca]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+        return prod.cantidad > 0 && !esDeshabilitado && textoProducto.includes(termino);
+    });
+
+    sugerenciasProductos.innerHTML = '';
+    productosDisponibles.forEach((prod) => {
+        const sugerencia = document.createElement('button');
+        sugerencia.type = 'button';
+        sugerencia.className = 'product-suggestion';
+        sugerencia.setAttribute('role', 'option');
+
+        const nombrePrincipal = document.createElement('strong');
+        nombrePrincipal.className = 'product-suggestion-name';
+        nombrePrincipal.textContent = prod.nombre;
+
+        const datosSecundarios = document.createElement('span');
+        datosSecundarios.className = 'product-suggestion-details';
+        [prod.sub_nombre, prod.marca].filter(Boolean).forEach((dato, index, datos) => {
+            const detalle = document.createElement('span');
+            detalle.textContent = dato;
+            datosSecundarios.appendChild(detalle);
+            if (index < datos.length - 1) {
+                datosSecundarios.appendChild(document.createTextNode(' · '));
+            }
+        });
+
+        sugerencia.append(nombrePrincipal, datosSecundarios);
+        sugerencia.addEventListener('click', () => {
+            inputNombre.value = prod.nombre;
+            inputCodigo.value = prod.codigo;
+            inputPrecio.value = prod.precio;
+            inputNombre.dispatchEvent(new Event('input', { bubbles: true }));
+            ocultarSugerencias();
+        });
+        sugerenciasProductos.appendChild(sugerencia);
+    });
+
+    sugerenciasProductos.hidden = productosDisponibles.length === 0;
 }
 
 // Mantiene código, precio, disponibilidad y límite de cantidad al buscar el producto por nombre.
@@ -77,7 +140,7 @@ inputNombre.addEventListener('input', () => {
         inputPrecio.value = prod.precio;
         const esDeshabilitado = (prod.fase || 'habilitado').toLowerCase() === 'deshabilitado';
         if (esDeshabilitado) {
-            stockInfo.textContent = '⛔ PRODUCTO DESHABILITADO (No permite ventas)';
+            stockInfo.textContent = '⛔ PRODUCTO ELIMINADO (No permite ventas)';
             stockInfo.style.color = '#dc2626';
             stockInfo.style.display = 'inline';
             inputCantidad.removeAttribute('max');
@@ -92,6 +155,14 @@ inputNombre.addEventListener('input', () => {
         stockInfo.style.display = 'none';
         inputCantidad.removeAttribute('max');
     }
+    mostrarSugerencias();
+});
+
+inputNombre.addEventListener('focus', mostrarSugerencias);
+document.addEventListener('click', (event) => {
+    if (sugerenciasProductos && !event.target.closest('.product-search')) {
+        ocultarSugerencias();
+    }
 });
 
 // Permite localizar el mismo producto por código y sincroniza los datos del formulario.
@@ -105,7 +176,7 @@ inputCodigo.addEventListener('input', () => {
         inputPrecio.value = prod.precio;
         const esDeshabilitado = (prod.fase || 'habilitado').toLowerCase() === 'deshabilitado';
         if (esDeshabilitado) {
-            stockInfo.textContent = '⛔ PRODUCTO DESHABILITADO (No permite ventas)';
+            stockInfo.textContent = '⛔ PRODUCTO ELIMINADO (No permite ventas)';
             stockInfo.style.color = '#dc2626';
             stockInfo.style.display = 'inline';
             inputCantidad.removeAttribute('max');

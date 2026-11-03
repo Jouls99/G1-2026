@@ -36,6 +36,8 @@ try {
             SELECT 
                 p.ID_stock,
                 p.nombre,
+                p.sub_nombre,
+                p.marca,
                 COALESCE(p.codigo, CONCAT('COD-', p.ID_stock)) AS codigo,
                 COALESCE(p.cantTotal, 0) AS cantidad,
                 COALESCE(p.cantVendida, 0) AS cantVendida,
@@ -128,12 +130,21 @@ require_once __DIR__ . '/includes/navbar.php';
             <form id="formulario-producto" method="POST">
                 <div class="form-group">
                     <label for="nombre">Nombre del Producto</label>
-                    <input type="text" id="nombre" name="nombre" list="productos-datalist" placeholder="Buscar o seleccionar..."
-                        required autocomplete="off">
+                    <div class="product-search">
+                        <input type="text" id="nombre" name="nombre" placeholder="Buscar o seleccionar..."
+                            required autocomplete="off" aria-autocomplete="list" aria-controls="productos-sugerencias">
+                        <div id="productos-sugerencias" class="product-suggestions" role="listbox" hidden></div>
+                    </div>
                     <datalist id="productos-datalist">
                         <?php foreach ($productosDB as $p): ?>
                             <?php if ((int)$p['cantidad'] > 0): ?>
-                                <option value="<?= htmlspecialchars((string)$p['nombre']) ?>" data-codigo="<?= htmlspecialchars((string)$p['codigo']) ?>" data-precio="<?= htmlspecialchars((string)$p['precio']) ?>" data-stock="<?= (int)$p['cantidad'] ?>"></option>
+                                <option value="<?= htmlspecialchars((string)$p['nombre']) ?>
+                                    " data-sub-nombre="<?= htmlspecialchars((string)($p['sub_nombre'] ?? '')) ?>
+                                    "data-marca="<?= htmlspecialchars((string)($p['marca'] ?? '')) ?>
+                                    "data-codigo="<?= htmlspecialchars((string)$p['codigo']) ?>
+                                    " data-precio="<?= htmlspecialchars((string)$p['precio']) ?>
+                                    " data-stock="<?= (int)$p['cantidad'] ?>">
+                                </option>
                             <?php endif; ?>
                         <?php endforeach; ?>
                     </datalist>

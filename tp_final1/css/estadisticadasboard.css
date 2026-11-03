@@ -458,6 +458,85 @@ th {
     font-size: 24px;
 }
 
+#edit-history-modal .modal-content {
+    width: min(94vw, 880px);
+    max-width: 880px;
+    max-height: 82vh;
+    overflow: hidden;
+    padding: 18px 20px;
+    border-radius: 14px;
+}
+
+#edit-history-modal .modal-content h2 {
+    margin: 0 32px 14px 0;
+    font-size: 20px;
+}
+
+#edit-history-content {
+    max-height: calc(82vh - 76px);
+    overflow: auto;
+    border: 1px solid #ead8e4;
+    border-radius: 8px;
+}
+
+#edit-history-modal .history-table {
+    width: 100%;
+    min-width: 650px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+}
+
+#edit-history-modal .history-table th,
+#edit-history-modal .history-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid #f0e5ec;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.35;
+}
+
+#edit-history-modal .history-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f9f1f7;
+    color: #490633;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+#edit-history-modal .history-table th:nth-child(1),
+#edit-history-modal .history-table td:nth-child(1) {
+    width: 15%;
+}
+
+#edit-history-modal .history-table th:nth-child(2),
+#edit-history-modal .history-table td:nth-child(2) {
+    width: 13%;
+}
+
+#edit-history-modal .history-table th:nth-child(3),
+#edit-history-modal .history-table td:nth-child(3) {
+    width: 17%;
+}
+
+#edit-history-modal .history-table th:nth-child(4),
+#edit-history-modal .history-table td:nth-child(4) {
+    width: 12%;
+}
+
+#edit-history-modal .history-table th:nth-child(5),
+#edit-history-modal .history-table td:nth-child(5) {
+    width: 10%;
+}
+
+#edit-history-modal .history-table th:nth-child(6),
+#edit-history-modal .history-table td:nth-child(6) {
+    width: 33%;
+    overflow-wrap: anywhere;
+}
+
 .report-pdf-only {
     display: none;
 }
