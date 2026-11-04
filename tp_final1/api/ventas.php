@@ -72,11 +72,11 @@ if ($method === 'GET') {
                 ? '`fecha` >= :history_start AND `fecha` < :history_end'
                 : '`semana_inicio` = :history_week';
             $sourceQuery = "
-                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 0 AS archivada
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, `estado`, 0 AS archivada
                 FROM `ventas`
                 WHERE `fecha` >= :live_start AND `fecha` < :live_end
                 UNION ALL
-                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 1 AS archivada
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, `estado`, 1 AS archivada
                 FROM `ventas_historial`
                 WHERE {$historyFilter}
             ";
@@ -96,11 +96,11 @@ if ($method === 'GET') {
             $retentionStart = $today->modify('monday this week')->modify('-4 weeks')->format('Y-m-d 00:00:00');
             $tomorrow = $today->modify('+1 day')->format('Y-m-d 00:00:00');
             $sourceQuery = "
-                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 0 AS archivada
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, `estado`, 0 AS archivada
                 FROM `ventas`
                 WHERE `fecha` >= :live_start AND `fecha` < :live_end
                 UNION ALL
-                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, 1 AS archivada
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ganancia`, `ID_stock`, `nombre_producto`, `usuario`, `estado`, 1 AS archivada
                 FROM `ventas_historial`
                 WHERE `fecha` >= :history_start AND `fecha` < :history_end
             ";
@@ -126,6 +126,7 @@ if ($method === 'GET') {
                     p.marca,
                     p.sub_nombre,
                     COALESCE(sc.nombre, p.subcategoria) AS subcategoria,
+                    f.estado,
                     CASE
                         WHEN c.nombre IS NULL OR LOWER(TRIM(c.nombre)) IN ('general', 'sin categoría', 'sin categoria') THEN NULL
                         ELSE c.nombre
@@ -151,6 +152,7 @@ if ($method === 'GET') {
                 'total'     => (float)$row['ganancia'],
                 'dinero'    => (float)$row['ganancia'],
                 'archivada' => (bool)$row['archivada'],
+                'estado'    => (string)$row['estado'],
                 'semana_inicio' => (new DateTimeImmutable((string)$row['fecha'], new DateTimeZone('America/Argentina/Buenos_Aires')))->modify('monday this week')->format('Y-m-d'),
                 'productos' => [
                     [
@@ -180,6 +182,84 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     // Verifica stock y persiste factura/ajustes de inventario dentro de una transacción.
     $payload = getJsonBody();
+
+    if (($payload['action'] ?? '') === 'deshabilitar') {
+        if (!isAdminApi() && !hasUserPermissionApi('puede_modificar_informes')) {
+            sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'No tenés permiso para deshabilitar ventas.'], 403);
+        }
+
+        $invoiceId = (int)($payload['id'] ?? 0);
+        if ($invoiceId < 1) {
+            sendJson(['ok' => false, 'error' => 'invalid_payload', 'message' => 'Falta el ID de la venta.'], 400);
+        }
+
+        try {
+            $db->beginTransaction();
+            $find = $db->prepare("
+                SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`ID_stock`, f.`estado`,
+                       p.`nombre`, p.`codigo`
+                FROM `ventas` f
+                LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
+                WHERE f.`ID_factura` = :id
+                FOR UPDATE
+            ");
+            $find->execute([':id' => $invoiceId]);
+            $sale = $find->fetch();
+            if (!$sale) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la venta diaria.'], 404);
+            }
+
+            $saleTz = new DateTimeZone('America/Argentina/Buenos_Aires');
+            $saleDate = new DateTimeImmutable((string)$sale['fecha'], $saleTz);
+            $todayStart = new DateTimeImmutable('today', $saleTz);
+            if ($saleDate < $todayStart) {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'past_sale_readonly', 'message' => 'Solo se pueden deshabilitar ventas del día actual.'], 403);
+            }
+            if (strtolower((string)$sale['estado']) === 'deshabilitada') {
+                $db->rollBack();
+                sendJson(['ok' => false, 'error' => 'already_disabled', 'message' => 'La venta ya está deshabilitada.'], 409);
+            }
+
+            $quantity = (int)$sale['cantidadVendida'];
+            $productId = (int)($sale['ID_stock'] ?? 0);
+            if ($productId > 0) {
+                $restore = $db->prepare("
+                    UPDATE `producto`
+                    SET `cantTotal` = `cantTotal` + :quantity_add,
+                        `cantVendida` = GREATEST(0, COALESCE(`cantVendida`, 0) - :quantity_sub)
+                    WHERE `ID_stock` = :product_id
+                ");
+                $restore->execute([
+                    ':quantity_add' => $quantity,
+                    ':quantity_sub' => $quantity,
+                    ':product_id' => $productId
+                ]);
+            }
+
+            $disable = $db->prepare("UPDATE `ventas` SET `estado` = 'deshabilitada' WHERE `ID_factura` = :id");
+            $disable->execute([':id' => $invoiceId]);
+            $db->commit();
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('Error al deshabilitar venta: ' . $e->getMessage());
+            sendJson(['ok' => false, 'message' => 'No se pudo deshabilitar la venta: ' . $e->getMessage()], 500);
+        }
+
+        $currentUser = getApiUser();
+        $userName = $currentUser['usuario'] ?? 'Administrador';
+        logActivity(
+            $userName,
+            'venta_deshabilitada',
+            "Venta #{$invoiceId} ({$sale['nombre']}) deshabilitada por {$userName}. Stock restaurado.",
+            ['id_factura' => $invoiceId, 'producto' => $sale['nombre'], 'cantidad' => $quantity],
+            $currentUser['id'] ?? null
+        );
+        sendJson(['ok' => true, 'message' => 'Venta deshabilitada. El stock volvió al estado anterior a la venta.']);
+    }
 
     if (
         !is_array($payload)
@@ -241,8 +321,8 @@ if ($method === 'POST') {
             ");
 
             $stmtInsertFactura = $db->prepare("
-                INSERT INTO `ventas` (`fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`)
-                VALUES (:fecha, :cantidad, :precio, :id_stock, :nombre_producto, :usuario)
+                INSERT INTO `ventas` (`fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`, `estado`)
+                VALUES (:fecha, :cantidad, :precio, :id_stock, :nombre_producto, :usuario, 'habilitada')
             ");
 
             $stmtUpdateProd = $db->prepare("
@@ -368,6 +448,7 @@ if ($method === 'POST') {
 
 // PUT: Actualizar o modificar una venta existente
 if ($method === 'PUT') {
+    sendJson(['ok' => false, 'error' => 'method_not_allowed', 'message' => 'Las ventas no se pueden editar. Solo se pueden deshabilitar.'], 405);
     // Restaura las cantidades anteriores y aplica la nueva composición de la venta atómicamente.
     $payload = getJsonBody();
 
@@ -597,6 +678,7 @@ if ($method === 'PUT') {
 
 // DELETE: Eliminar una venta / factura por ID y restaurar stock
 if ($method === 'DELETE') {
+    sendJson(['ok' => false, 'error' => 'method_not_allowed', 'message' => 'Las ventas no se eliminan. Solo se pueden deshabilitar.'], 405);
     // Elimina la factura vigente y devuelve sus unidades al inventario dentro de la transacción.
     if (!canModifyReportsApi()) {
         sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'No tenés permiso para eliminar ventas.'], 403);

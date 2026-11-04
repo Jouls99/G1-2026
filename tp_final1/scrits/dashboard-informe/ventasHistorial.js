@@ -2,7 +2,7 @@
  * Panel de Ventas e Historial
  * 
  * Manejo del historial de ventas, filtros temporales (diario/semanal),
- * modal de edición de cantidades y flujo de eliminación de ventas con restauración de stock.
+ * deshabilitación de ventas diarias con restauración de stock.
  */
 
 (() => {
@@ -66,7 +66,10 @@
     tbody.innerHTML = sales.map((sale) => {
       const date = new Date(sale.fecha);
       const isToday = !Number.isNaN(date.getTime()) && formatLocalDate(date) === todayStr;
-      const canModify = (window.puedeModificarInforme ?? puedeModificarInforme) && !sale.archivada && isToday;
+      const canModify = (window.puedeModificarInforme ?? puedeModificarInforme)
+        && !sale.archivada
+        && isToday
+        && sale.estado !== 'deshabilitada';
       const productoText = (sale.productos || []).map((producto) => {
         const metadata = [
           producto.sub_nombre,
@@ -89,11 +92,8 @@
           <td>${fmt.format(sale.total || 0)}</td>
           <td>
             ${canModify ? `
-              <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
-                <button type="button" class="btn-edit-action" onclick="abrirModalEdicion('${sale.id}')" title="Editar venta">✏️ Editar</button>
-                <button type="button" class="btn-delete-action" onclick="confirmarEliminarVenta('${sale.id}')" title="Eliminar venta">🗑️ Eliminar</button>
-              </div>
-            ` : `<span style="color:#6b7280; font-size:0.85rem;" title="${!isToday ? 'Las ventas de días anteriores son de solo lectura' : 'Solo lectura'}">${sale.archivada ? 'Archivada' : 'Solo lectura'}</span>`}
+              <button type="button" class="btn-delete-action" onclick="confirmarDeshabilitarVenta('${sale.id}')" title="Deshabilitar venta">🚫 Deshabilitar</button>
+            ` : `<span style="color:#6b7280; font-size:0.85rem;" title="${sale.estado === 'deshabilitada' ? 'La venta conserva su registro, pero ya no afecta el stock ni los totales' : (!isToday ? 'Las ventas de días anteriores son de solo lectura' : 'Solo lectura')}">${sale.estado === 'deshabilitada' ? 'Deshabilitada' : (sale.archivada ? 'Archivada' : 'Solo lectura')}</span>`}
           </td>
         </tr>
       `;
@@ -304,26 +304,24 @@
   }
   window.recalcularTotalModal = recalcularTotalModal;
 
-  // Eliminar venta directo vía API
-  async function eliminarVentaDirecto(saleId) {
+  // Deshabilita una venta diaria y revierte su impacto en el stock.
+  async function deshabilitarVenta(saleId) {
     const canModify = window.puedeModificarInforme ?? puedeModificarInforme;
     if (!canModify) return;
 
     try {
-      const response = await fetch(`api/ventas.php?id=${encodeURIComponent(saleId)}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+      const response = await fetch('api/ventas.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deshabilitar', id: Number(saleId) })
       });
       const result = await response.json();
 
       if (!response.ok || !result.ok) {
-        throw new Error(result.message || 'No se pudo eliminar la venta.');
+        throw new Error(result.message || 'No se pudo deshabilitar la venta.');
       }
 
-      const modal = document.getElementById('editSaleModal');
-      if (modal) modal.style.display = 'none';
-
-      alert(result.message || '✅ Venta eliminada con éxito y stock restaurado.');
+      alert(result.message || '✅ Venta deshabilitada y stock restaurado.');
 
       if (typeof window.loadInventory === 'function') await window.loadInventory();
       refreshSelectedHistory();
@@ -331,13 +329,13 @@
       localStorage.setItem('inventarioUpdated', Date.now().toString());
       window.dispatchEvent(new Event('inventario-updated'));
     } catch (error) {
-      alert(`❌ Error al eliminar: ${error.message}`);
+      alert(`❌ Error al deshabilitar: ${error.message}`);
     }
   }
-  window.eliminarVentaDirecto = eliminarVentaDirecto;
+  window.deshabilitarVenta = deshabilitarVenta;
 
-  // Confirmar y eliminar venta desde tabla o botón
-  function confirmarEliminarVenta(saleId) {
+  // Confirma la deshabilitación de una venta diaria.
+  function confirmarDeshabilitarVenta(saleId) {
     const canModify = window.puedeModificarInforme ?? puedeModificarInforme;
     if (!canModify) return;
     const sourceSales = state.historySales || state.sales;
@@ -346,115 +344,19 @@
       const todayStr = formatLocalDate(new Date());
       const saleDateStr = formatLocalDate(new Date(sale.fecha));
       if (saleDateStr !== todayStr) {
-        alert('Las ventas de días anteriores son de solo lectura y no se pueden eliminar.');
+        alert('Solo se pueden deshabilitar ventas del día actual.');
         return;
       }
     }
-    if (confirm('⚠️ ¿Estás seguro de que querés eliminar esta venta del historial?\nEl stock de los productos se devolverá automáticamente al inventario.')) {
-      eliminarVentaDirecto(saleId);
+    if (confirm('⚠️ ¿Deshabilitar esta venta?\nLa venta conservará su registro y el stock volverá al estado anterior.')) {
+      deshabilitarVenta(saleId);
     }
   }
-  window.confirmarEliminarVenta = confirmarEliminarVenta;
+  window.confirmarDeshabilitarVenta = confirmarDeshabilitarVenta;
 
-  // Event listeners de modales y formularios de edición de venta
+  // Inicializa filtros y carga el historial de ventas.
   function initVentasHistorial() {
     configureHistoryFilters();
-
-    document.getElementById('closeModalBtn')?.addEventListener('click', () => {
-      const modal = document.getElementById('editSaleModal');
-      if (modal) modal.style.display = 'none';
-    });
-
-    window.addEventListener('click', (event) => {
-      const modal = document.getElementById('editSaleModal');
-      if (event.target === modal) {
-        modal.style.display = 'none';
-      }
-    });
-
-    // Guardar cambios modal
-    document.getElementById('edit-sale-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const canModify = window.puedeModificarInforme ?? puedeModificarInforme;
-      if (!canModify) return;
-
-      const saleId = document.getElementById('edit-sale-id').value;
-      const originalSale = state.sales.find(s => String(s.id) === String(saleId));
-      if (!originalSale) return;
-
-      const container = document.getElementById('edit-sale-products-container');
-      const rows = container.querySelectorAll('.edit-product-row');
-
-      const nuevosProductosVenta = [];
-      let totalCantidad = 0;
-
-      for (const row of rows) {
-        const qtyInput = row.querySelector('.edit-product-qty');
-        const qty = parseInt(qtyInput.value) || 0;
-        const codigo = qtyInput.dataset.codigo;
-        const precio = parseFloat(qtyInput.dataset.precio) || 0;
-        const nombre = qtyInput.dataset.nombre || 'Producto';
-
-        totalCantidad += qty;
-
-        if (qty > 0) {
-          nuevosProductosVenta.push({
-            nombre: nombre,
-            codigo: codigo,
-            cantidad: qty,
-            precio: precio
-          });
-        }
-      }
-
-      // Si la cantidad total es 0, consultar si desea eliminar la venta
-      if (totalCantidad === 0 || nuevosProductosVenta.length === 0) {
-        if (!confirm('⚠️ La venta quedará vacía (0 productos).\n¿Deseás eliminar esta venta del historial y devolver el stock al inventario?')) {
-          return;
-        }
-        await eliminarVentaDirecto(saleId);
-        return;
-      }
-
-      try {
-        const response = await fetch('api/ventas.php', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: saleId,
-            codigo: nuevosProductosVenta[0].codigo,
-            cantidad: nuevosProductosVenta[0].cantidad,
-            precio: nuevosProductosVenta[0].precio,
-            productos: nuevosProductosVenta
-          })
-        });
-        const result = await response.json();
-
-        if (!response.ok || !result.ok) {
-          throw new Error(result.message || 'No se pudo modificar la venta.');
-        }
-
-        document.getElementById('editSaleModal').style.display = 'none';
-        alert(result.message || '✅ Venta modificada con éxito y stock actualizado.');
-
-        if (typeof window.loadInventory === 'function') await window.loadInventory();
-        refreshSelectedHistory();
-
-        localStorage.setItem('inventarioUpdated', Date.now().toString());
-        window.dispatchEvent(new Event('inventario-updated'));
-      } catch (error) {
-        alert(`❌ Error al guardar: ${error.message}`);
-      }
-    });
-
-    document.getElementById('btnDeleteSale')?.addEventListener('click', async () => {
-      const canModify = window.puedeModificarInforme ?? puedeModificarInforme;
-      if (!canModify) return;
-      const saleId = document.getElementById('edit-sale-id').value;
-      if (!saleId) return;
-
-      confirmarEliminarVenta(saleId);
-    });
   }
 
   if (document.readyState === 'loading') {

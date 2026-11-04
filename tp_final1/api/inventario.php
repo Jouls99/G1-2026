@@ -438,31 +438,33 @@ if ($method === 'POST') {
 
     // Acción para rehabilitar producto
     if ($action === 'rehabilitar') {
-        $codigo = trim((string)($body['codigo'] ?? ($_GET['codigo'] ?? '')));
-        if ($codigo === '') {
-            sendJson(['error' => 'missing_code', 'message' => 'Se requiere el código del producto.'], 400);
-        }
-        if (!isValidProductCode($codigo)) {
-            sendJson(['ok' => false, 'error' => 'invalid_code', 'message' => 'El código solo puede contener números del 0 al 9.'], 400);
+        requireSuperAdminApi();
+        $productId = filter_var($body['id'] ?? ($_GET['id'] ?? null), FILTER_VALIDATE_INT);
+        if ($productId === false || $productId === null || $productId < 1) {
+            sendJson(['error' => 'missing_id', 'message' => 'Se requiere un identificador de producto válido.'], 400);
         }
 
-        $updStmt = $db->prepare("UPDATE `producto` SET `fase` = 'habilitado' WHERE LOWER(`codigo`) = LOWER(:codigo) OR `ID_stock` = :id");
-        $updStmt->execute([
-            ':codigo' => $codigo,
-            ':id'     => is_numeric($codigo) ? (int)$codigo : 0
-        ]);
+        $findStmt = $db->prepare("SELECT `nombre`, `codigo` FROM `producto` WHERE `ID_stock` = :id LIMIT 1");
+        $findStmt->execute([':id' => $productId]);
+        $product = $findStmt->fetch();
+        if (!$product) {
+            sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'Producto no encontrado.'], 404);
+        }
+
+        $updStmt = $db->prepare("UPDATE `producto` SET `fase` = 'habilitado' WHERE `ID_stock` = :id");
+        $updStmt->execute([':id' => $productId]);
 
         $currentUser = getApiUser();
         $uName = $currentUser['usuario'] ?? 'Administrador';
         logActivity(
             $uName,
             'stock_habilitar',
-            "Producto '{$codigo}' rehabilitado (fase: habilitado) por {$uName}",
-            ['codigo' => $codigo, 'fase' => 'habilitado'],
+            "Producto '{$product['nombre']}' (ID: {$productId}) rehabilitado por {$uName}",
+            ['id_stock' => $productId, 'codigo' => $product['codigo'], 'fase' => 'habilitado'],
             $currentUser['id'] ?? null
         );
 
-        sendJson(['ok' => true, 'message' => "Producto '{$codigo}' rehabilitado exitosamente.", 'fase' => 'habilitado']);
+        sendJson(['ok' => true, 'message' => "Producto '{$product['nombre']}' rehabilitado exitosamente.", 'fase' => 'habilitado']);
     }
 
     if (!is_array($body) || empty($body['nombre']) || empty($body['codigo'])) {
@@ -498,61 +500,12 @@ if ($method === 'POST') {
         $checkStmt->execute([':codigo' => $codigo]);
         $existing = $checkStmt->fetch();
         if ($existing) {
-            // Si existía pero estaba deshabilitado, actualizar y rehabilitar
             if (strtolower((string)($existing['fase'] ?? '')) === 'deshabilitado') {
-                if (!isAdminApi()) {
-                    sendJson(['ok' => false, 'error' => 'forbidden', 'message' => 'Solo un administrador puede rehabilitar productos deshabilitados.'], 403);
-                }
-                $catStmt = $db->prepare("SELECT `ID_categoria` FROM `categoria` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
-                $catStmt->execute([':nombre' => $categoriaName]);
-                $catId = $catStmt->fetchColumn();
-                if (!$catId) {
-                    $insertCat = $db->prepare("INSERT INTO `categoria` (`nombre`) VALUES (:nombre)");
-                    $insertCat->execute([':nombre' => $categoriaName]);
-                    $catId = (int)$db->lastInsertId();
-                } else {
-                    $catId = (int)$catId;
-                }
-
-                $subcategoryName = trim((string)($body['subcategoria'] ?? ''));
-                $subcategoryName = $subcategoryName !== '' ? $subcategoryName : null;
-                $subcategoryId = findOrCreateSubcategory($db, $catId, $subcategoryName);
-                $updRehab = $db->prepare("
-                    UPDATE `producto`
-                    SET `nombre` = :nom, `marca` = :marca, `sub_nombre` = :sub_nombre,
-                        `cantTotal` = :cant, `precio` = :prec, `subcategoria` = :subcategoria,
-                        `ID_categoria` = :category_id, `ID_sub_categoria` = :subcategory_id,
-                        `fase` = 'habilitado'
-                    WHERE `ID_stock` = :id
-                ");
-                $updRehab->execute([
-                    ':nom'  => $nombre,
-                    ':marca' => trim((string)($body['marca'] ?? '')) ?: null,
-                    ':sub_nombre' => trim((string)($body['sub_nombre'] ?? '')) ?: null,
-                    ':cant' => $cantidad,
-                    ':prec' => $precio,
-                    ':subcategoria' => $subcategoryName,
-                    ':category_id' => $catId,
-                    ':subcategory_id' => $subcategoryId,
-                    ':id'   => (int)$existing['ID_stock']
-                ]);
-
                 sendJson([
-                    'ok' => true,
-                    'message' => 'Producto existente rehabilitado y actualizado.',
-                    'item' => [
-                        'id' => (int)$existing['ID_stock'],
-                        'ID_stock' => (int)$existing['ID_stock'],
-                        'codigo' => $codigo,
-                        'nombre' => $nombre,
-                        'categoria' => $categoriaName,
-                        'ID_categoria' => $catId,
-                        'subcategoria' => $subcategoryName,
-                        'ID_sub_categoria' => $subcategoryId,
-                        'fase' => 'habilitado',
-                        'rehabilitado' => true
-                    ]
-                ]);
+                    'ok' => false,
+                    'error' => 'disabled_product',
+                    'message' => 'Este producto está deshabilitado. Solo el Super Admin puede habilitarlo desde el menú del clic derecho.'
+                ], 409);
             }
             sendJson(['error' => 'item_exists', 'message' => 'Ya existe un producto activo con este código.'], 409);
         }

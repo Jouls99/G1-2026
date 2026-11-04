@@ -30,6 +30,7 @@
       : null;
 
     state.sales.forEach((sale) => {
+      if (sale.estado === 'deshabilitada') return;
       const saleDate = new Date(sale.fecha);
       if (range && (Number.isNaN(saleDate.getTime()) || saleDate < range.start || saleDate >= range.end)) return;
       (sale.productos || []).forEach((producto) => {
@@ -46,6 +47,7 @@
   function getLastSaleInfo(codigo) {
     const codigoKey = String(codigo || '').toLowerCase();
     const salesForProduct = state.sales.filter((sale) =>
+      sale.estado !== 'deshabilitada' &&
       (sale.productos || []).some((producto) => String(producto.codigo || '').toLowerCase() === codigoKey)
     );
 
@@ -176,6 +178,7 @@
       ? start.toLocaleDateString('es-AR')
       : `${start.toLocaleDateString('es-AR')} - ${new Date(end.getTime() - 1).toLocaleDateString('es-AR')}`;
     const salesInRange = state.sales.filter((sale) => {
+      if (sale.estado === 'deshabilitada') return false;
       const saleDate = new Date(sale.fecha);
       return !Number.isNaN(saleDate.getTime()) && saleDate >= start && saleDate < end;
     });

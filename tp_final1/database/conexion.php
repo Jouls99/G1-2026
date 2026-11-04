@@ -62,6 +62,7 @@ function getDBConnection(): ?PDO
     ensureLoginAttemptTable($pdo);
     ensureFacturacionDateIndex($pdo);
     ensureSalesLedgerTables($pdo);
+    ensureSaleStatusColumns($pdo);
     importLegacyActivityFiles($pdo);
     importLegacyThreatFile($pdo);
     syncDefaultUsers($pdo);
@@ -98,6 +99,7 @@ function ensureSalesLedgerTables(PDO $pdo): void
             `ID_stock` int(11) DEFAULT NULL,
             `nombre_producto` varchar(100) DEFAULT NULL,
             `usuario` varchar(100) DEFAULT 'gomez11',
+            `estado` varchar(20) NOT NULL DEFAULT 'habilitada',
             PRIMARY KEY (`ID_factura`),
             KEY `fk_ventas_producto` (`ID_stock`),
             KEY `idx_ventas_fecha_id` (`fecha`, `ID_factura`),
@@ -116,6 +118,7 @@ function ensureSalesLedgerTables(PDO $pdo): void
             `ID_stock` int(11) DEFAULT NULL,
             `nombre_producto` varchar(100) DEFAULT NULL,
             `usuario` varchar(100) DEFAULT 'gomez11',
+            `estado` varchar(20) NOT NULL DEFAULT 'habilitada',
             `semana_inicio` date NOT NULL,
             PRIMARY KEY (`ID_factura`),
             KEY `idx_ventas_historial_semana_fecha` (`semana_inicio`, `fecha`),
@@ -188,6 +191,17 @@ function ensureSalesLedgerTables(PDO $pdo): void
         throw $e;
     } finally {
         $pdo->query("SELECT RELEASE_LOCK('sos_cosmeticos_cierre_jornada')");
+    }
+}
+
+// Conserva las ventas deshabilitadas sin eliminarlas y permite revertir su impacto en stock.
+function ensureSaleStatusColumns(PDO $pdo): void
+{
+    foreach (['ventas', 'ventas_historial'] as $table) {
+        if (!$pdo->query("SHOW COLUMNS FROM `{$table}` LIKE 'estado'")->fetch()) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `estado` varchar(20) NOT NULL DEFAULT 'habilitada' AFTER `usuario`");
+        }
+        $pdo->exec("UPDATE `{$table}` SET `estado` = 'habilitada' WHERE `estado` IS NULL OR `estado` = ''");
     }
 }
 

@@ -13,7 +13,7 @@ $canSeeAll = isAdminApi() || canModifyReportsApi();
 
 try {
     $where = [
-        "a.`tipo_accion` IN ('venta_modificada', 'venta_eliminada')"
+        "a.`tipo_accion` IN ('venta_modificada', 'venta_eliminada', 'venta_deshabilitada')"
     ];
     $params = [];
 

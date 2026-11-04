@@ -111,6 +111,7 @@
     };
 
     state.sales.forEach((sale) => {
+      if (sale.estado === 'deshabilitada') return;
       const date = new Date(sale.fecha);
       if (Number.isNaN(date.getTime()) || date < start || date >= end) return;
 

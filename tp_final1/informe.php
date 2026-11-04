@@ -175,7 +175,11 @@ require_once __DIR__ . '/includes/navbar.php';
             tbody.innerHTML = filtrados.map(ed => {
                 const usuario = ed.usuario ?? 'Desconocido';
                 const rol = ed.rol ?? 'Desconocido';
-                const accion = ed.accion ?? '';
+                const accion = ed.accion === 'venta_deshabilitada'
+                    ? 'Venta deshabilitada'
+                    : (ed.accion === 'venta_modificada'
+                        ? 'Venta modificada'
+                        : (ed.accion === 'venta_eliminada' ? 'Venta eliminada' : (ed.accion ?? '')));
                 const fecha = ed.fecha ?? '';
                 const hora = ed.hora ?? '';
                 const detalle = ed.detalles_cambios ?? ed.detalle ?? '';
@@ -279,39 +283,6 @@ require_once __DIR__ . '/includes/navbar.php';
     
     <section id="reportPdfContent" class="report-pdf-only" aria-hidden="true"></section>
 </main>
-
-<!-- Modal de Edición de Venta -->
-<!-- Permite modificar los productos de una venta y recalcular su total antes de persistirla. -->
-<div id="editSaleModal" class="modal" style="display: none;">
-    <div class="modal-content">
-        <span class="close-btn" id="closeModalBtn">&times;</span>
-        <h2>✏️ Editar Venta</h2>
-        <form id="edit-sale-form">
-            <input type="hidden" id="edit-sale-id">
-            <div class="form-group-modal">
-                <label>Fecha de la Venta:</label>
-                <input type="text" id="edit-sale-fecha" readonly class="readonly-input">
-            </div>
-            <div class="form-group-modal">
-                <h3>Productos en la Venta:</h3>
-                <div id="edit-sale-products-container">
-                    <!-- Filas inyectadas dinámicamente -->
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <div class="total-monto-modal">
-                    <span>TOTAL NUEVO:</span>
-                    <strong id="edit-sale-total">$0.00</strong>
-                </div>
-                <div class="modal-buttons">
-                    <button type="submit" class="btn btn-save">✔ Guardar Cambios</button>
-                    <button type="button" class="btn btn-delete-sale" id="btnDeleteSale">🗑 Eliminar Venta</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
 
 <script>
     window.puedeModificarInforme = <?= $puedeModificarInforme ? 'true' : 'false' ?>;

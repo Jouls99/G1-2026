@@ -148,8 +148,8 @@ function archivarVentasDeJornada(PDO $db, string $dayStart, string $dayEnd): int
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
             $copy = $db->prepare("
                 INSERT INTO `ventas_historial`
-                    (`ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`, `semana_inicio`)
-                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`,
+                    (`ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`, `estado`, `semana_inicio`)
+                SELECT `ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`, `estado`,
                        DATE_SUB(DATE(`fecha`), INTERVAL WEEKDAY(`fecha`) DAY)
                 FROM `ventas`
                 WHERE `ID_factura` IN ({$placeholders})

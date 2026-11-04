@@ -73,7 +73,6 @@ function showProductContextMenu(event, productId, catId) {
     for (const cat of inventario) {
         const p = (cat.productos || []).find(prod =>
             String(prod.ID_stock || prod.id) === String(productId)
-            && (prod.fase || 'habilitado') !== 'deshabilitado'
         );
         if (p) {
             targetProduct = p;
@@ -84,6 +83,9 @@ function showProductContextMenu(event, productId, catId) {
 
     if (!targetProduct) return;
 
+    const isDisabled = (targetProduct.fase || 'habilitado') === 'deshabilitado';
+    if (isDisabled && !usuarioEsSuperAdmin) return;
+
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.innerHTML = `
@@ -92,7 +94,7 @@ function showProductContextMenu(event, productId, catId) {
             <small style="display:block; color:#6b7280; font-size:0.75rem; margin-top:2px;">Código: ${escapeHtml(targetProduct.codigo)}</small>
         </div>
         <button type="button" class="context-menu-item">
-            🗑 Eliminar producto
+            ${isDisabled ? '✅ Habilitar producto' : '🗑 Eliminar producto'}
         </button>
     `;
 
@@ -117,8 +119,47 @@ function showProductContextMenu(event, productId, catId) {
     actionBtn.onclick = (e) => {
         e.stopPropagation();
         hideProductContextMenu();
-        pedirConfirmacionEliminar(targetProduct.codigo, targetCat?.id || catId, targetProduct.nombre, targetCat?.nombre || '');
+        if (isDisabled) {
+            rehabilitarProducto(targetProduct.ID_stock || targetProduct.id, targetCat?.id || catId, targetProduct.nombre);
+        } else {
+            pedirConfirmacionEliminar(targetProduct.codigo, targetCat?.id || catId, targetProduct.nombre, targetCat?.nombre || '');
+        }
     };
+}
+
+async function rehabilitarProducto(productId, catId, nombre) {
+    if (!usuarioEsSuperAdmin) return;
+    if (!confirm(`¿Habilitar nuevamente el producto "${nombre}"?`)) return;
+
+    try {
+        const res = await fetch('api/inventario.php?action=rehabilitar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: productId })
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok !== true) {
+            throw new Error(data.message || 'No se pudo habilitar el producto.');
+        }
+    } catch (error) {
+        alert(`No se pudo habilitar el producto: ${error.message}`);
+        return;
+    }
+
+    await cargarInventario();
+    categoriaSeleccionada = inventario.find(cat => cat.id === catId) || inventario[0] || null;
+    renderCategories();
+    renderTable(categoriaSeleccionada);
+    renderDetailPanel();
+
+    const searchInput = document.getElementById('globalSearch');
+    if (searchInput && searchInput.value.trim() !== '') {
+        searchInput.dispatchEvent(new Event('input'));
+    }
+
+    localStorage.setItem('inventarioUpdated', Date.now().toString());
+    window.dispatchEvent(new Event('inventario-updated'));
+    alert(`✅ El producto "${nombre}" fue habilitado nuevamente.`);
 }
 
 /**
