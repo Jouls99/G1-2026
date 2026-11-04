@@ -6,7 +6,7 @@ requireAdmin('venta.php');
 
 // Ajustes de la plantilla compartida para identificar esta pantalla en la navegación.
 $pageTitle = 'Permisos de vendedores';
-$customCss = 'css/usuarios.css';
+$customCss = 'css/usuarios.css?v=' . filemtime(__DIR__ . '/css/usuarios.css');
 $activePage = 'permisos';
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/navbar.php';
@@ -28,20 +28,23 @@ require_once __DIR__ . '/includes/navbar.php';
     <!-- permisos.js consulta los vendedores, renderiza sus permisos y envía los cambios a la API. -->
     <section class="panel-layout">
         <div class="table-card">
-            <div class="permissions-table-scroll">
-        <table class="users-table permissions-table">
-            <thead>
-                <tr>
-                    <th scope="col">Vendedor</th>
-                    <th scope="col">Registrar productos en stock</th>
-                    <th scope="col">Modificar ventas en informes</th>
-                    <th scope="col">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="seller-permissions-body">
-                <tr><td colspan="4" class="permissions-empty">Cargando vendedores...</td></tr>
-            </tbody>
-        </table>
+            <div id="seller-permissions-desktop" class="permissions-table-scroll">
+                <table class="users-table permissions-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Vendedor</th>
+                            <th scope="col">Registrar productos en stock</th>
+                            <th scope="col">Modificar ventas en informes</th>
+                            <th scope="col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="seller-permissions-body">
+                        <tr><td colspan="4" class="permissions-empty">Cargando vendedores...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="seller-permissions-mobile" class="seller-permissions-list" aria-live="polite">
+                <p class="permissions-empty">Cargando vendedores...</p>
             </div>
         </div>
         <p id="permissions-message" class="permissions-message" role="status" aria-live="polite"></p>

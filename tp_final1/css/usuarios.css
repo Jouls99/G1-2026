@@ -1284,7 +1284,12 @@ body {
 .permissions-header {
     background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
 }
+.seller-permissions-list {
+    display: none !important;
+    gap: 16px;
+}
 .permissions-table-scroll {
+    display: block !important;
     width: 100%;
     overflow-x: auto;
 }
@@ -1303,6 +1308,59 @@ body {
 }
 .permissions-table .avatar-bubble {
     flex: 0 0 40px;
+}
+.permissions-card {
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+}
+.permissions-card-header {
+    padding-bottom: 14px;
+    border-bottom: 1px solid #eef2f7;
+}
+.permissions-card .avatar-bubble {
+    flex: 0 0 40px;
+}
+.permissions-card-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 0;
+}
+.permission-control {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-md);
+    background: #f8fafc;
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+    font-weight: 600;
+}
+.permission-control strong {
+    grid-column: 2;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+.permission-control.is-enabled {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+.permission-control.is-enabled strong {
+    color: var(--accent-emerald);
+}
+.permission-control-icon {
+    grid-row: span 2;
+    font-size: 1.15rem;
+}
+.permissions-save-button {
+    margin-top: 2px;
 }
 .permission-toggle {
     display: inline-flex;
@@ -1323,13 +1381,21 @@ body {
 .permission-toggle input:checked + .permission-toggle-label {
     color: var(--accent-emerald);
 }
-.permissions-table .btn-action-sm {
-    white-space: nowrap;
-}
 .permissions-empty {
     padding: 32px 18px !important;
     color: var(--text-muted);
     text-align: center !important;
+}
+@media (max-width: 767px) {
+    .permissions-table-scroll {
+        display: none !important;
+    }
+    .seller-permissions-list {
+        display: grid !important;
+    }
+    .permissions-card-body {
+        grid-template-columns: 1fr;
+    }
 }
 .permissions-empty.permissions-error,
 .permissions-message.error {

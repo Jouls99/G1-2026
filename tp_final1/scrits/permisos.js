@@ -1,4 +1,6 @@
 const permissionsBody = document.getElementById('seller-permissions-body');
+const permissionsMobile = document.getElementById('seller-permissions-mobile');
+const permissionsRoot = document.querySelector('.permisos-container');
 const permissionsMessage = document.getElementById('permissions-message');
 
 const modalConfirmar = document.getElementById('modal-confirmar-permisos');
@@ -12,7 +14,7 @@ const btnTogglePassword = document.getElementById('btn-toggle-password');
 
 let pendingChange = null;
 
-// Consulta vendedores autorizables y construye sus controles de permisos en la tabla.
+// Consulta vendedores autorizables y construye la tabla de escritorio y las tarjetas móviles.
 async function loadSellerPermissions() {
   try {
     const response = await fetch('api/permisos.php', { cache: 'no-store' });
@@ -21,10 +23,11 @@ async function loadSellerPermissions() {
 
     if (!result.usuarios || !result.usuarios.length) {
       permissionsBody.innerHTML = '<tr><td colspan="4" class="permissions-empty">No hay vendedores registrados.</td></tr>';
+      permissionsMobile.innerHTML = '<p class="permissions-empty">No hay vendedores registrados.</p>';
       return;
     }
 
-    permissionsBody.innerHTML = result.usuarios.map((user) => `
+    const tableRows = result.usuarios.map((user) => `
       <tr class="permissions-row" data-user-id="${user.id}">
         <th scope="row">
           <div class="user-profile-cell">
@@ -44,13 +47,37 @@ async function loadSellerPermissions() {
             <span class="permission-toggle-label">${user.puede_modificar_informes ? 'Habilitado' : 'Deshabilitado'}</span>
           </label>
         </td>
-        <td>
-          <button type="button" class="btn-action-sm btn-edit" data-save-permissions>💾 Guardar</button>
-        </td>
+        <td><button type="button" class="btn-action-sm btn-edit" data-save-permissions>💾 Guardar</button></td>
       </tr>
+    `).join('');
+    permissionsBody.innerHTML = tableRows;
+
+    permissionsMobile.innerHTML = result.usuarios.map((user) => `
+      <article class="permissions-card" data-user-id="${user.id}">
+        <div class="permissions-card-header">
+          <div class="user-profile-cell">
+            <span class="avatar-bubble vendedor">${escapeHtml(user.usuario.charAt(0).toUpperCase())}</span>
+            <span class="user-details-title">${escapeHtml(user.usuario)}</span>
+          </div>
+        </div>
+        <div class="permissions-card-body">
+          <button type="button" class="permission-control ${user.puede_registrar_stock ? 'is-enabled' : ''}" data-permission="puede_registrar_stock" aria-pressed="${user.puede_registrar_stock}" aria-label="Cambiar permiso de registrar productos en stock para ${escapeHtml(user.usuario)}">
+            <span class="permission-control-icon">📦</span>
+            <span>Registrar productos en stock</span>
+            <strong class="permission-toggle-label">${user.puede_registrar_stock ? 'Habilitado' : 'Deshabilitado'}</strong>
+          </button>
+          <button type="button" class="permission-control ${user.puede_modificar_informes ? 'is-enabled' : ''}" data-permission="puede_modificar_informes" aria-pressed="${user.puede_modificar_informes}" aria-label="Cambiar permiso de modificar ventas en informes para ${escapeHtml(user.usuario)}">
+            <span class="permission-control-icon">📊</span>
+            <span>Modificar ventas en informes</span>
+            <strong class="permission-toggle-label">${user.puede_modificar_informes ? 'Habilitado' : 'Deshabilitado'}</strong>
+          </button>
+        </div>
+        <button type="button" class="btn-action-sm btn-edit permissions-save-button" data-save-permissions>💾 Guardar cambios</button>
+      </article>
     `).join('');
   } catch (error) {
     permissionsBody.innerHTML = `<tr><td colspan="4" class="permissions-empty permissions-error">${escapeHtml(error.message)}</td></tr>`;
+    permissionsMobile.innerHTML = `<p class="permissions-empty permissions-error">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -62,33 +89,30 @@ function escapeHtml(value) {
 }
 
 // Actualiza la etiqueta de estado en el acto al cambiar un checkbox.
-permissionsBody.addEventListener('change', (event) => {
+permissionsRoot.addEventListener('change', (event) => {
   const checkbox = event.target.closest('[data-permission]');
   if (!checkbox) return;
   checkbox.nextElementSibling.textContent = checkbox.checked ? 'Habilitado' : 'Deshabilitado';
 });
 
-// Abre el modal de confirmación solicitando la contraseña del administrador.
-permissionsBody.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-save-permissions]');
-  if (!button) return;
-
-  const row = button.closest('tr');
-  const userId = Number(row.dataset.userId);
-  const userName = row.querySelector('.user-details-title')?.textContent?.trim() || 'vendedor';
-
-  const stockInput = row.querySelector('[data-permission="puede_registrar_stock"]');
-  const informesInput = row.querySelector('[data-permission="puede_modificar_informes"]');
-
-  const stockChecked = Boolean(stockInput?.checked);
-  const informesChecked = Boolean(informesInput?.checked);
+function openPermissionConfirmation(container) {
+  const userId = Number(container.dataset.userId);
+  const userName = container.querySelector('.user-details-title')?.textContent?.trim() || 'vendedor';
+  const stockInput = container.querySelector('[data-permission="puede_registrar_stock"]');
+  const informesInput = container.querySelector('[data-permission="puede_modificar_informes"]');
+  const stockChecked = stockInput?.type === 'checkbox'
+    ? stockInput.checked
+    : stockInput?.classList.contains('is-enabled') || false;
+  const informesChecked = informesInput?.type === 'checkbox'
+    ? informesInput.checked
+    : informesInput?.classList.contains('is-enabled') || false;
 
   pendingChange = {
     id: userId,
-    userName: userName,
+    userName,
     puede_registrar_stock: stockChecked,
     puede_modificar_informes: informesChecked,
-    button: button
+    button: container.querySelector('[data-save-permissions]')
   };
 
   if (modalTargetName) modalTargetName.textContent = userName;
@@ -98,20 +122,33 @@ permissionsBody.addEventListener('click', (event) => {
       <div style="margin-top: 6px;">📊 <strong>Modificar ventas en informes:</strong> <span style="color: ${informesChecked ? '#059669' : '#dc2626'}; font-weight: 700;">${informesChecked ? 'Habilitado' : 'Deshabilitado'}</span></div>
     `;
   }
-
   if (inputPassword) {
     inputPassword.value = '';
     inputPassword.type = 'password';
   }
-  if (btnTogglePassword) {
-    btnTogglePassword.textContent = '👁️';
-  }
+  if (btnTogglePassword) btnTogglePassword.textContent = '👁️';
   if (modalError) {
     modalError.style.display = 'none';
     modalError.textContent = '';
   }
-
   abrirModalConfirmacion();
+}
+
+// Abre el modal de confirmación solicitando la contraseña del administrador.
+permissionsRoot.addEventListener('click', (event) => {
+  const permissionButton = event.target.closest('[data-permission]');
+  const saveButton = event.target.closest('[data-save-permissions]');
+  const container = event.target.closest('.permissions-card, .permissions-row');
+  if (!container) return;
+
+  if (permissionButton && permissionButton.tagName === 'BUTTON') {
+    const enabled = permissionButton.classList.toggle('is-enabled');
+    permissionButton.setAttribute('aria-pressed', String(enabled));
+    permissionButton.querySelector('.permission-toggle-label').textContent = enabled ? 'Habilitado' : 'Deshabilitado';
+    openPermissionConfirmation(container);
+    return;
+  }
+  if (saveButton) openPermissionConfirmation(container);
 });
 
 function abrirModalConfirmacion() {
