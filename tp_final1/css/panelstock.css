@@ -4,7 +4,12 @@ body {
     background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 100%);
     color: #333;
 }
-
+* {
+    box-sizing: border-box;
+    margin: 0px ;
+    padding: 0;
+    top: 0;
+}
 h1 {
     color: #7c2d92;
     margin-bottom: 10px;

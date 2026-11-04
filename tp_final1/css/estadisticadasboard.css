@@ -318,6 +318,10 @@ th {
     margin-top: 24px;
 }
 
+.mobile-inventory-report {
+    display: none;
+}
+
 .sales-table th,
 .sales-table td {
     white-space: nowrap;
@@ -366,6 +370,117 @@ th {
 
     .chip-group {
         flex-direction: column;
+    }
+
+    .summary-table-wrapper {
+        overflow: visible;
+    }
+
+    .summary-table-wrapper > table {
+        display: none;
+    }
+
+    .mobile-inventory-report {
+        display: block;
+        margin: 0;
+    }
+
+    .mobile-inventory-report h3 {
+        color: var(--primary-dark);
+        margin-bottom: 12px;
+    }
+
+    .mobile-category,
+    .mobile-subcategory {
+        margin-bottom: 10px;
+        border: 1px solid #dabad3;
+        border-radius: 10px;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .mobile-category > summary,
+    .mobile-subcategory > summary {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        cursor: pointer;
+        padding: 12px 14px;
+        color: var(--primary-dark);
+        font-weight: 700;
+        list-style-position: inside;
+    }
+
+    .mobile-category > summary {
+        background: #f4d9e7;
+    }
+
+    .mobile-category > summary span,
+    .mobile-subcategory > summary span {
+        color: #7a4f6a;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .mobile-category[open] > summary,
+    .mobile-subcategory[open] > summary {
+        border-bottom: 1px solid #ead8e4;
+    }
+
+    .mobile-subcategories {
+        padding: 10px;
+    }
+
+    .mobile-product-list {
+        display: grid;
+        gap: 10px;
+        list-style: none;
+        margin-top: 10px;
+    }
+
+    .mobile-product-card {
+        padding: 14px;
+        border: 1px solid #ead8e4;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(73, 6, 51, 0.06);
+    }
+
+    .mobile-product-name {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--primary-dark);
+        font-size: 1rem;
+    }
+
+    .mobile-product-card dl {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .mobile-product-card dl div {
+        min-width: 0;
+    }
+
+    .mobile-product-card dt {
+        color: #7a4f6a;
+        font-size: 0.84rem;
+        line-height: 1.2;
+    }
+
+    .mobile-product-card dd {
+        margin: 0;
+        margin-top: 4px;
+        color: #2f1b2b;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+
+    .mobile-inventory-empty {
+        padding: 14px;
+        border-radius: 10px;
+        background: #fff5fb;
     }
 }
 

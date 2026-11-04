@@ -258,6 +258,11 @@ require_once __DIR__ . '/includes/navbar.php';
         </section>
 
         <div id="seccion-resumen" class="table-wrapper summary-table-wrapper" hidden>
+            <div id="mobileInventoryReport" class="mobile-inventory-report" aria-label="Resumen de inventario para dispositivos móviles">
+                <h3>Inventario por categoría</h3>
+                <div id="mobileInventoryCategories" class="mobile-inventory-categories" role="group" aria-label="Categorías de inventario"></div>
+                <div id="mobileInventoryProducts"></div>
+            </div>
             <table border="1">
                 <thead>
                     <tr>

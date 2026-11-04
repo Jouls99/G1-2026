@@ -113,16 +113,22 @@
 
     const escapeFn = typeof window.escapeHtml === 'function' ? window.escapeHtml : (str => str ?? '');
     const fmt = window.currencyFormatter || currencyFormatter;
+    const getSold = (item) => {
+      const key = String(item.codigo || '').toLowerCase();
+      return Object.prototype.hasOwnProperty.call(soldSummary, key)
+        ? soldSummary[key]
+        : (Number(item.cantVendida) || 0);
+    };
 
     let totalVendidas = 0;
     let totalDisponibles = 0;
     let totalGanancias = 0;
 
     const rows = state.inventory.map((item) => {
-      const sold = soldSummary[String(item.codigo || '').toLowerCase()] || 0;
+      const sold = getSold(item);
       const saleInfo = getLastSaleInfo(item.codigo);
       const available = Number(item.cantidad) || 0;
-      const totalValue = item.total != null ? Number(item.total) : (Number(item.precio) || 0) * available;
+      const totalValue = (Number(item.precio) || 0) * sold;
 
       totalVendidas += sold;
       totalDisponibles += available;
@@ -160,6 +166,73 @@
     tbody.innerHTML = rows + totalRow;
   }
   window.renderInventoryTable = renderInventoryTable;
+
+  // En pantallas pequeñas, muestra categorías y subcategorías plegables sin tablas.
+  function renderMobileInventory() {
+    const categoriesContainer = document.getElementById('mobileInventoryCategories');
+    const productsContainer = document.getElementById('mobileInventoryProducts');
+    if (!categoriesContainer || !productsContainer) return;
+
+    const categories = [...new Set(state.inventory.map((item) => item.categoria).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    const escapeFn = typeof window.escapeHtml === 'function' ? window.escapeHtml : (str => str ?? '');
+    const fmt = window.currencyFormatter || currencyFormatter;
+    const soldSummary = buildSoldSummary();
+
+    if (!categories.length) {
+      categoriesContainer.innerHTML = '<p class="mobile-inventory-empty">No hay productos cargados en el inventario.</p>';
+      productsContainer.innerHTML = '';
+      return;
+    }
+
+    categoriesContainer.innerHTML = categories.map((category) => {
+      const grouped = new Map();
+      state.inventory.filter((item) => item.categoria === category).forEach((item) => {
+        const subcategory = item.subcategoria?.trim() || 'Sin subcategoría';
+        if (!grouped.has(subcategory)) grouped.set(subcategory, []);
+        grouped.get(subcategory).push(item);
+      });
+
+      const subcategories = [...grouped.entries()]
+        .sort(([a], [b]) => a.localeCompare(b, 'es'))
+        .map(([subcategory, items]) => `
+          <details class="mobile-subcategory">
+            <summary>${escapeFn(subcategory)} <span>${items.length} producto${items.length === 1 ? '' : 's'}</span></summary>
+            <ul class="mobile-product-list">
+              ${items.map((item) => {
+                const key = String(item.codigo || '').toLowerCase();
+                const sold = Object.prototype.hasOwnProperty.call(soldSummary, key)
+                  ? soldSummary[key]
+                  : (Number(item.cantVendida) || 0);
+                const price = Number(item.precio) || 0;
+                return `
+                  <li class="mobile-product-card">
+                    <strong class="mobile-product-name">${escapeFn(item.nombre || 'Producto sin nombre')}</strong>
+                    <dl>
+                      <div><dt>Segundo nombre</dt><dd>${escapeFn(item.sub_nombre || '-')}</dd></div>
+                      <div><dt>Marca</dt><dd>${escapeFn(item.marca || '-')}</dd></div>
+                      <div><dt>Cantidad vendida</dt><dd>${sold}</dd></div>
+                      <div><dt>Cantidad disponible</dt><dd>${Number(item.cantidad) || 0}</dd></div>
+                      <div><dt>Precio</dt><dd>${fmt.format(price)}</dd></div>
+                      <div><dt>Ganancia</dt><dd>${fmt.format(price * sold)}</dd></div>
+                    </dl>
+                  </li>
+                `;
+              }).join('')}
+            </ul>
+          </details>
+        `).join('');
+
+      return `
+        <details class="mobile-category">
+          <summary>${escapeFn(category)} <span>${grouped.size} subcategoría${grouped.size === 1 ? '' : 's'}</span></summary>
+          <div class="mobile-subcategories">${subcategories}</div>
+        </details>
+      `;
+    }).join('');
+    productsContainer.innerHTML = '';
+  }
+  window.renderMobileInventory = renderMobileInventory;
 
   // Prepara un informe imprimible agrupando los renglones de venta del período por categoría.
   function renderPdfReport() {

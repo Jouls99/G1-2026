@@ -1,8 +1,10 @@
-/* ==========================================================================
-   Barra de navegación unificada PHP (SOS Cosméticos)
-   Soporte para Escritorio y Menú Responsivo para Celulares
-   ========================================================================== */
-
+/*Barra de navegación unificada PHP (SOS Cosméticos)
+   Soporte para Escritorio y Menú Responsivo para Celulares= */
+*{
+    margin: 0px;
+    padding: 0px;
+    box-sizing: border-box;
+}
 .app-navbar {
     background: #1e1b4b;
     background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);

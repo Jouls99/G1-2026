@@ -349,6 +349,7 @@
     renderChart(series);
     if (typeof window.renderProducts === 'function') window.renderProducts();
     if (typeof window.renderInventoryTable === 'function') window.renderInventoryTable();
+    if (typeof window.renderMobileInventory === 'function') window.renderMobileInventory();
     if (typeof window.renderSalesHistory === 'function') window.renderSalesHistory();
     updateClock();
   }
