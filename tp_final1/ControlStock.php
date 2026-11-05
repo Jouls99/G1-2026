@@ -85,7 +85,7 @@ require_once __DIR__ . '/includes/navbar.php';
         <p>Seleccioná “Ver stock por categoría” para consultar los productos.</p>
     </section>
     <!-- Espacio de trabajo que el JavaScript muestra al abrir el stock; reúne búsqueda,
-         filtros, categorías, tabla y detalle sin cargar esa interfaz hasta que se solicite. -->
+         filtros, categorías, listado y detalle sin cargar esa interfaz hasta que se solicite. -->
     <div id="stock-workspace" hidden>
     <input type="text" id="globalSearch" class="search-box" placeholder="🔍 Buscar producto por nombre o código...">
     <!-- Ajustes de precios: se ocultan en modo de solo lectura para impedir que la interfaz

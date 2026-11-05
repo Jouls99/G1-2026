@@ -177,5 +177,5 @@ require_once __DIR__ . '/includes/navbar.php';
     </div>
 </main>
 
-<script src="scrits/preuba2.js"></script>
+<script src="scrits/preuba2.js?v=<?= filemtime(__DIR__ . '/scrits/preuba2.js') ?>"></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -412,7 +412,7 @@ function cancelarEdicionProducto() {
     document.getElementById('editProductForm')?.remove();
 }
 
-// Valida y guarda los campos editables, sincronizando después la tabla y el detalle visibles.
+// Valida y guarda los campos editables, sincronizando después el listado y el detalle visibles.
 async function guardarEdicionProducto(event) {
     if (!usuarioEsAdmin || !productoSeleccionado) return;
     event.preventDefault();

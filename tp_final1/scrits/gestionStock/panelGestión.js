@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Busca en todo el inventario y genera una tabla agregada sin perder la categoría de cada coincidencia.
+    // Busca en todo el inventario y genera un listado agregado sin perder la categoría de cada coincidencia.
     // Buscador global de productos
     const searchInput = document.getElementById('globalSearch');
     if (searchInput) {
@@ -95,19 +95,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 totalValorizado += total;
 
                 return `
-                    <tr class="product-row" 
+                    <tr class="product-row"
                         onclick="selectProduct('${p.ID_stock || p.id}', '${p.catId}')"
                         oncontextmenu="showProductContextMenu(event, '${p.ID_stock || p.id}', '${p.catId}')">
-                        <td>
+                        <td data-label="Producto">
                             <strong>${escapeHtml(p.nombre)}</strong>
                             ${(p.marca || p.sub_nombre || p.subcategoria) ? `<small style="display:block;color:#6b7280;">${[p.marca, p.sub_nombre, p.subcategoria].filter(Boolean).map(escapeHtml).join(' · ')}</small>` : ''}
                             <small style="color:#6b7280;">(${escapeHtml(p.categoriaNombre)})</small>
                         </td>
-                        <td><code>${escapeHtml(p.codigo)}</code></td>
-                        <td>$${p.precio.toLocaleString()}</td>
-                        <td>${p.stock}</td>
-                        <td>$${total.toLocaleString()}</td>
-                        ${usuarioEsSuperAdmin ? `<td><span class="badge-fase badge-fase-${p.fase === 'deshabilitado' ? 'deshabilitado' : 'habilitado'}">${p.fase === 'deshabilitado' ? 'Deshabilitado' : 'Habilitado'}</span></td>` : ''}
+                        <td data-label="Código"><code>${escapeHtml(p.codigo)}</code></td>
+                        <td data-label="Precio">$${p.precio.toLocaleString()}</td>
+                        <td data-label="Stock">${p.stock}</td>
+                        <td data-label="Total Inventario">$${total.toLocaleString()}</td>
+                        ${usuarioEsSuperAdmin ? `<td data-label="Estado"><span class="badge-fase badge-fase-${p.fase === 'deshabilitado' ? 'deshabilitado' : 'habilitado'}">${p.fase === 'deshabilitado' ? 'Deshabilitado' : 'Habilitado'}</span></td>` : ''}
                     </tr>
                 `;
             }).join('');
@@ -115,23 +115,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             content.innerHTML = `
                 <h2>Resultados de búsqueda: "${escapeHtml(term)}" (${matches.length})</h2>
                 <table>
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>Código</th>
-                            <th>Precio</th>
-                            <th>Stock</th>
-                            <th>Total Inventario</th>
-                            ${usuarioEsSuperAdmin ? '<th>Estado</th>' : ''}
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Producto</th><th>Código</th><th>Precio</th><th>Stock</th><th>Total Inventario</th>${usuarioEsSuperAdmin ? '<th>Estado</th>' : ''}</tr></thead>
                     <tbody>
                         ${rows || `<tr><td colspan="${usuarioEsSuperAdmin ? '6' : '5'}" style="text-align:center; padding:24px;">No se encontraron productos coincidentes.</td></tr>`}
-                        <tr class="total-row">
-                            <td colspan="4">TOTAL VALORIZADO</td>
-                            <td>$${totalValorizado.toLocaleString()}</td>
-                            ${usuarioEsSuperAdmin ? '<td></td>' : ''}
-                        </tr>
+                        <tr class="total-row"><td colspan="4">TOTAL VALORIZADO</td><td>$${totalValorizado.toLocaleString()}</td>${usuarioEsSuperAdmin ? '<td></td>' : ''}</tr>
                     </tbody>
                 </table>
             `;

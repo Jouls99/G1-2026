@@ -128,7 +128,7 @@ function renderCategorySelector() {
     }
 }
 
-// Selecciona una categoría y actualiza tabla, detalle y filtros de ajustes asociados.
+// Selecciona una categoría y actualiza listado, detalle y filtros de ajustes asociados.
 function selectCategory(catId) {
     categoriaSeleccionada = inventario.find(c => c.id === catId);
     productoSeleccionado = null;
@@ -140,6 +140,10 @@ function selectCategory(catId) {
     renderCategories();
     renderTable(categoriaSeleccionada);
     renderDetailPanel();
+
+    if (window.matchMedia('(max-width: 600px)').matches) {
+        document.getElementById('mainContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 // Filtra por rol/tipo y presenta productos, stock y valorización para la categoría activa.
@@ -160,27 +164,29 @@ function renderTable(categoria) {
     const mostrarSeleccionPrecios = usuarioEsAdmin
         && !document.getElementById('price-adjustment-panel')?.hidden;
 
-    let totalValorizado = 0;
+    let totalValorizado = productosVisibles.reduce(
+        (total, product) => total + (product.precio * product.stock),
+        0
+    );
     let rowsHTML = productosVisibles.map(p => {
         const totalProducto = p.precio * p.stock;
-        totalValorizado += totalProducto;
         const productId = Number(p.ID_stock || p.id);
 
         return `
-            <tr class="product-row" 
+            <tr class="product-row"
                 onclick="selectProduct('${p.ID_stock || p.id}', '${categoria.id}')"
                 oncontextmenu="showProductContextMenu(event, '${p.ID_stock || p.id}', '${categoria.id}')"
                 title="Click izquierdo: ver detalles • Click derecho: eliminar producto">
-                ${mostrarSeleccionPrecios ? `<td><input class="price-product-checkbox" data-product-id="${productId}" type="checkbox" aria-label="Seleccionar ${escapeHtml(p.nombre)}" onclick="event.stopPropagation()" onchange="togglePriceProduct(${productId}, this.checked)" ${productosPrecioSeleccionados.has(productId) ? 'checked' : ''}></td>` : ''}
-                <td>
+                ${mostrarSeleccionPrecios ? `<td data-label="Seleccionar"><input class="price-product-checkbox" data-product-id="${productId}" type="checkbox" aria-label="Seleccionar ${escapeHtml(p.nombre)}" onclick="event.stopPropagation()" onchange="togglePriceProduct(${productId}, this.checked)" ${productosPrecioSeleccionados.has(productId) ? 'checked' : ''}></td>` : ''}
+                <td data-label="Producto">
                     <strong>${escapeHtml(p.nombre)}</strong>
                     ${(p.marca || p.sub_nombre) ? `<small style="display:block;color:#6b7280;">${[p.marca, p.sub_nombre].filter(Boolean).map(escapeHtml).join(' · ')}</small>` : ''}
                 </td>
-                <td><code>${escapeHtml(p.codigo)}</code></td>
-                <td>$${p.precio.toLocaleString()}</td>
-                <td>${p.stock}</td>
-                <td>$${totalProducto.toLocaleString()}</td>
-                ${usuarioEsSuperAdmin ? `<td><span class="badge-fase badge-fase-${p.fase === 'deshabilitado' ? 'deshabilitado' : 'habilitado'}">${p.fase === 'deshabilitado' ? 'Deshabilitado' : 'Habilitado'}</span></td>` : ''}
+                <td data-label="Código"><code>${escapeHtml(p.codigo)}</code></td>
+                <td data-label="Precio">$${p.precio.toLocaleString()}</td>
+                <td data-label="Stock">${p.stock}</td>
+                <td data-label="Total Inventario">$${totalProducto.toLocaleString()}</td>
+                ${usuarioEsSuperAdmin ? `<td data-label="Estado"><span class="badge-fase badge-fase-${p.fase === 'deshabilitado' ? 'deshabilitado' : 'habilitado'}">${p.fase === 'deshabilitado' ? 'Deshabilitado' : 'Habilitado'}</span></td>` : ''}
             </tr>
         `;
     }).join('');
@@ -191,11 +197,7 @@ function renderTable(categoria) {
             <thead>
                 <tr>
                     ${mostrarSeleccionPrecios ? '<th><input type="checkbox" aria-label="Seleccionar todos los productos visibles" onclick="event.stopPropagation()" onchange="toggleVisiblePriceProducts(this.checked)"></th>' : ''}
-                    <th>Producto</th>
-                    <th>Código</th>
-                    <th>Precio</th>
-                    <th>Stock</th>
-                    <th>Total Inventario</th>
+                    <th>Producto</th><th>Código</th><th>Precio</th><th>Stock</th><th>Total Inventario</th>
                     ${usuarioEsSuperAdmin ? '<th>Estado</th>' : ''}
                 </tr>
             </thead>
@@ -222,6 +224,10 @@ function selectProduct(productId, catId) {
         && (p.fase || 'habilitado') !== 'deshabilitado'
     );
     renderDetailPanel();
+
+    if (window.matchMedia('(max-width: 600px)').matches) {
+        document.getElementById('detailPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 /**
@@ -238,7 +244,7 @@ function renderDetailPanel() {
         panel.innerHTML = `
             <h3>Detalle del producto</h3>
             <p>Haz clic en un producto para ver información y subcategorías aquí.</p>
-            <p style="color:#6b7280; font-size:0.85rem; margin-top:10px;">💡 Tip: Haz <strong>click derecho</strong> sobre cualquier producto en la tabla para eliminarlo.</p>
+            <p style="color:#6b7280; font-size:0.85rem; margin-top:10px;">💡 Tip: Haz <strong>click derecho</strong> sobre cualquier producto en el listado para eliminarlo.</p>
         `;
         return;
     }

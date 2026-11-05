@@ -185,13 +185,13 @@ require_once __DIR__ . '/includes/navbar.php';
                 const detalle = ed.detalles_cambios ?? ed.detalle ?? '';
 
                 return `
-                    <tr>
-                        <td>${esc(usuario)}</td>
-                        <td>${esc(rol)}</td>
-                        <td>${esc(accion)}</td>
-                        <td>${esc(fecha)}</td>
-                        <td>${esc(hora)}</td>
-                        <td>${esc(detalle)}</td>
+                    <tr class="history-row">
+                        <td data-label="Usuario">${esc(usuario)}</td>
+                        <td data-label="Rol">${esc(rol)}</td>
+                        <td data-label="Acción">${esc(accion)}</td>
+                        <td data-label="Fecha">${esc(fecha)}</td>
+                        <td data-label="Hora">${esc(hora)}</td>
+                        <td data-label="Detalle">${esc(detalle)}</td>
                     </tr>
                 `;
             }).join('');

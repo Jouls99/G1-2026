@@ -84,13 +84,13 @@
         </div>`;
       }).join('');
       return `
-        <tr>
-          <td>${date.toLocaleDateString('es-AR')}</td>
-          <td>${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
-          <td>${date.toLocaleDateString('es-AR', { weekday: 'long' })}</td>
-          <td>${productoText}</td>
-          <td>${fmt.format(sale.total || 0)}</td>
-          <td>
+        <tr class="sale-row">
+          <td data-label="Fecha">${date.toLocaleDateString('es-AR')}</td>
+          <td data-label="Hora">${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td data-label="Día">${date.toLocaleDateString('es-AR', { weekday: 'long' })}</td>
+          <td data-label="Productos" class="sale-products-cell">${productoText}</td>
+          <td data-label="Total" class="sale-total-cell">${fmt.format(sale.total || 0)}</td>
+          <td data-label="Acciones" class="sale-actions-cell">
             ${canModify ? `
               <button type="button" class="btn-delete-action" onclick="confirmarDeshabilitarVenta('${sale.id}')" title="Deshabilitar venta">🚫 Deshabilitar</button>
             ` : `<span style="color:#6b7280; font-size:0.85rem;" title="${sale.estado === 'deshabilitada' ? 'La venta conserva su registro, pero ya no afecta el stock ni los totales' : (!isToday ? 'Las ventas de días anteriores son de solo lectura' : 'Solo lectura')}">${sale.estado === 'deshabilitada' ? 'Deshabilitada' : (sale.archivada ? 'Archivada' : 'Solo lectura')}</span>`}

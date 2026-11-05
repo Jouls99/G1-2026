@@ -1,5 +1,6 @@
 let productosCargados = [];
 let inventarioProductos = [];
+let modoSeleccionCancelacion = false;
 
 // Elementos del DOM
 const formulario = document.getElementById('formulario-producto');
@@ -206,6 +207,8 @@ function limpiarMensaje() {
 // Reconstruye el carrito temporal y calcula el importe visible a partir de sus renglones.
 function actualizarTabla() {
     if (productosCargados.length === 0) {
+        modoSeleccionCancelacion = false;
+        tablaProductos.dataset.cancelSelection = 'inactive';
         tablaProductos.innerHTML = `
             <tr>
                 <td colspan="4" class="text-empty">
@@ -218,6 +221,7 @@ function actualizarTabla() {
     }
 
     tablaProductos.innerHTML = "";
+    tablaProductos.dataset.cancelSelection = modoSeleccionCancelacion ? 'active' : 'inactive';
     let sumaTotal = 0;
 
     productosCargados.forEach((prod, index) => {
@@ -225,11 +229,15 @@ function actualizarTabla() {
 
         const celdaEliminar = document.createElement('td');
         celdaEliminar.className = 'td-eliminar';
-        const checkboxEliminar = document.createElement('input');
-        checkboxEliminar.type = 'checkbox';
-        checkboxEliminar.dataset.removeIndex = String(index);
-        checkboxEliminar.setAttribute('aria-label', `Quitar ${prod.nombre} de la venta`);
-        celdaEliminar.appendChild(checkboxEliminar);
+        if (modoSeleccionCancelacion) {
+            const checkboxEliminar = document.createElement('input');
+            checkboxEliminar.type = 'checkbox';
+            checkboxEliminar.dataset.removeIndex = String(index);
+            checkboxEliminar.setAttribute('aria-label', `Quitar ${prod.nombre} de la venta`);
+            celdaEliminar.appendChild(checkboxEliminar);
+        } else {
+            celdaEliminar.textContent = '—';
+        }
 
         const celdaCodigo = document.createElement('td');
         celdaCodigo.className = 'td-codigo';
@@ -369,10 +377,17 @@ btnRegistrar.addEventListener('click', async () => {
 });
 
 // 3. EVENTO: Cancelar / Vaciar Venta Actual
-// Quita renglones seleccionados o vacía el carrito completo con confirmación del operador.
+// Primer clic muestra los checkboxes; el segundo confirma la selección o toda la venta.
 btnCancelar.addEventListener('click', () => {
     if (productosCargados.length === 0) {
         mostrarMensaje('ℹ️ No hay productos para cancelar.', 'correcto');
+        return;
+    }
+
+    if (!modoSeleccionCancelacion) {
+        modoSeleccionCancelacion = true;
+        actualizarTabla();
+        mostrarMensaje('Seleccioná opcionalmente productos o hacé clic nuevamente para cancelar toda la venta.', 'correcto');
         return;
     }
 
@@ -381,27 +396,29 @@ btnCancelar.addEventListener('click', () => {
         checkbox => Number(checkbox.dataset.removeIndex)
     ).filter(Number.isInteger);
 
+    const cantidadSeleccionada = indicesSeleccionados.length;
+    const etiquetaProductos = cantidadSeleccionada === 1 ? 'producto' : 'productos';
+    const confirmacion = cantidadSeleccionada > 0
+        ? `¿Querés quitar ${cantidadSeleccionada} ${etiquetaProductos} seleccionado${cantidadSeleccionada === 1 ? '' : 's'} de la venta?`
+        : '¿Estás seguro de que querés cancelar toda la venta actual?';
+
+    if (!confirm(confirmacion)) return;
+
     if (indicesSeleccionados.length > 0) {
-        const cantidadSeleccionada = indicesSeleccionados.length;
-        const etiquetaProductos = cantidadSeleccionada === 1 ? 'producto' : 'productos';
-        const verboQuitar = cantidadSeleccionada === 1 ? 'quitó' : 'quitaron';
-        const confirmacion = `¿Querés quitar ${cantidadSeleccionada} ${etiquetaProductos} seleccionado${cantidadSeleccionada === 1 ? '' : 's'} de la venta?`;
-        if (confirm(confirmacion)) {
             const indicesAQuitar = new Set(indicesSeleccionados);
             productosCargados = productosCargados.filter((_, index) => !indicesAQuitar.has(index));
+            modoSeleccionCancelacion = false;
             actualizarTabla();
+            const verboQuitar = cantidadSeleccionada === 1 ? 'quitó' : 'quitaron';
             mostrarMensaje(
                 productosCargados.length === 0
                     ? `🗑 Venta cancelada: se ${verboQuitar} ${cantidadSeleccionada} ${etiquetaProductos}.`
                     : `🗑 Se ${verboQuitar} ${cantidadSeleccionada} ${etiquetaProductos} de la venta.`,
                 'correcto'
             );
-        }
-        return;
-    }
-
-    if (confirm('¿Estás seguro de que querés vaciar esta venta actual?')) {
+    } else {
         productosCargados = [];
+        modoSeleccionCancelacion = false;
         actualizarTabla();
         mostrarMensaje('🗑 Venta cancelada.', 'correcto');
     }

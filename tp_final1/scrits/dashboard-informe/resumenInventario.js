@@ -21,6 +21,9 @@
     currency: 'ARS',
     maximumFractionDigits: 0
   });
+  const productDisplayLimits = new Map();
+  const initialProductLimit = 10;
+  const additionalProductLimit = 30;
 
   // Suma unidades vendidas por código y opcionalmente restringe el conteo al período activo.
   function buildSoldSummary(period = null) {
@@ -84,8 +87,11 @@
     }
 
     const escapeFn = typeof window.escapeHtml === 'function' ? window.escapeHtml : (str => str ?? '');
+    const paginationKey = `${state.category}:${state.period}`;
+    const displayLimit = productDisplayLimits.get(paginationKey) || initialProductLimit;
+    const visibleItems = items.slice(0, displayLimit);
 
-    list.innerHTML = items
+    list.innerHTML = visibleItems
       .map((item) => {
         const sold = soldSummary[String(item.codigo || '').toLowerCase()] || 0;
         return `
@@ -97,6 +103,20 @@
         `;
       })
       .join('');
+
+    if (items.length > displayLimit) {
+      const loadMoreItem = document.createElement('li');
+      const loadMore = document.createElement('button');
+      loadMore.type = 'button';
+      loadMore.className = 'report-load-more-products';
+      loadMore.innerHTML = 'Ver 30 productos más <span aria-hidden="true">↓</span>';
+      loadMore.addEventListener('click', () => {
+        productDisplayLimits.set(paginationKey, displayLimit + additionalProductLimit);
+        renderProducts();
+      });
+      loadMoreItem.appendChild(loadMore);
+      list.appendChild(loadMoreItem);
+    }
   }
   window.renderProducts = renderProducts;
 

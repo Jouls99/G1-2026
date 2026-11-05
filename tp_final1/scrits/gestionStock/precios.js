@@ -50,7 +50,7 @@ function toggleVisiblePriceProducts(checked) {
 }
 
 /**
- * Renderizar la tabla de productos (solo muestra productos activos)
+ * Renderizar el listado de productos (solo muestra productos activos)
  */
 async function cargarAuditoriaStock() {
     // Este registro es privado del Super Admin y se alimenta desde la auditoría persistida.
@@ -110,7 +110,7 @@ async function aplicarAjustePrecios() {
         return;
     }
     if (scope === 'selected' && productosPrecioSeleccionados.size === 0) {
-        alert('Seleccioná al menos un producto en la tabla.');
+        alert('Seleccioná al menos un producto en el listado.');
         return;
     }
 

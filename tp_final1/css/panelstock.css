@@ -289,6 +289,115 @@ th {
     .detail-panel {
         order: 3;
     }
+
+    #mainContent {
+        overflow-x: hidden;
+    }
+}
+
+@media (max-width: 600px) {
+    #mainContent table,
+    #mainContent thead,
+    #mainContent tbody,
+    #mainContent th {
+        display: block;
+        width: 100%;
+    }
+
+    #mainContent thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    #mainContent tbody tr.product-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 8px 12px;
+        position: relative;
+        min-height: 48px;
+        margin: 0;
+        padding: 8px 0;
+        border: 0;
+        border-bottom: 1px solid #e5e7eb;
+        background: transparent;
+    }
+
+    #mainContent tbody tr.product-row td {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        min-height: 32px;
+        padding: 0;
+        border: 0;
+        text-align: right;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Producto"] {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Precio"],
+    #mainContent tbody tr.product-row td[data-label="Stock"] {
+        justify-content: flex-end;
+        white-space: nowrap;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Producto"] strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Producto"] small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Código"],
+    #mainContent tbody tr.product-row td[data-label="Total Inventario"],
+    #mainContent tbody tr.product-row td[data-label="Estado"] {
+        display: none;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Seleccionar"] {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 18px;
+    }
+
+    #mainContent tbody tr.product-row td[data-label="Seleccionar"] ~ td[data-label="Producto"] {
+        padding-left: 26px;
+    }
+
+    #mainContent tbody tr.total-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+        padding: 10px 0;
+    }
+
+    #mainContent tbody tr.total-row td {
+        width: auto;
+        padding: 0;
+        border: 0;
+    }
+
+    #mainContent tbody tr.total-row td:first-child {
+        flex: 1;
+    }
+
+    #mainContent tbody tr.total-row td:empty {
+        display: none;
+    }
 }
 
 /* ==========================================================================

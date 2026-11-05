@@ -164,10 +164,16 @@ p {
     transition: 0.2s ease;
 }
 
-.chip:hover,
-.chip.active {
-    background: var(--color-secondary);
+.chip:hover {
+    background: #d8b8c9;
+    color: var(--color-secondary);
+}
+
+.chip.active,
+.chip.active:hover {
+    background: #581c87;
     color: #fff;
+    box-shadow: 0 2px 6px rgba(88, 28, 135, 0.35);
 }
 
 .metrics-grid {
@@ -256,6 +262,25 @@ p {
     color: #7a4f6a;
 }
 
+.report-load-more-products {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #dabad3;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--primary-dark);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.report-load-more-products:hover {
+    background: #fff5fb;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
@@ -327,6 +352,22 @@ th {
     white-space: nowrap;
 }
 
+.sale-products-cell {
+    white-space: normal !important;
+    min-width: 220px;
+}
+
+.sale-product-detail {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 2px 0;
+}
+
+.sale-product-detail small {
+    color: #7a4f6a;
+}
+
 @media (max-width: 900px) {
     .dashboard-layout {
         grid-template-columns: 1fr;
@@ -370,6 +411,141 @@ th {
 
     .chip-group {
         flex-direction: column;
+    }
+
+    .sales-history-filters {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .sales-history-filters select,
+    .sales-history-filters input {
+        width: 100%;
+    }
+
+    .sales-history-panel .table-wrapper {
+        overflow: visible;
+        margin-top: 10px;
+    }
+
+    .sales-table,
+    .sales-table thead,
+    .sales-table tbody,
+    .sales-table tr,
+    .sales-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .sales-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    .sales-table tbody tr.sale-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 2px 10px;
+        margin: 0;
+        padding: 6px 0;
+        border-bottom: 1px solid #ead8e4;
+    }
+
+    .sales-table tbody tr.sale-row td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left;
+        white-space: normal;
+    }
+
+    .sales-table tbody tr.sale-row td::before {
+        content: attr(data-label) ": ";
+        color: #7a4f6a;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+
+    .sales-table tbody tr.sale-row td[data-label="Fecha"] {
+        grid-column: 1;
+        grid-row: 1;
+        font-weight: 700;
+        font-size: 0.82rem;
+    }
+
+    .sales-table tbody tr.sale-row td[data-label="Hora"] {
+        grid-column: 1;
+        grid-row: 2;
+        color: #6b4d64;
+        font-size: 0.75rem;
+    }
+
+    .sales-table tbody tr.sale-row td[data-label="Día"] {
+        display: none;
+    }
+
+    .sales-table tbody tr.sale-row td.sale-total-cell {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        align-self: start;
+        color: var(--primary-dark);
+        font-size: 0.88rem;
+        font-weight: 800;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .sales-table tbody tr.sale-row td.sale-products-cell {
+        grid-column: 1 / -1;
+        margin-top: 2px;
+        padding: 4px 0;
+        border-top: 1px solid #f3e8ef;
+        max-height: 32px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .sales-table tbody tr.sale-row td.sale-products-cell::before {
+        display: inline;
+    }
+
+    .sales-table tbody tr.sale-row td.sale-actions-cell {
+        grid-column: 1 / -1;
+        margin-top: 2px;
+        text-align: right;
+    }
+
+    .sales-table tbody tr.sale-row td.sale-actions-cell::before {
+        display: none;
+    }
+
+    .sales-table tbody tr.sale-row .btn-delete-action {
+        width: auto;
+        min-height: 28px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+
+    .sale-product-detail {
+        display: inline-flex;
+        gap: 3px;
+        margin: 0 6px 0 0;
+        font-size: 0.78rem;
+        vertical-align: middle;
+    }
+
+    .sale-product-detail small {
+        display: none;
+    }
+
+    .sales-table tbody tr.sale-row td.sale-actions-cell span {
+        font-size: 0.72rem !important;
     }
 
     .summary-table-wrapper {
@@ -833,5 +1009,108 @@ th {
     }
     .modal-buttons .btn {
         width: 100%;
+    }
+
+    #edit-history-modal .modal-content {
+        width: 96vw;
+        max-height: 90vh;
+        padding: 14px;
+    }
+
+    #edit-history-modal .modal-content h2 {
+        margin-bottom: 10px;
+        font-size: 17px;
+    }
+
+    #edit-history-content {
+        max-height: calc(90vh - 64px);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    #edit-history-modal .history-table,
+    #edit-history-modal .history-table thead,
+    #edit-history-modal .history-table tbody,
+    #edit-history-modal .history-table tr,
+    #edit-history-modal .history-table td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #edit-history-modal .history-table {
+        font-size: 0.78rem;
+    }
+
+    #edit-history-modal .history-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    #edit-history-modal .history-table tr.history-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 2px 8px;
+        padding: 7px 8px;
+        border-bottom: 1px solid #f0e5ec;
+    }
+
+    #edit-history-modal .history-table tr.history-row td {
+        display: block;
+        width: auto;
+        padding: 0;
+        border: 0;
+        line-height: 1.25;
+        text-align: left;
+        overflow-wrap: anywhere;
+    }
+
+    #edit-history-modal .history-table tr.history-row td::before {
+        content: attr(data-label) ": ";
+        color: #7a4f6a;
+        font-size: 0.68rem;
+        font-weight: 700;
+    }
+
+    #edit-history-modal .history-table tr.history-row td[data-label="Usuario"] {
+        grid-column: 1;
+        grid-row: 1;
+        font-weight: 700;
+    }
+
+    #edit-history-modal .history-table tr.history-row td[data-label="Rol"] {
+        grid-column: 2;
+        grid-row: 1;
+        color: #7a4f6a;
+        text-align: right;
+        font-size: 0.7rem;
+    }
+
+    #edit-history-modal .history-table tr.history-row td[data-label="Acción"] {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        color: var(--primary-dark);
+        font-weight: 600;
+    }
+
+    #edit-history-modal .history-table tr.history-row td[data-label="Fecha"],
+    #edit-history-modal .history-table tr.history-row td[data-label="Hora"] {
+        display: inline-block;
+        margin-right: 8px;
+        color: #6b4d64;
+        font-size: 0.7rem;
+    }
+
+    #edit-history-modal .history-table tr.history-row td[data-label="Detalle"] {
+        grid-column: 1 / -1;
+        max-height: 28px;
+        margin-top: 2px;
+        overflow: hidden;
+        color: #6b4d64;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }

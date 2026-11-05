@@ -101,6 +101,10 @@
             vertical-align: middle;
         }
 
+        #tabla-productos[data-cancel-selection="inactive"] input[data-remove-index] {
+            display: none;
+        }
+
         .td-precio {
             text-align: right;
             font-weight: 600;
@@ -265,6 +269,7 @@
         }
 
         .btn-cancelar:hover { background-color: #fee2e2; }
+
         a:hover{
             background-color: #edc89d;
             color: #602f01;

@@ -6,6 +6,8 @@
     box-sizing: border-box;
 }
 .app-navbar {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
     background: #1e1b4b;
     background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
     color: #ffffff;
