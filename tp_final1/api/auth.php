@@ -131,7 +131,7 @@ if ($action === 'login' && $method === 'POST') {
         ], 429);
     }
 
-    $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `password`, `rol` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
+    $stmt = $db->prepare("SELECT `id_usuario`, `nombre`, `password`, `rol`, `estado` FROM `usuario` WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre) LIMIT 1");
     $stmt->execute([':nombre' => $usuario]);
     $found = $stmt->fetch();
 
@@ -140,6 +140,10 @@ if ($action === 'login' && $method === 'POST') {
         $clientIp = trim(explode(',', $clientIp)[0]);
     }
     $userAgent = (string)($_SERVER['HTTP_USER_AGENT'] ?? 'Navegador Web');
+
+    if ($found && strtolower((string)($found['estado'] ?? 'habilitado')) !== 'habilitado') {
+        sendJson(['ok' => false, 'error' => 'user_disabled', 'message' => 'La cuenta está deshabilitada.'], 403);
+    }
 
     if (!$found || !password_verify($password, (string)($found['password'] ?? ''))) {
         $lockSeconds = recordFailedLogin($db, $usuario);

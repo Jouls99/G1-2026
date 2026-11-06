@@ -56,6 +56,7 @@ function getDBConnection(): ?PDO
     ensureProductCatalogFields($pdo);
     ensurePriceAdjustmentHistoryTable($pdo);
     ensureUserPermissionColumns($pdo);
+    ensureUserStatusColumns($pdo);
     ensureUniqueAdministrativeRoles($pdo);
     ensureThreatTable($pdo);
     ensureSessionTrackingTables($pdo);
@@ -569,18 +570,43 @@ function ensureUserPermissionColumns(PDO $pdo): void
     }
 }
 
+/** Conserva las cuentas deshabilitadas y registra quién las deshabilitó. */
+function ensureUserStatusColumns(PDO $pdo): void
+{
+    $columns = [
+        'estado' => "ALTER TABLE `usuario` ADD COLUMN `estado` varchar(20) NOT NULL DEFAULT 'habilitado' AFTER `rol`",
+        'deshabilitado_en' => "ALTER TABLE `usuario` ADD COLUMN `deshabilitado_en` datetime DEFAULT NULL AFTER `estado`",
+        'deshabilitado_por_id' => "ALTER TABLE `usuario` ADD COLUMN `deshabilitado_por_id` int(11) DEFAULT NULL AFTER `deshabilitado_en`",
+        'deshabilitado_por' => "ALTER TABLE `usuario` ADD COLUMN `deshabilitado_por` varchar(100) DEFAULT NULL AFTER `deshabilitado_por_id`"
+    ];
+
+    foreach ($columns as $column => $sql) {
+        if (!$pdo->query("SHOW COLUMNS FROM `usuario` LIKE '{$column}'")->fetch()) {
+            $pdo->exec($sql);
+        }
+    }
+
+    $pdo->exec("UPDATE `usuario` SET `estado` = 'habilitado' WHERE `estado` IS NULL OR `estado` = ''");
+}
+
 /** Asegura que solo exista una cuenta Administrador y una Super Administrador. */
 function ensureUniqueAdministrativeRoles(PDO $pdo): void
 {
     $roleSlots = [
-        'slot_administrador' => "ALTER TABLE `usuario` ADD COLUMN `slot_administrador` tinyint(1) GENERATED ALWAYS AS (CASE WHEN LOWER(TRIM(`rol`)) IN ('administrador', 'admin') THEN 1 ELSE NULL END) STORED",
-        'slot_superadmin' => "ALTER TABLE `usuario` ADD COLUMN `slot_superadmin` tinyint(1) GENERATED ALWAYS AS (CASE WHEN LOWER(TRIM(`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin') THEN 1 ELSE NULL END) STORED"
+        'slot_administrador' => "ALTER TABLE `usuario` ADD COLUMN `slot_administrador` tinyint(1) GENERATED ALWAYS AS (CASE WHEN `estado` = 'habilitado' AND LOWER(TRIM(`rol`)) IN ('administrador', 'admin') THEN 1 ELSE NULL END) STORED",
+        'slot_superadmin' => "ALTER TABLE `usuario` ADD COLUMN `slot_superadmin` tinyint(1) GENERATED ALWAYS AS (CASE WHEN `estado` = 'habilitado' AND LOWER(TRIM(`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin') THEN 1 ELSE NULL END) STORED"
     ];
 
+    $tableDefinition = (string)$pdo->query("SHOW CREATE TABLE `usuario`")->fetchColumn(1);
     foreach ($roleSlots as $column => $sql) {
         $columnInfo = $pdo->query("SHOW COLUMNS FROM `usuario` LIKE '{$column}'")->fetch();
         if (!$columnInfo) {
             $pdo->exec($sql);
+        } elseif (strpos($tableDefinition, "`estado` = 'habilitado'") === false) {
+            $roleExpression = $column === 'slot_administrador'
+                ? "LOWER(TRIM(`rol`)) IN ('administrador', 'admin')"
+                : "LOWER(TRIM(`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin')";
+            $pdo->exec("ALTER TABLE `usuario` MODIFY `{$column}` tinyint(1) GENERATED ALWAYS AS (CASE WHEN `estado` = 'habilitado' AND {$roleExpression} THEN 1 ELSE NULL END) STORED");
         }
     }
 
@@ -906,10 +932,14 @@ function initDatabase(): void
             `nombre` varchar(100) NOT NULL,
             `password` varchar(255) NOT NULL,
             `rol` varchar(50) NOT NULL DEFAULT 'vendedor',
+            `estado` varchar(20) NOT NULL DEFAULT 'habilitado',
+            `deshabilitado_en` datetime DEFAULT NULL,
+            `deshabilitado_por_id` int(11) DEFAULT NULL,
+            `deshabilitado_por` varchar(100) DEFAULT NULL,
             `puede_registrar_stock` tinyint(1) NOT NULL DEFAULT 0,
             `puede_modificar_informes` tinyint(1) NOT NULL DEFAULT 0,
-            `slot_administrador` tinyint(1) GENERATED ALWAYS AS (CASE WHEN LOWER(TRIM(`rol`)) IN ('administrador', 'admin') THEN 1 ELSE NULL END) STORED,
-            `slot_superadmin` tinyint(1) GENERATED ALWAYS AS (CASE WHEN LOWER(TRIM(`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin') THEN 1 ELSE NULL END) STORED,
+            `slot_administrador` tinyint(1) GENERATED ALWAYS AS (CASE WHEN `estado` = 'habilitado' AND LOWER(TRIM(`rol`)) IN ('administrador', 'admin') THEN 1 ELSE NULL END) STORED,
+            `slot_superadmin` tinyint(1) GENERATED ALWAYS AS (CASE WHEN `estado` = 'habilitado' AND LOWER(TRIM(`rol`)) IN ('superadmin', 'super administrador', 'super_admin', 'super-admin') THEN 1 ELSE NULL END) STORED,
             `ultimo_acceso` datetime DEFAULT NULL,
             `fecha_creacion` datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id_usuario`),

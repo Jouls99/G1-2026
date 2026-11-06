@@ -84,6 +84,7 @@ require_once __DIR__ . '/includes/navbar.php';
         <button type="button" class="tab-btn" data-tab="tab-logins" role="tab" aria-selected="false">🔑 Monitoreo de Logins</button>
         <?php endif; ?>
         <button type="button" class="tab-btn" data-tab="tab-actividades" role="tab" aria-selected="false">⚡ Registro de Actividades</button>
+        <button type="button" class="tab-btn" data-tab="tab-auditoria-usuarios" role="tab" aria-selected="false">🛡️ Auditoría de Usuarios</button>
     </div>
 
     <!-- PESTAÑA 1: GESTIÓN DE USUARIOS -->
@@ -201,6 +202,21 @@ require_once __DIR__ . '/includes/navbar.php';
             <div class="activity-card">
                 <div id="activity-stream">
                     <div style="text-align:center; padding: 36px; color: #6b7280;">Cargando historial de interacciones...</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PESTAÑA 4: CUENTAS DESHABILITADAS Y SU HISTORIAL -->
+    <section id="tab-auditoria-usuarios" class="tab-content" role="tabpanel" aria-hidden="true">
+        <div class="panel-layout">
+            <div class="filters-card">
+                <h3>Auditoría de usuarios</h3>
+                <p style="color:#6b7280;">Las cuentas deshabilitadas se conservan junto con toda su actividad y el responsable de la acción.</p>
+            </div>
+            <div class="activity-card">
+                <div id="disabled-users-audit">
+                    <div style="text-align:center; padding: 36px; color: #6b7280;">Cargando auditoría de usuarios...</div>
                 </div>
             </div>
         </div>

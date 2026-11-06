@@ -1,10 +1,12 @@
 # API de administración de usuarios (`api/users.php`)
 
-Endpoint para listar cuentas, consultar el detalle de una cuenta, crear usuarios administrativos/vendedores, actualizar datos o rol y eliminar usuarios. No hay registro público: un administrador crea las cuentas y comparte con el usuario la contraseña aleatoria que la API muestra una sola vez tras el alta. La gestión de cuentas está disponible para Administradores y Super Administradores; el detalle con historial de logins sigue reservado al Super Administrador. Los administradores solo ven su propia cuenta y las de vendedores; la cuenta del Super Administrador queda excluida del listado y tampoco puede consultarse ni modificarse mediante peticiones directas. Solo el Super Administrador puede asignar el rol Super Admin. Los usuarios se guardan únicamente en MySQL.
+Endpoint para listar cuentas, consultar el detalle de una cuenta, crear usuarios administrativos/vendedores, actualizar datos o rol y deshabilitar usuarios. No hay registro público: un administrador crea las cuentas y comparte con el usuario la contraseña aleatoria que la API muestra una sola vez tras el alta. La gestión de cuentas está disponible para Administradores y Super Administradores; el detalle con historial de logins sigue reservado al Super Administrador. Los administradores solo ven su propia cuenta y las de vendedores; la cuenta del Super Administrador queda excluida del listado y tampoco puede consultarse ni modificarse mediante peticiones directas. Solo el Super Administrador puede asignar el rol Super Admin. Los usuarios se guardan únicamente en MySQL y las cuentas deshabilitadas conservan su actividad.
 
 ## `GET`: listado y detalle
 
-`GET api/users.php` devuelve una lista de usuarios con `id`, `usuario`, `role`, fecha de creación, total de ventas, facturación y actividades. El administrador recibe únicamente su cuenta y las de vendedores; el Super Administrador recibe todas las cuentas. Solo el Super Administrador recibe además fechas y métricas de acceso.
+`GET api/users.php` devuelve una lista de usuarios habilitados con `id`, `usuario`, `role`, fecha de creación, total de ventas, facturación y actividades. El administrador recibe únicamente su cuenta y las de vendedores; el Super Administrador recibe todas las cuentas habilitadas. Solo el Super Administrador recibe además fechas y métricas de acceso.
+
+`GET api/users.php?action=disabled_audit` devuelve las cuentas deshabilitadas, quién las deshabilitó, cuándo ocurrió y su actividad histórica conservada para la auditoría de usuarios.
 
 `GET api/users.php?action=detail&usuario=NOMBRE` está reservado al Super Administrador y devuelve el usuario, hasta 100 ventas, hasta 100 actividades y hasta 50 eventos de inicio/registro, además de las métricas calculadas. Si falta `usuario`, responde `400`; si no existe, `404`.
 
@@ -30,11 +32,11 @@ Identifica al usuario mediante `id` o `usuario`. Puede incluir `usuario` nuevo, 
 
 Sin cambios devuelve confirmación sin modificar. Las contraseñas nuevas o restablecidas deben tener entre 26 y 64 caracteres ASCII imprimibles e incluir minúsculas, mayúsculas, números, `$`, `%`, al menos un operador (`+`, `-`, `*`, `/`, `=`, `<` o `>`) y otro símbolo. Si no cumple, responde `400 weak_password`. Los cambios se guardan en MySQL y registran `rol_cambiado`, `password_restablecida` o `usuario_modificado`, según el caso.
 
-## `DELETE`: eliminar cuenta
+## `DELETE`: deshabilitar cuenta
 
 `DELETE api/users.php?id=ID`
 
-También acepta `id` en el cuerpo JSON. Impide que el Administrador o Super Administrador elimine su propia cuenta activa. Si existe el usuario, lo elimina de MySQL y registra `usuario_eliminado`.
+También acepta `id` en el cuerpo JSON. Impide que el Administrador o Super Administrador deshabilite su propia cuenta activa. Si existe el usuario, actualiza su estado a `deshabilitado`, guarda el responsable y la fecha, conserva la cuenta y toda su actividad, y registra `usuario_deshabilitado`. La cuenta deja de aparecer en el listado activo y no puede iniciar sesión.
 
 ## Errores comunes
 

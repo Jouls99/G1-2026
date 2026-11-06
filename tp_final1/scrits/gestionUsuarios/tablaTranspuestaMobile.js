@@ -376,10 +376,10 @@
     }
 
     /**
-     * Eliminar usuario
+     * Deshabilitar usuario
      */
     async function confirmarEliminarUsuario(id, nombre) {
-        if (!confirm(`⚠️ ¿Deseás eliminar la cuenta '${nombre}'?\nEsta acción es irreversible.`)) {
+        if (!confirm(`⚠️ ¿Deseás deshabilitar la cuenta '${nombre}'?\nSu historial se conservará en la auditoría.`)) {
             return;
         }
 
@@ -387,9 +387,9 @@
             const res = await fetch(`api/users.php?id=${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (!res.ok || !data.ok) {
-                throw new Error(data.message || 'Error al eliminar usuario.');
+                throw new Error(data.message || 'Error al deshabilitar usuario.');
             }
-            showToast(`🗑️ Usuario '${nombre}' eliminado con éxito.`);
+            showToast(`✅ Usuario '${nombre}' deshabilitado con éxito.`);
             await cargarUsuarios();
         } catch (err) {
             showToast('❌ ' + err.message, true);

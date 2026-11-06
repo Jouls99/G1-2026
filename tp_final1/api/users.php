@@ -26,7 +26,7 @@ function roleHasOccupant(PDO $db, string $role, int $exceptUserId = 0): bool
         $params[$placeholder] = $alias;
     }
 
-    $stmt = $db->prepare('SELECT `id_usuario` FROM `usuario` WHERE LOWER(TRIM(`rol`)) IN (' . implode(', ', $placeholders) . ') AND `id_usuario` != :except_id LIMIT 1');
+    $stmt = $db->prepare('SELECT `id_usuario` FROM `usuario` WHERE LOWER(TRIM(`rol`)) IN (' . implode(', ', $placeholders) . ') AND `estado` = \'habilitado\' AND `id_usuario` != :except_id LIMIT 1');
     $stmt->execute($params);
     return (bool)$stmt->fetchColumn();
 }
@@ -104,6 +104,39 @@ if ($method === 'GET') {
     // El detalle privado es exclusivo del Super Admin; el listado devuelve métricas resumidas.
     $action = $_GET['action'] ?? 'list';
 
+    if ($action === 'disabled_audit') {
+        $disabledStmt = $db->query("
+            SELECT `id_usuario`, `nombre`, `rol`, `fecha_creacion`, `deshabilitado_en`, `deshabilitado_por`
+            FROM `usuario`
+            WHERE `estado` <> 'habilitado'
+            ORDER BY `deshabilitado_en` DESC, `id_usuario` DESC
+        ");
+        $activityStmt = $db->prepare("
+            SELECT `id_actividad`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`
+            FROM `actividad_usuario`
+            WHERE `id_usuario` = :id OR LOWER(`usuario`) = LOWER(:nombre)
+            ORDER BY `id_actividad` DESC
+            LIMIT 200
+        ");
+        $audit = [];
+        foreach ($disabledStmt->fetchAll() as $user) {
+            $activityStmt->execute([
+                ':id' => (int)$user['id_usuario'],
+                ':nombre' => (string)$user['nombre']
+            ]);
+            $audit[] = [
+                'id' => (int)$user['id_usuario'],
+                'usuario' => (string)$user['nombre'],
+                'role' => (string)$user['rol'],
+                'fecha_creacion' => $user['fecha_creacion'],
+                'deshabilitado_en' => $user['deshabilitado_en'],
+                'deshabilitado_por' => (string)($user['deshabilitado_por'] ?? '—'),
+                'actividades' => $activityStmt->fetchAll()
+            ];
+        }
+        sendJson(['ok' => true, 'usuarios' => $audit]);
+    }
+
     // Si se solicita el detalle de interacción y logins de un usuario específico
     if ($action === 'detail') {
         requireSuperAdminApi();
@@ -114,7 +147,7 @@ if ($method === 'GET') {
 
         try {
             // Obtener datos del usuario
-            $uStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol`, `ultimo_acceso`, `fecha_creacion` FROM `usuario` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+            $uStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol`, `ultimo_acceso`, `fecha_creacion`, `estado` FROM `usuario` WHERE LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
             $uStmt->execute([':nombre' => $targetUser]);
             $userData = $uStmt->fetch();
 
@@ -233,7 +266,7 @@ if ($method === 'GET') {
     try {
         $userVisibility = isSuperAdminApi()
             ? ''
-            : 'WHERE LOWER(TRIM(u.`rol`)) = \'vendedor\' OR u.`id_usuario` = :current_user_id';
+            : 'AND (LOWER(TRIM(u.`rol`)) = \'vendedor\' OR u.`id_usuario` = :current_user_id)';
         $stmt = $db->prepare("
             SELECT 
                 u.`id_usuario`,
@@ -251,6 +284,7 @@ if ($method === 'GET') {
                 UNION ALL
                 SELECT `ID_factura`, `usuario`, `ganancia` FROM `ventas_historial`
             ) f ON LOWER(f.`usuario`) = LOWER(u.`nombre`)
+            WHERE u.`estado` = 'habilitado'
             {$userVisibility}
             GROUP BY u.`id_usuario`, u.`nombre`, u.`rol`, u.`ultimo_acceso`, u.`fecha_creacion`
             ORDER BY u.`id_usuario` ASC
@@ -403,7 +437,7 @@ if ($method === 'PUT') {
 
     try {
         // Buscar usuario en DB
-        $findStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
+        $findStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol`, `estado` FROM `usuario` WHERE `id_usuario` = :id OR LOWER(`nombre`) = LOWER(:nombre) LIMIT 1");
         $findStmt->execute([
             ':id'     => $id ?? 0,
             ':nombre' => $usuario
@@ -558,7 +592,7 @@ if ($method === 'DELETE') {
     }
 
     try {
-        $findStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol` FROM `usuario` WHERE `id_usuario` = :id LIMIT 1");
+        $findStmt = $db->prepare("SELECT `id_usuario`, `nombre`, `rol`, `estado` FROM `usuario` WHERE `id_usuario` = :id LIMIT 1");
         $findStmt->execute([':id' => $idInt]);
         $target = $findStmt->fetch();
 
@@ -572,22 +606,31 @@ if ($method === 'DELETE') {
 
         $targetName = (string)$target['nombre'];
 
-        // Eliminar en MySQL
-        $delStmt = $db->prepare("DELETE FROM `usuario` WHERE `id_usuario` = :id");
-        $delStmt->execute([':id' => $idInt]);
-
         $superAdminName = $currentUser['usuario'] ?? 'Super Admin';
+        $updateStmt = $db->prepare("
+            UPDATE `usuario`
+            SET `estado` = 'deshabilitado',
+                `deshabilitado_en` = NOW(),
+                `deshabilitado_por_id` = :por_id,
+                `deshabilitado_por` = :por
+            WHERE `id_usuario` = :id
+        ");
+        $updateStmt->execute([
+            ':por_id' => (int)($currentUser['id'] ?? 0) ?: null,
+            ':por' => $superAdminName,
+            ':id' => $idInt
+        ]);
         logActivity(
             $superAdminName,
-            'usuario_eliminado',
-            "Usuario '{$targetName}' eliminado del sistema por el Super Admin {$superAdminName}",
-            ['id_usuario' => $idInt, 'usuario' => $targetName],
-            $currentUser['id'] ?? null
+            'usuario_deshabilitado',
+            "Usuario '{$targetName}' deshabilitado por {$superAdminName}",
+            ['id_usuario' => $idInt, 'usuario' => $targetName, 'deshabilitado_por' => $superAdminName],
+            $idInt
         );
 
         sendJson([
             'ok'      => true,
-            'message' => "Usuario '{$targetName}' eliminado correctamente."
+            'message' => "Usuario '{$targetName}' deshabilitado correctamente."
         ]);
     } catch (Exception $e) {
         sendJson(['ok' => false, 'error' => 'delete_error', 'message' => 'Error al eliminar usuario: ' . $e->getMessage()], 500);

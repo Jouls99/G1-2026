@@ -150,6 +150,10 @@ CREATE TABLE IF NOT EXISTS `usuario` (
   `nombre` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
   `rol` varchar(50) NOT NULL DEFAULT 'vendedor',
+  `estado` varchar(20) NOT NULL DEFAULT 'habilitado',
+  `deshabilitado_en` datetime DEFAULT NULL,
+  `deshabilitado_por_id` int(11) DEFAULT NULL,
+  `deshabilitado_por` varchar(100) DEFAULT NULL,
   `ultimo_acceso` datetime DEFAULT NULL,
   `fecha_creacion` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_usuario`),
@@ -258,4 +262,3 @@ WHERE `marca` IS NOT NULL AND TRIM(`marca`) <> '';
 
 -- 2. Eliminar la columna marca de producto
 ALTER TABLE `producto` DROP COLUMN `marca`;
-

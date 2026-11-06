@@ -164,6 +164,39 @@ async function cargarUsuarios() {
     }
 }
 
+async function cargarAuditoriaUsuarios() {
+    const container = document.getElementById('disabled-users-audit');
+    if (!container) return;
+    try {
+        const response = await fetch('api/users.php?action=disabled_audit', { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok || data.ok !== true) {
+            throw new Error(data.message || 'No se pudo cargar la auditoría de usuarios.');
+        }
+        if (!data.usuarios.length) {
+            container.innerHTML = '<p style="padding:24px; color:#6b7280;">No hay usuarios deshabilitados.</p>';
+            return;
+        }
+        container.innerHTML = data.usuarios.map(user => `
+            <article class="activity-item" style="margin-bottom:16px;">
+                <div class="activity-item-header">
+                    <strong>${escapeHtml(user.usuario)}</strong>
+                    <span>${escapeHtml(user.role)}</span>
+                </div>
+                <p>Deshabilitado por <strong>${escapeHtml(user.deshabilitado_por)}</strong> el ${formatDate(user.deshabilitado_en)}</p>
+                <details>
+                    <summary>Ver actividad anterior (${user.actividades.length})</summary>
+                    <ul style="margin-top:8px; padding-left:20px;">
+                        ${user.actividades.map(activity => `<li>${escapeHtml(activity.fecha)} — ${escapeHtml(activity.descripcion)}</li>`).join('')}
+                    </ul>
+                </details>
+            </article>
+        `).join('');
+    } catch (error) {
+        container.innerHTML = `<p role="alert" style="padding:24px; color:#b91c1c;">${escapeHtml(error.message)}</p>`;
+    }
+}
+
 /**
  * Actualizar las métricas KPI superiores
  */
@@ -278,7 +311,7 @@ function renderTablaUsuarios() {
                         <button type="button" class="btn-action-sm btn-edit" onclick="abrirModalEditar(${u.id}, '${escapeHtml(u.usuario)}')" title="Editar credenciales">
                             ✏️
                         </button>
-                        <button type="button" class="btn-action-sm btn-del" onclick="eliminarUsuario(${u.id}, '${escapeHtml(u.usuario)}')" title="Eliminar usuario">
+                        <button type="button" class="btn-action-sm btn-del" onclick="eliminarUsuario(${u.id}, '${escapeHtml(u.usuario)}')" title="Deshabilitar usuario">
                             🗑️
                         </button>
                     </div>
@@ -556,10 +589,10 @@ function abrirModalEditar(id, usuario) {
 }
 
 /**
- * Eliminar usuario con confirmación de seguridad
+ * Deshabilitar usuario con confirmación de seguridad
  */
 async function eliminarUsuario(id, usuario) {
-    if (!confirm(`⚠️ ¿Estás seguro de que deseás eliminar la cuenta del usuario '${usuario}'?\nEsta acción no se puede deshacer.`)) {
+    if (!confirm(`⚠️ ¿Estás seguro de que deseás deshabilitar la cuenta del usuario '${usuario}'?\nSu historial se conservará en la auditoría.`)) {
         return;
     }
 
@@ -570,11 +603,12 @@ async function eliminarUsuario(id, usuario) {
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-            throw new Error(data.message || 'Error al eliminar usuario.');
+            throw new Error(data.message || 'Error al deshabilitar usuario.');
         }
 
-        showToast(`🗑️ Usuario '${usuario}' eliminado correctamente.`);
+        showToast(`✅ Usuario '${usuario}' deshabilitado correctamente.`);
         await cargarUsuarios();
+        await cargarAuditoriaUsuarios();
         cargarLoginsYActividades();
     } catch (error) {
         showToast('❌ ' + error.message, true);
@@ -772,6 +806,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderActividades();
             } else if (targetTab === 'tab-usuarios') {
                 renderTablaUsuarios();
+            } else if (targetTab === 'tab-auditoria-usuarios') {
+                cargarAuditoriaUsuarios();
             }
 
             if (typeof actualizarTodasLasTablasTranspuestas === 'function') {

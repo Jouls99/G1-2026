@@ -259,9 +259,9 @@ function renderDetailPanel() {
         <p><strong>Precio:</strong> $${productoSeleccionado.precio.toLocaleString()}</p>
         <p><strong>Stock:</strong> ${productoSeleccionado.stock}</p>
         <p><strong>Subcategoría:</strong> ${escapeHtml(productoSeleccionado.subcategoria || 'Sin subcategoría')}</p>
-        <h4>Subcategorías de la categoría</h4>
+        <h4>Subcategoría del producto</h4>
         <ul class="detail-list">
-            ${(categoria?.subcategorias || []).map(sub => `<li>${escapeHtml(sub.nombre)}</li>`).join('') || '<li>No hay subcategorías</li>'}
+            <li>${escapeHtml(productoSeleccionado.subcategoria || 'Sin subcategoría')}</li>
         </ul>
         ${usuarioEsAdmin ? `<div style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 12px; display:flex; flex-direction:column; gap:8px;">
             <button class="btn" style="background:#fee2e2; color:#b91c1c; font-weight:bold; border:1px solid #fca5a5; text-align:center;" onclick="pedirConfirmacionEliminar('${productoSeleccionado.codigo}', '${categoria?.id}', '${productoSeleccionado.nombre}', '${categoria?.nombre}')">
