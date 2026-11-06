@@ -34,6 +34,42 @@ declare(strict_types=1);
                 console.error('Error al actualizar la sesión activa:', error);
             });
         };
+
+        const TIEMPO_MINIMO_SUSPENSION = 30000;
+        let momentoOcultamiento = null;
+        let cierrePorSuspensionEnviado = false;
+
+        const cerrarSesionPorSuspension = () => {
+            if (cierrePorSuspensionEnviado) return;
+            cierrePorSuspensionEnviado = true;
+
+            const datos = new Blob([], { type: 'application/x-www-form-urlencoded' });
+            if (!navigator.sendBeacon || !navigator.sendBeacon('logout.php', datos)) {
+                fetch('logout.php', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    keepalive: true
+                }).catch((error) => {
+                    console.error('No se pudo cerrar la sesión tras la suspensión:', error);
+                });
+            }
+            window.location.replace('registroinicio.php');
+        };
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                momentoOcultamiento = Date.now();
+                return;
+            }
+
+            if (momentoOcultamiento !== null
+                && Date.now() - momentoOcultamiento >= TIEMPO_MINIMO_SUSPENSION) {
+                cerrarSesionPorSuspension();
+            }
+            momentoOcultamiento = null;
+        });
+
+        window.addEventListener('freeze', cerrarSesionPorSuspension);
         registrarLatidoSesion();
         window.setInterval(registrarLatidoSesion, 60000);
     </script>
