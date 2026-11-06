@@ -98,8 +98,8 @@ function cerrarSesionYJornadaSiCorresponde(PDO $db, array $user): array
         $businessDayStart = $businessNow->setTime(0, 0);
         $businessDayEnd = $businessDayStart->modify('+1 day');
         $dayEnd = $businessDayEnd->setTimezone($storageTimezone)->format('Y-m-d H:i:s');
-        $historyStart = $businessNow->modify('monday this week')->modify('-3 weeks')->format('Y-m-d');
-        $archiveStart = $businessNow->modify('monday this week')->modify('-3 weeks')
+        $historyStart = $businessNow->modify('monday this week')->modify('-4 weeks')->format('Y-m-d');
+        $archiveStart = $businessNow->modify('monday this week')->modify('-4 weeks')
             ->setTime(0, 0)->setTimezone($storageTimezone)->format('Y-m-d H:i:s');
         $archived = archivarVentasDeJornada($db, $archiveStart, $dayEnd);
         $pruned = podarHistorialVentas($db, $historyStart)

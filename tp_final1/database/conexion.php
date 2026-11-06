@@ -140,6 +140,7 @@ function ensureSalesLedgerTables(PDO $pdo): void
     $check->execute([':name' => $migrationName]);
     if ($check->fetchColumn()) {
         ensureSalesProductNameSnapshots($pdo);
+        backfillSalesLedgerFromFacturacion($pdo);
         ensureSalesAutoIncrement($pdo);
         return;
     }
@@ -158,7 +159,7 @@ function ensureSalesLedgerTables(PDO $pdo): void
         $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
         $today = new DateTimeImmutable('today', $timezone);
         $todayStart = $today->format('Y-m-d 00:00:00');
-        $weekStart = $today->modify('monday this week')->modify('-3 weeks')->format('Y-m-d');
+        $weekStart = $today->modify('monday this week')->modify('-4 weeks')->format('Y-m-d');
         $pdo->beginTransaction();
         $migrateCurrent = $pdo->prepare("
             INSERT IGNORE INTO `ventas`
@@ -188,10 +189,46 @@ function ensureSalesLedgerTables(PDO $pdo): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
+
         throw $e;
     } finally {
         $pdo->query("SELECT RELEASE_LOCK('sos_cosmeticos_cierre_jornada')");
     }
+}
+
+// Completa los libros nuevos con facturas heredadas que todavía no fueron migradas.
+function backfillSalesLedgerFromFacturacion(PDO $pdo): void
+{
+    $timezone = new DateTimeZone('America/Argentina/Buenos_Aires');
+    $today = new DateTimeImmutable('today', $timezone);
+    $todayStart = $today->format('Y-m-d 00:00:00');
+    $historyStart = $today->modify('monday this week')->modify('-4 weeks')->format('Y-m-d 00:00:00');
+
+    $current = $pdo->prepare("
+        INSERT IGNORE INTO `ventas`
+            (`ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`)
+        SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`precioFinal`, f.`ID_stock`,
+               p.`nombre`, f.`usuario`
+        FROM `facturacion` f
+        LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
+        WHERE f.`fecha` >= :today_start
+    ");
+    $current->execute([':today_start' => $todayStart]);
+
+    $history = $pdo->prepare("
+        INSERT IGNORE INTO `ventas_historial`
+            (`ID_factura`, `fecha`, `cantidadVendida`, `precioFinal`, `ID_stock`, `nombre_producto`, `usuario`, `semana_inicio`)
+        SELECT f.`ID_factura`, f.`fecha`, f.`cantidadVendida`, f.`precioFinal`, f.`ID_stock`,
+               p.`nombre`, f.`usuario`,
+               DATE_SUB(DATE(f.`fecha`), INTERVAL WEEKDAY(f.`fecha`) DAY)
+        FROM `facturacion` f
+        LEFT JOIN `producto` p ON p.`ID_stock` = f.`ID_stock`
+        WHERE f.`fecha` >= :history_start AND f.`fecha` < :today_start
+    ");
+    $history->execute([
+        ':history_start' => $historyStart,
+        ':today_start' => $todayStart
+    ]);
 }
 
 // Conserva las ventas deshabilitadas sin eliminarlas y permite revertir su impacto en stock.

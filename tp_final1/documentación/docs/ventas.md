@@ -6,7 +6,7 @@ Permite consultar el historial, registrar ventas y deshabilitar ventas diarias. 
 
 `GET api/ventas.php`
 
-`GET api/ventas.php` devuelve las ventas disponibles en el día para los vendedores, y las últimas cuatro semanas para administradores. Cada línea incluye fecha, nombre, nombre secundario, subcategoría, categoría, marca y cantidad. El historial gráfico de informes no expone códigos de producto.
+`GET api/ventas.php` devuelve las ventas disponibles en el día para los vendedores, y las últimas cuatro semanas para administradores. Cada línea incluye fecha, nombre, nombre secundario, subcategoría, categoría, marca y cantidad. El historial gráfico de informes no expone códigos de producto. Las cuatro semanas se cuentan desde el lunes de la semana actual e incluyen las cuatro semanas anteriores.
 
 Los administradores pueden filtrar con `GET api/ventas.php?semana=AAAA-MM-DD`, donde la fecha debe ser el lunes de la semana, o consultar un día exacto con `GET api/ventas.php?fecha=AAAA-MM-DD`. Ambas consultas se limitan a la semana actual y las tres anteriores; la consulta general usa `semana_inicio` y la puntual usa `fecha`.
 
