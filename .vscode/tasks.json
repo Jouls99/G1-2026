@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Iniciar aplicación local",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"tp_final1",
+				"start"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}
