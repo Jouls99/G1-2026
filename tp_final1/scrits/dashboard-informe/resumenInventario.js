@@ -25,6 +25,13 @@
   const initialProductLimit = 10;
   const additionalProductLimit = 30;
 
+  function getFilteredInventory() {
+    const searchTerm = document.getElementById('inventoryCategorySearch')?.value.trim().toLocaleLowerCase('es') || '';
+    return state.inventory.filter((item) =>
+      String(item.categoria || '').toLocaleLowerCase('es').includes(searchTerm)
+    );
+  }
+
   // Suma unidades vendidas por código y opcionalmente restringe el conteo al período activo.
   function buildSoldSummary(period = null) {
     const soldCounts = {};
@@ -126,8 +133,12 @@
     const tbody = document.getElementById('stockTableBody');
     if (!tbody) return;
 
-    if (!state.inventory || !state.inventory.length) {
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 18px; color: #6b7280;">No hay productos cargados en el inventario.</td></tr>';
+    const items = getFilteredInventory();
+    if (!items.length) {
+      const message = state.inventory?.length
+        ? 'No hay categorías que coincidan con la búsqueda.'
+        : 'No hay productos cargados en el inventario.';
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 18px; color: #6b7280;">${message}</td></tr>`;
       return;
     }
 
@@ -144,7 +155,7 @@
     let totalDisponibles = 0;
     let totalGanancias = 0;
 
-    const rows = state.inventory.map((item) => {
+    const rows = items.map((item) => {
       const sold = getSold(item);
       const saleInfo = getLastSaleInfo(item.codigo);
       const available = Number(item.cantidad) || 0;
@@ -193,14 +204,16 @@
     const productsContainer = document.getElementById('mobileInventoryProducts');
     if (!categoriesContainer || !productsContainer) return;
 
-    const categories = [...new Set(state.inventory.map((item) => item.categoria).filter(Boolean))]
+    const categories = [...new Set(getFilteredInventory().map((item) => item.categoria).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b, 'es'));
     const escapeFn = typeof window.escapeHtml === 'function' ? window.escapeHtml : (str => str ?? '');
     const fmt = window.currencyFormatter || currencyFormatter;
     const soldSummary = buildSoldSummary();
 
     if (!categories.length) {
-      categoriesContainer.innerHTML = '<p class="mobile-inventory-empty">No hay productos cargados en el inventario.</p>';
+      categoriesContainer.innerHTML = state.inventory.length
+        ? '<p class="mobile-inventory-empty">No hay categorías que coincidan con la búsqueda.</p>'
+        : '<p class="mobile-inventory-empty">No hay productos cargados en el inventario.</p>';
       productsContainer.innerHTML = '';
       return;
     }
@@ -436,6 +449,10 @@
 
   function initResumenInventario() {
     document.getElementById('exportReportPdfBtn')?.addEventListener('click', exportReportPdf);
+    document.getElementById('inventoryCategorySearch')?.addEventListener('input', () => {
+      renderInventoryTable();
+      renderMobileInventory();
+    });
   }
 
   if (document.readyState === 'loading') {

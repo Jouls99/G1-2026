@@ -343,6 +343,29 @@ th {
     margin-top: 24px;
 }
 
+.summary-inventory-filter {
+    display: grid;
+    gap: 6px;
+    max-width: 420px;
+    margin-bottom: 16px;
+}
+
+.summary-inventory-filter label {
+    color: var(--primary-dark);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.summary-inventory-filter input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-purple);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-main);
+    font: inherit;
+}
+
 .mobile-inventory-report {
     display: none;
 }

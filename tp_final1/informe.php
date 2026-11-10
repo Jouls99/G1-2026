@@ -258,6 +258,10 @@ require_once __DIR__ . '/includes/navbar.php';
         </section>
 
         <div id="seccion-resumen" class="table-wrapper summary-table-wrapper" hidden>
+            <div class="summary-inventory-filter">
+                <label for="inventoryCategorySearch">Filtrar por categoría</label>
+                <input type="search" id="inventoryCategorySearch" placeholder="Escribí el nombre de una categoría..." autocomplete="off">
+            </div>
             <div id="mobileInventoryReport" class="mobile-inventory-report" aria-label="Resumen de inventario para dispositivos móviles">
                 <h3>Inventario por categoría</h3>
                 <div id="mobileInventoryCategories" class="mobile-inventory-categories" role="group" aria-label="Categorías de inventario"></div>
