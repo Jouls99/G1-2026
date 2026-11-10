@@ -47,6 +47,8 @@ El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Admin
 
 Cualquier usuario autenticado puede cerrar su propia sesión. La acción registra `logout`, marca la sesión como finalizada, limpia la sesión PHP, invalida la cookie y la destruye. Desde las 22:30 de Argentina, si esa era la última sesión activa del día, el sistema copia las ventas de la jornada a `ventas_historial`, luego borra las filas archivadas de `ventas` en lotes transaccionales de hasta 200 y poda semanas fuera del límite de cuatro. Si el cierre falla, la sesión se cierra igualmente y se informa el error. El cambio de usuario sigue siendo una opción exclusiva del Super Administrador en la interfaz.
 
+Las páginas autenticadas también cargan el control de sesión de `includes/footer.php`. Si el navegador informa que la página fue congelada (`freeze`) o permanece oculta durante al menos 30 segundos, se envía el cierre a `logout.php` y se redirige al formulario de acceso. Esto permite cerrar la sesión cuando el dispositivo se suspende; cambiar brevemente de pestaña no la cierra.
+
 ## Errores
 
 - `400 invalid_action`: acción no reconocida.

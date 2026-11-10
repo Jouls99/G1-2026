@@ -220,7 +220,7 @@ require_once __DIR__ . '/includes/navbar.php';
             <div class="product-to-delete-card">
                 <div id="modal-prod-nombre" class="prod-delete-title">Nombre del Producto</div>
                 <div class="prod-delete-meta">
-                    <span>Código: <strong id="modal-prod-codigo">COD-000</strong></span>
+                    <span>Código: <strong id="modal-prod-codigo">123456789</strong></span>
                     <span>Categoría: <strong id="modal-prod-categoria"></strong></span>
                 </div>
             </div>

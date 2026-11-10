@@ -278,6 +278,45 @@ th {
     margin: 0;
 }
 
+.stock-counter {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.stock-counter .btn {
+    width: 42px;
+    height: 100%;
+    min-height: 38px;
+    margin: 0;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 0;
+}
+
+.stock-counter input {
+    min-width: 0;
+    height: 38px;
+    text-align: center;
+    border: 0;
+    border-left: 1px solid #e9d5ff;
+    border-right: 1px solid #e9d5ff;
+    border-radius: 0;
+}
+
+#editProdStockHelp {
+    display: block;
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
 .detail-panel p,
 .detail-panel li {
     color: #555;

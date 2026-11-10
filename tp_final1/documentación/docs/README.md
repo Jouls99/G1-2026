@@ -94,6 +94,8 @@ La exportación PDF utiliza la función de impresión del navegador. Al seleccio
 
 Al cerrar la última sesión activa desde las 22:30 de Argentina, el sistema espera a que no haya otras sesiones activas. Entonces archiva las ventas de la jornada, elimina las filas archivadas de `ventas` en lotes de hasta 200 y poda `ventas_historial` para conservar solo cuatro semanas calendario. El resultado se registra en `cierre_jornada`. La actividad de cada sesión se actualiza mientras la aplicación está abierta; una sesión sin actividad se considera vencida según `session.gc_maxlifetime` de PHP. Archivar no repone el stock.
 
+Por seguridad, si el dispositivo se suspende mientras hay una sesión abierta, el navegador solicita el cierre de sesión al congelar la página o al volver después de permanecer oculta durante al menos 30 segundos. Luego redirige al formulario de acceso. Una ocultación breve, como cambiar de pestaña por unos segundos, no cierra la sesión.
+
 Los valores monetarios y la palabra “ganancia” corresponden a las métricas implementadas en la aplicación; deben interpretarse de acuerdo con cómo se registra el precio de cada venta y no como un sistema contable o fiscal.
 
 ## 5. Actividad y auditoría

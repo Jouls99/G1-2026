@@ -84,7 +84,7 @@ Los métodos, parámetros y códigos de respuesta exactos deben confirmarse en c
 | `includes/db.php` | Adaptador mínimo para cargar la conexión compartida desde la configuración de la carpeta `database/`. |
 | `includes/header.php` | Abre el documento HTML en español, inicia la sesión si hace falta, define título por defecto, incluye la hoja base y opcionalmente la hoja indicada por `$customCss`. |
 | `includes/navbar.php` | Presenta navegación común, resalta `$activePage`, muestra usuario y rol escapados, y enseña opciones según los roles de sesión. |
-| `includes/footer.php` | Cierra el documento HTML y muestra el pie con el año actual. |
+| `includes/footer.php` | Cierra el documento HTML, muestra el pie con el año actual y mantiene la sesión autenticada mediante latidos periódicos. También solicita el cierre de sesión cuando el navegador congela la página o permanece oculta durante al menos 30 segundos, como ocurre al suspender el dispositivo. |
 
 ## 6. Ciclo de autenticación y permisos
 
@@ -92,7 +92,8 @@ Los métodos, parámetros y códigos de respuesta exactos deben confirmarse en c
 2. Si las credenciales son correctas, la API almacena `id`, nombre, rol y hora de inicio en `$_SESSION['user']`.
 3. Las páginas privadas incluyen `includes/auth.php` y llaman `requireAuth`, `requireAdmin` o `requireSuperAdmin`.
 4. Las API emplean equivalentes del lado servidor en `api/helpers.php`, y algunas consultan los permisos delegables actuales.
-5. Para cambiar de usuario o de rol, es necesario cerrar la sesión actual con `logout.php` y volver a autenticarse en la pantalla de acceso.
+5. Si el navegador congela una página autenticada o detecta que permaneció oculta durante al menos 30 segundos, `includes/footer.php` envía el cierre a `logout.php` y redirige a `registroinicio.php`.
+6. Para cambiar de usuario o de rol, es necesario cerrar la sesión actual con `logout.php` y volver a autenticarse en la pantalla de acceso.
 
 ## 7. Consideraciones al modificar
 

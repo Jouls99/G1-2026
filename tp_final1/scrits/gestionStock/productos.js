@@ -2,6 +2,8 @@
  * Gestion de productos y categorias
  */
 
+let stockEdicionRequest = Promise.resolve();
+
 // Retira de la página el menú emergente para evitar menús duplicados o persistentes.
 function hideCategoryContextMenu() {
     if (categoryContextMenu) {
@@ -395,8 +397,16 @@ function mostrarFormularioEdicion() {
                 <input id="editProdPrice" type="text" inputmode="decimal" pattern="[0-9]+(?:\\.[0-9]{1,2})?" title="Usá números y, opcionalmente, punto con hasta dos decimales." required>
             </div>
             <div>
-                <label for="editProdStock">Stock</label>
-                <input id="editProdStock" type="number" min="0" required>
+                <label for="editProdStock">Contador de stock</label>
+                <div class="stock-counter" role="group" aria-label="Contador de stock">
+                    <button class="btn" type="button" aria-label="Descontar una unidad"
+                        onclick="modificarStockEdicion(-1)">−</button>
+                    <input id="editProdStock" type="number" min="0" readonly required
+                        aria-describedby="editProdStockHelp">
+                    <button class="btn" type="button" aria-label="Contar una unidad"
+                        onclick="modificarStockEdicion(1)">+</button>
+                </div>
+                <small id="editProdStockHelp">Usá − para descontar y + para contar una unidad.</small>
             </div>
             <div>
                 <label for="editProdSub">Subcategoría</label>
@@ -417,7 +427,53 @@ function mostrarFormularioEdicion() {
     document.getElementById('editProdPrice').value = productoSeleccionado.precio;
     document.getElementById('editProdStock').value = productoSeleccionado.stock;
     document.getElementById('editProdSub').value = productoSeleccionado.subcategoria || '';
+    stockEdicionRequest = Promise.resolve();
     form.addEventListener('submit', guardarEdicionProducto);
+}
+
+function modificarStockEdicion(cambio) {
+    const stockInput = document.getElementById('editProdStock');
+    if (!stockInput) return;
+
+    const stockActual = parseInt(stockInput.value, 10);
+    if (Number.isNaN(stockActual)) return;
+
+    const nuevoStock = Math.max(0, stockActual + cambio);
+    const producto = productoSeleccionado;
+    stockInput.value = nuevoStock;
+    stockEdicionRequest = stockEdicionRequest.then(() =>
+        guardarCambioStock(producto, nuevoStock)
+    );
+}
+
+async function guardarCambioStock(producto, stock) {
+    if (!producto) return;
+
+    try {
+        const res = await fetch('api/inventario.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: producto.ID_stock || producto.id,
+                ID_stock: producto.ID_stock || producto.id,
+                codigo: producto.codigo,
+                cantidad: stock
+            })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            throw new Error(data.message || 'No se pudo actualizar el stock.');
+        }
+
+        producto.stock = stock;
+        if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
+    } catch (error) {
+        const stockInput = document.getElementById('editProdStock');
+        if (stockInput && producto === productoSeleccionado && Number(stockInput.value) === stock) {
+            stockInput.value = producto.stock;
+        }
+        alert(error.message);
+    }
 }
 
 function cancelarEdicionProducto() {

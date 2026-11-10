@@ -277,7 +277,7 @@ function renderDetailPanel() {
                 🗑 Eliminar este producto
             </button>
             <button class="btn" style="background:#dbeafe; color:#1d4ed8; font-weight:bold; border:1px solid #93c5fd; text-align:center;" onclick="mostrarFormularioEdicion()">
-                ✏️ Editar producto
+                ✏️ Editar producto y contar stock
             </button>
         </div>` : ''}
     `;
