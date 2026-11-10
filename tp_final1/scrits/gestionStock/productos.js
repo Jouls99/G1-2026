@@ -320,11 +320,14 @@ async function deleteCategory(catId) {
 }
 
 // Crea la categoría en MySQL y recarga las opciones vinculadas al catálogo.
-async function addCategory() {
-    if (!usuarioEsAdmin) return;
-    const input = document.getElementById('newCatName');
-    const nombre = input.value.trim();
-    if (!nombre) return;
+async function addCategory(inputId = 'newCatName', selectForProduct = false) {
+    if (selectForProduct ? !usuarioPuedeRegistrarStock : !usuarioEsAdmin) return;
+    const input = document.getElementById(inputId);
+    const nombre = input?.value.trim() || '';
+    if (!nombre) {
+        input?.reportValidity();
+        return;
+    }
 
     try {
         const res = await fetch('api/inventario.php?action=create_category', {
@@ -342,11 +345,20 @@ async function addCategory() {
         renderCategories();
         renderCategorySelector();
         renderPriceCategoryFilter();
+        if (selectForProduct && categoriaSeleccionada) {
+            document.getElementById('prodCat').value = categoriaSeleccionada.id;
+            document.getElementById('product-category-creator').hidden = true;
+            document.getElementById('btn-toggle-product-category').setAttribute('aria-expanded', 'false');
+        }
         if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
         renderDetailPanel();
     } catch (error) {
         alert(error.message);
     }
+}
+
+function addProductCategory() {
+    return addCategory('newProdCatName', true);
 }
 
 // Inserta en el panel de detalle un formulario temporal con los datos actuales del producto.
@@ -533,7 +545,10 @@ async function addProduct() {
     }
 
     const catTarget = inventario.find(c => c.id === catId);
-    if (!catTarget) return;
+    if (!catTarget) {
+        alert('Seleccioná una categoría disponible antes de cargar el producto.');
+        return;
+    }
 
     try {
         const res = await fetch('api/inventario.php', {
@@ -552,7 +567,7 @@ async function addProduct() {
             })
         });
         const data = await res.json();
-        if (!res.ok || data.error) {
+        if (!res.ok || data.ok !== true || !data.item) {
             throw new Error(data.message || 'Error al guardar producto.');
         }
         if (data.item?.rehabilitado) {

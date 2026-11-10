@@ -226,6 +226,58 @@ th {
     box-sizing: border-box;
 }
 
+.stock-category-create-toggle,
+.stock-category-cancel {
+    margin-top: 7px;
+    padding: 6px 9px;
+    border: 1px solid #c4b5fd;
+    border-radius: 6px;
+    background: #fff;
+    color: #6d28d9;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.stock-category-empty {
+    margin-top: 6px;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.stock-category-creator {
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid #e9d5ff;
+    border-radius: 8px;
+    background: #faf5ff;
+}
+
+.stock-category-creator label {
+    display: block;
+    margin-bottom: 5px;
+    color: #6b21a8;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.stock-category-creator input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+}
+
+.stock-category-creator-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.stock-category-creator-actions .btn {
+    margin: 0;
+}
+
 .detail-panel p,
 .detail-panel li {
     color: #555;

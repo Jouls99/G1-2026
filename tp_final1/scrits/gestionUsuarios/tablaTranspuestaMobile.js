@@ -400,30 +400,15 @@
      * Generador de contraseña segura aleatoria (Fisher-Yates)
      */
     function generarContraseñaSegura() {
-        const groups = [
-            'abcdefghijklmnopqrstuvwxyz',
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            '0123456789',
-            '$',
-            '%',
-            '+-*/=<>',
-            '!@#&()[]{}:;_.,~^|\\'
-        ];
-        const chars = [];
-        groups.forEach(g => {
-            chars.push(g[Math.floor(Math.random() * g.length)]);
-        });
+        const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%+-*/=<>!@#&()[]{}:;_.,~^|\\';
+        const length = Math.floor(Math.random() * 7) + 4;
+        let password = '';
 
-        const all = groups.join('');
-        while (chars.length < 32) {
-            chars.push(all[Math.floor(Math.random() * all.length)]);
+        for (let index = 0; index < length; index++) {
+            password += characters[Math.floor(Math.random() * characters.length)];
         }
 
-        for (let i = chars.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [chars[i], chars[j]] = [chars[j], chars[i]];
-        }
-        return chars.join('');
+        return password;
     }
 
     /**

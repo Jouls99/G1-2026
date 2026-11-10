@@ -260,7 +260,7 @@ if ($method === 'POST') {
     $action = $_GET['action'] ?? ($body['action'] ?? 'create');
 
     if ($action === 'create_category') {
-        requireAdminApi();
+        requireStockRegistrationApi();
         $name = trim((string)($body['nombre'] ?? ''));
         if ($name === '') {
             sendJson(['ok' => false, 'message' => 'El nombre de la categoría es obligatorio.'], 400);

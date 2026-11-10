@@ -237,7 +237,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <input id="new-username" type="text" name="usuario" placeholder="Ej: vendedora01" required autocomplete="off">
             </div>
 
-            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria para la nueva cuenta y la mostrará una sola vez al terminar.</p>
+            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria de entre 4 y 10 caracteres para la nueva cuenta y la mostrará una sola vez al terminar.</p>
 
             <div class="field-group">
                 <label>Asignar Rol</label>
@@ -302,7 +302,7 @@ require_once __DIR__ . '/includes/navbar.php';
 
             <div class="field-group">
                 <label for="edit-password">Restablecer contraseña</label>
-                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para conservarla" minlength="26" maxlength="64" autocomplete="new-password">
+                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para conservarla" minlength="4" maxlength="10" autocomplete="new-password">
                 <span style="font-size: 0.85rem; color: #4b5563; display: inline-block; margin-top: 4px;">En el caso de olvidar la contraseña, regenerala desde aquí:</span>
                 <br>
                 <i 
@@ -355,6 +355,6 @@ require_once __DIR__ . '/includes/navbar.php';
 <script src="scrits/gestionUsuarios/registro_actividades.js"></script>
 <script src="scrits/gestionUsuarios/monitoreo_login.js"></script>
 <script>window.usuarioEsSuperAdmin = <?= $esSuperAdmin ? 'true' : 'false' ?>;</script>
-<script src="scrits/gestionUsuarios/usuarios.js"></script>
+<script src="scrits/gestionUsuarios/usuarios.js?v=<?= filemtime(__DIR__ . '/scrits/gestionUsuarios/usuarios.js') ?>"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -126,6 +126,15 @@ function renderCategorySelector() {
     } else if (categoriaSeleccionada) {
         selector.value = categoriaSeleccionada.id;
     }
+
+    const emptyMessage = document.getElementById('product-category-empty');
+    const creator = document.getElementById('product-category-creator');
+    const toggle = document.getElementById('btn-toggle-product-category');
+    if (emptyMessage) emptyMessage.hidden = inventario.length > 0;
+    if (inventario.length === 0 && creator && toggle) {
+        creator.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+    }
 }
 
 // Selecciona una categoría y actualiza listado, detalle y filtros de ajustes asociados.

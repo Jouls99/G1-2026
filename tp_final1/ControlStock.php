@@ -66,6 +66,18 @@ require_once __DIR__ . '/includes/navbar.php';
                 <div>
                     <label for="prodCat">Categoría</label>
                     <select id="prodCat" required></select>
+                    <?php if ($puedeCargarStock): ?>
+                    <button class="stock-category-create-toggle" type="button" id="btn-toggle-product-category" aria-controls="product-category-creator" aria-expanded="false">+ Agregar categoría nueva</button>
+                    <p id="product-category-empty" class="stock-category-empty" role="status" hidden>No hay categorías disponibles. Creá una para poder cargar el producto.</p>
+                    <div id="product-category-creator" class="stock-category-creator" hidden>
+                        <label for="newProdCatName">Nombre de la nueva categoría</label>
+                        <input id="newProdCatName" type="text" maxlength="100" placeholder="Ej: Fragancias" autocomplete="off">
+                        <div class="stock-category-creator-actions">
+                            <button class="btn btn-success" type="button" id="btn-save-product-category">Guardar categoría</button>
+                            <button class="stock-category-cancel" type="button" id="btn-cancel-product-category">Cancelar</button>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <button class="btn btn-success" type="submit">+ Cargar producto</button>

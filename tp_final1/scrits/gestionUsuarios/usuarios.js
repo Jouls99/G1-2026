@@ -657,40 +657,18 @@ function escapeHtml(text) {
 }
 
 /**
- * Genera una contraseña aleatoria de 32 caracteres que cumple rigurosamente con la política:
- * minúsculas, mayúsculas, dígitos, $, %, operador y símbolo especial.
+ * Genera una contraseña aleatoria de entre 4 y 10 caracteres.
  */
 function generarContraseñaSegura() {
-    const characterGroups = [
-        'abcdefghijklmnopqrstuvwxyz',
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-        '0123456789',
-        '$',
-        '%',
-        '+-*/=<>',
-        '!@#&()[]{}:;_.,~^|\\'
-    ];
-    const passwordChars = [];
+    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%+-*/=<>!@#&()[]{}:;_.,~^|\\';
+    const length = Math.floor(Math.random() * 7) + 4;
+    let password = '';
 
-    // Garantizar al menos un carácter obligatorio de cada grupo
-    characterGroups.forEach(group => {
-        const randIndex = Math.floor(Math.random() * group.length);
-        passwordChars.push(group[randIndex]);
-    });
-
-    const allCharacters = characterGroups.join('');
-    while (passwordChars.length < 32) {
-        const randIndex = Math.floor(Math.random() * allCharacters.length);
-        passwordChars.push(allCharacters[randIndex]);
+    for (let index = 0; index < length; index++) {
+        password += characters[Math.floor(Math.random() * characters.length)];
     }
 
-    // Mezclar con algoritmo de Fisher-Yates
-    for (let i = passwordChars.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [passwordChars[i], passwordChars[j]] = [passwordChars[j], passwordChars[i]];
-    }
-
-    return passwordChars.join('');
+    return password;
 }
 
 /**
@@ -904,16 +882,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const usuario = document.getElementById('edit-username').value.trim();
             const password = document.getElementById('edit-password').value;
             if (password) {
-                const validPassword = /^[\x21-\x7E]{26,64}$/.test(password)
-                    && /[a-z]/.test(password)
-                    && /[A-Z]/.test(password)
-                    && /[0-9]/.test(password)
-                    && /\$/.test(password)
-                    && /%/.test(password)
-                    && /[+\-*\/=<>]/.test(password)
-                    && /[!@#&()[\]{}:;_.,~^|\\]/.test(password);
+                const validPassword = /^[\x21-\x7E]{4,10}$/.test(password);
                 if (!validPassword) {
-                    showToast('❌ Usá entre 26 y 64 caracteres ASCII imprimibles, incluyendo minúsculas, mayúsculas, números, $, %, un operador y otro símbolo.', true);
+                    showToast('❌ La contraseña debe tener entre 4 y 10 caracteres.', true);
                     return;
                 }
             }

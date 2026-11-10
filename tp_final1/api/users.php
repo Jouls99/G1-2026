@@ -41,48 +41,23 @@ function isSuperAdminRole(string $role): bool
 
 function generateTemporaryPassword(): string
 {
-    $characterGroups = [
-        'abcdefghijklmnopqrstuvwxyz',
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-        '0123456789',
-        '$',
-        '%',
-        '+-*/=<>',
-        '!@#&()[]{}:;_.,~^|\\'
-    ];
-    $characters = '';
+    $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%+-*/=<>!@#&()[]{}:;_.,~^|\\';
+    $length = random_int(4, 10);
+    $password = '';
 
-    foreach ($characterGroups as $group) {
-        $characters .= $group[random_int(0, strlen($group) - 1)];
+    for ($index = 0; $index < $length; $index++) {
+        $password .= $characters[random_int(0, strlen($characters) - 1)];
     }
 
-    $allCharacters = implode('', $characterGroups);
-    while (strlen($characters) < 32) {
-        $characters .= $allCharacters[random_int(0, strlen($allCharacters) - 1)];
-    }
-
-    $password = str_split($characters);
-    for ($index = count($password) - 1; $index > 0; $index--) {
-        $swapIndex = random_int(0, $index);
-        [$password[$index], $password[$swapIndex]] = [$password[$swapIndex], $password[$index]];
-    }
-
-    return implode('', $password);
+    return $password;
 }
 
-// Valida los requisitos de contraseña que se aplican al alta y al cambio de credenciales.
+// Limita las contraseñas nuevas y regeneradas a 4-10 caracteres ASCII imprimibles.
 function passwordMeetsPolicy(string $password): bool
 {
-    return strlen($password) >= 26
-        && strlen($password) <= 64
-        && preg_match('/\A[\x21-\x7E]+\z/', $password) === 1
-        && preg_match('/[a-z]/', $password) === 1
-        && preg_match('/[A-Z]/', $password) === 1
-        && preg_match('/[0-9]/', $password) === 1
-        && preg_match('/[$]/', $password) === 1
-        && preg_match('/%/', $password) === 1
-        && preg_match('/[+\-*\/=<>]/', $password) === 1
-        && preg_match('/[!@#&()\[\]{}:;_.,~^|\\\\]/', $password) === 1;
+    return strlen($password) >= 4
+        && strlen($password) <= 10
+        && preg_match('/\A[\x21-\x7E]+\z/', $password) === 1;
 }
 
 function canManageUserTarget(array $target, ?array $currentUser): bool
@@ -427,7 +402,7 @@ if ($method === 'PUT') {
         sendJson([
             'ok' => false,
             'error' => 'weak_password',
-            'message' => 'La contraseña debe tener entre 26 y 64 caracteres ASCII imprimibles e incluir minúsculas, mayúsculas, números, $, %, un operador (+ - * / = < >) y otro símbolo.'
+            'message' => 'La contraseña debe tener entre 4 y 10 caracteres ASCII imprimibles.'
         ], 400);
     }
 

@@ -26,6 +26,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             mostrarWorkspaceStock();
         });
     }
+    const productCategoryToggle = document.getElementById('btn-toggle-product-category');
+    const productCategoryCreator = document.getElementById('product-category-creator');
+    const productCategoryName = document.getElementById('newProdCatName');
+    const saveProductCategory = document.getElementById('btn-save-product-category');
+    const cancelProductCategory = document.getElementById('btn-cancel-product-category');
+    if (productCategoryToggle && productCategoryCreator) {
+        productCategoryToggle.addEventListener('click', () => {
+            productCategoryCreator.hidden = !productCategoryCreator.hidden;
+            productCategoryToggle.setAttribute('aria-expanded', String(!productCategoryCreator.hidden));
+            if (!productCategoryCreator.hidden) productCategoryName?.focus();
+        });
+    }
+    saveProductCategory?.addEventListener('click', addProductCategory);
+    cancelProductCategory?.addEventListener('click', () => {
+        if (productCategoryName) productCategoryName.value = '';
+        if (productCategoryCreator) productCategoryCreator.hidden = true;
+        productCategoryToggle?.setAttribute('aria-expanded', 'false');
+    });
+    productCategoryName?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addProductCategory();
+        }
+    });
     const btnTogglePriceAdjustment = document.getElementById('btn-toggle-price-adjustment');
     const priceAdjustmentPanel = document.getElementById('price-adjustment-panel');
     if (btnTogglePriceAdjustment && priceAdjustmentPanel) {
