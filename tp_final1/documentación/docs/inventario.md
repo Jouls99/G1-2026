@@ -7,7 +7,7 @@ Gestiona la consulta, alta, edición, rehabilitación y baja lógica de producto
 - `GET`: cualquier usuario con sesión puede consultar productos habilitados.
 - `GET?action=categories`: devuelve las categorías existentes en MySQL, incluidas las que todavía no tienen productos.
 - `GET?action=audit`: solo Super Administrador.
-- `POST`: requiere rol administrativo o permiso delegable `puede_registrar_stock` para crear productos. La creación de categorías requiere rol administrativo.
+- `POST`: requiere rol administrativo o permiso delegable `puede_registrar_stock` para crear productos y categorías.
 - `PUT` y `DELETE`: solo Administrador o Super Administrador.
 - `OPTIONS`: preflight CORS.
 
@@ -44,6 +44,8 @@ Por defecto, `POST api/inventario.php` crea un producto. Cuerpo JSON habitual:
 
 `nombre`, `codigo` y una categoría existente son obligatorios; `precio` y `cantidad` usan 0 por defecto. Las categorías `General` y `Sin categoría` no se ofrecen ni se aceptan; `General` se conserva únicamente como agrupación del informe PDF para registros históricos sin categoría disponible. Si el código ya existe y el producto está activo, devuelve `409 item_exists`. Si existía deshabilitado, solo un administrador puede rehabilitarlo; se actualizan nombre, precio, cantidad, categoría y subcategoría con los valores enviados en la carga actual. Si no se envía una subcategoría, se quita cualquier subcategoría anterior del producto.
 
+En `ControlStock.php`, quienes pueden registrar stock también pueden crear una categoría desde el formulario de carga de producto. La nueva categoría se guarda con `POST?action=create_category` y queda seleccionada para el producto. Si no hay categorías disponibles, el formulario de creación se abre automáticamente. La pantalla y la API verifican el permiso; un usuario sin autorización recibe `403`.
+
 Al eliminar una categoría, se debe indicar otra categoría existente como destino. Los productos se reasignan allí y sus subcategorías se recrean o reutilizan en la categoría destino antes de borrar la categoría original.
 
 El nombre admite únicamente letras ASCII `A-Z`/`a-z` y espacios simples entre palabras. Al crear o rehabilitar, el código admite únicamente dígitos `0-9`. El precio admite dígitos y, opcionalmente, un punto seguido de uno o dos decimales. La interfaz y la API validan estas reglas al crear o modificar un producto.
@@ -57,8 +59,12 @@ Las altas nuevas registran `stock_crear`.
 ### Categorías
 
 - `GET?action=categories` devuelve `{ "ok": true, "categorias": [...] }`, incluyendo categorías vacías.
-- `POST?action=create_category` acepta `{ "nombre": "Cuidado facial" }` y crea la categoría en MySQL. Un nombre duplicado devuelve `409 category_exists`.
-- `DELETE?action=delete_category&id=ID` elimina la categoría y deshabilita sus productos en MySQL; los productos y las ventas históricas se conservan. La acción requiere rol administrativo.
+- `POST?action=create_category` acepta `{ "nombre": "Cuidado facial" }` y crea la categoría en MySQL para Administradores, Super Administradores y usuarios con permiso `puede_registrar_stock`. Un nombre duplicado devuelve `409 category_exists`; `General` y `Sin categoría` están reservadas.
+- `DELETE?action=delete_category&id=ID` requiere una categoría destino. Reasigna allí los productos y sus subcategorías, y luego elimina la categoría original; los productos y las ventas históricas se conservan. La acción requiere rol administrativo.
+
+### Resumen del informe
+
+El resumen de inventario de `informe.php` incluye un campo de búsqueda por texto para filtrar categorías. La coincidencia parcial no distingue mayúsculas/minúsculas y actualiza mientras se escribe, tanto en la tabla de escritorio como en las tarjetas desplegables móviles. El campo vacío muestra todas las categorías; una búsqueda sin coincidencias presenta un aviso.
 
 ## `PUT`: actualizar
 

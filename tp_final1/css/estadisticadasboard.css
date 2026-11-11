@@ -299,7 +299,7 @@ th {
 }
 
 .sales-history-panel {
-    margin-top: 20px;
+    margin-top: 0;
 }
 
 .sales-history-header {
@@ -309,6 +309,71 @@ th {
     gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 10px;
+}
+
+.report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.report-action-btn {
+    justify-content: center;
+}
+
+.report-data-modal[hidden] {
+    display: none;
+}
+
+.report-modal-content {
+    display: flex;
+    flex-direction: column;
+    width: min(96vw, 1100px);
+    max-width: 1100px;
+    max-height: 90vh;
+    overflow: hidden;
+}
+
+.report-modal-header {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 36px;
+    padding-right: 36px;
+    margin-bottom: 14px;
+}
+
+.report-modal-header h2 {
+    margin: 0;
+}
+
+.report-modal-header .sales-history-header {
+    flex: 1;
+    margin: 0;
+}
+
+.report-modal-close {
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+}
+
+.report-modal-table {
+    min-height: 0;
+    overflow: auto;
+}
+
+.report-modal-table .sales-table,
+.inventory-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.summary-table-wrapper .inventory-summary-table {
+    min-width: 800px;
 }
 
 .sales-history-filters {
@@ -340,7 +405,7 @@ th {
 }
 
 .summary-table-wrapper {
-    margin-top: 24px;
+    margin-top: 0;
 }
 
 .summary-inventory-filter {
@@ -450,6 +515,12 @@ th {
     .sales-history-panel .table-wrapper {
         overflow: visible;
         margin-top: 10px;
+    }
+
+    .sales-history-panel .report-modal-table {
+        overflow: auto;
+        margin-top: 0;
+        max-height: calc(90vh - 190px);
     }
 
     .sales-table,
@@ -571,12 +642,20 @@ th {
         font-size: 0.72rem !important;
     }
 
-    .summary-table-wrapper {
-        overflow: visible;
+    #seccion-resumen .report-modal-content {
+        overflow-y: auto;
     }
 
-    .summary-table-wrapper > table {
+    .summary-table-wrapper .inventory-summary-table {
         display: none;
+    }
+
+    .report-actions {
+        flex-direction: column;
+    }
+
+    .report-actions .report-action-btn {
+        width: 100%;
     }
 
     .mobile-inventory-report {

@@ -87,14 +87,18 @@ require_once __DIR__ . '/includes/navbar.php';
                 <ul id="productList" class="product-list"></ul>
             </aside>
         </div>
-        <!-- Historial de ventas y resumen de inventario se despliegan bajo demanda. -->
-        <button type="button" id="btn-despliegueventas" aria-controls="seccion-ventas" aria-expanded="false">Desplegar Ventas</button>
-        <button type="button" id="btn-despliegueresumen" aria-controls="seccion-resumen" aria-expanded="false">Desplegar Resumen</button>
-        
-        <div id="edit-history-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <span class="close-btn" id="closeEditHistoryModalBtn">&times;</span>
-                <h2>📜 Historial de Edición de Venta</h2>
+        <div class="report-actions" role="group" aria-label="Consultas de informes">
+            <button type="button" class="btn-secondary report-action-btn" id="btn-despliegueventas" aria-controls="seccion-ventas" aria-expanded="false">📅 Desplegar Ventas</button>
+            <button type="button" class="btn-secondary report-action-btn" id="btn-despliegueresumen" aria-controls="seccion-resumen" aria-expanded="false">📊 Desplegar Resumen</button>
+            <button type="button" class="btn-secondary report-action-btn" id="btnViewEditHistory" aria-controls="edit-history-modal" aria-expanded="false">🔍 Ver historial de edición</button>
+        </div>
+
+        <div id="edit-history-modal" class="modal report-data-modal" role="dialog" aria-modal="true" aria-labelledby="edit-history-title" hidden>
+            <div class="modal-content report-modal-content">
+                <div class="report-modal-header">
+                    <h2 id="edit-history-title">📜 Historial de Edición de Venta</h2>
+                    <button type="button" class="close-btn report-modal-close" id="closeEditHistoryModalBtn" aria-label="Cerrar historial">&times;</button>
+                </div>
                 <div id="edit-history-content">
                     <table class="history-table">
                         <thead>
@@ -115,70 +119,78 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
         </div>
 
-        <button type="button" class="btn btn-history" id="btnViewEditHistory" style="margin-top:12px;">🔍 Ver historial de edición</button>
-
         <script src="scrits/dashboard-informe/historialEdiciones.js?v=<?= filemtime(__DIR__ . '/scrits/dashboard-informe/historialEdiciones.js') ?>"></script>
 
-        <section id="seccion-ventas" class="panel sales-history-panel" hidden>
-            <div class="sales-history-header">
-                <h3>Historial de ventas registradas</h3>
-                <span id="salesCount">0 ventas</span>
-            </div>
-            <?php if (isAdmin()): ?>
-            <div class="sales-history-filters">
-                <label for="historyWeekSelect">Período</label>
-                <select id="historyWeekSelect"></select>
-                <label for="historyDateSelect">Día exacto</label>
-                <input type="date" id="historyDateSelect">
-            </div>
-            <?php endif; ?>
-            <div class="table-wrapper">
-                <table class="sales-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Hora</th>
-                            <th>Día</th>
-                            <th>Productos</th>
-                            <th>Total</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="salesHistoryBody"></tbody>
-                </table>
-            </div>
-        </section>
+        <div id="seccion-ventas" class="modal report-data-modal" role="dialog" aria-modal="true" aria-labelledby="sales-history-title" hidden>
+            <section class="modal-content report-modal-content sales-history-panel">
+                <div class="report-modal-header">
+                    <div class="sales-history-header">
+                        <h2 id="sales-history-title">Historial de ventas registradas</h2>
+                        <span id="salesCount">0 ventas</span>
+                    </div>
+                    <button type="button" class="close-btn report-modal-close" data-close-report-modal aria-label="Cerrar historial de ventas">&times;</button>
+                </div>
+                <?php if (isAdmin()): ?>
+                <div class="sales-history-filters">
+                    <label for="historyWeekSelect">Período</label>
+                    <select id="historyWeekSelect"></select>
+                    <label for="historyDateSelect">Día exacto</label>
+                    <input type="date" id="historyDateSelect">
+                </div>
+                <?php endif; ?>
+                <div class="table-wrapper report-modal-table">
+                    <table class="sales-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Día</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesHistoryBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
 
-        <div id="seccion-resumen" class="table-wrapper summary-table-wrapper" hidden>
-            <div class="summary-inventory-filter">
-                <label for="inventoryCategorySearch">Filtrar por categoría</label>
-                <input type="search" id="inventoryCategorySearch" placeholder="Escribí el nombre de una categoría..." autocomplete="off">
+        <div id="seccion-resumen" class="modal report-data-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-summary-title" hidden>
+            <div class="modal-content report-modal-content summary-table-wrapper">
+                <div class="report-modal-header">
+                    <h2 id="inventory-summary-title">Resumen de Inventario</h2>
+                    <button type="button" class="close-btn report-modal-close" data-close-report-modal aria-label="Cerrar resumen de inventario">&times;</button>
+                </div>
+                <div class="summary-inventory-filter">
+                    <label for="inventoryCategorySearch">Filtrar por categoría</label>
+                    <input type="search" id="inventoryCategorySearch" placeholder="Escribí el nombre de una categoría..." autocomplete="off">
+                </div>
+                <div id="mobileInventoryReport" class="mobile-inventory-report" aria-label="Resumen de inventario para dispositivos móviles">
+                    <h3>Inventario por categoría</h3>
+                    <div id="mobileInventoryCategories" class="mobile-inventory-categories" role="group" aria-label="Categorías de inventario"></div>
+                    <div id="mobileInventoryProducts"></div>
+                </div>
+                <div class="report-modal-table">
+                    <table class="inventory-summary-table">
+                        <thead>
+                            <tr>
+                                <th>Categoría</th>
+                                <th>Producto</th>
+                                <th>Código</th>
+                                <th>Cantidad vendida</th>
+                                <th>Cantidad disponible</th>
+                                <th>Precio</th>
+                                <th>Total ganancia</th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Día</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody"></tbody>
+                    </table>
+                </div>
             </div>
-            <div id="mobileInventoryReport" class="mobile-inventory-report" aria-label="Resumen de inventario para dispositivos móviles">
-                <h3>Inventario por categoría</h3>
-                <div id="mobileInventoryCategories" class="mobile-inventory-categories" role="group" aria-label="Categorías de inventario"></div>
-                <div id="mobileInventoryProducts"></div>
-            </div>
-            <table border="1">
-                <thead>
-                    <tr>
-                        <th colspan="10">Resumen de Inventario</th>
-                    </tr>
-                    <tr>
-                        <th>Categoría</th>
-                        <th>Producto</th>
-                        <th>Código</th>
-                        <th>Cantidad vendida</th>
-                        <th>Cantidad disponible</th>
-                        <th>Precio</th>
-                        <th>Total ganancia</th>
-                        <th>Fecha</th>
-                        <th>Hora</th>
-                        <th>Día</th>
-                    </tr>
-                </thead>
-                <tbody id="stockTableBody"></tbody>
-            </table>
         </div>
     </section>
     

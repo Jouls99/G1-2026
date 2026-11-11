@@ -22,6 +22,12 @@ El endpoint registra las ventas en `ventas`, guarda el nombre vigente del produc
 
 La respuesta incluye `ok`, `venta` y `totalVenta`. En `venta`, el total puede provenir del campo `total` enviado por el cliente; si no está, se calcula sumando precio por cantidad.
 
+## Historial de ediciones
+
+`GET api/ventas/ediciones_historial.php` requiere una sesión activa y devuelve hasta 200 cambios de ventas (`venta_modificada`, `venta_eliminada` y `venta_deshabilitada`) desde `actividad_usuario`, ordenados del más reciente al más antiguo. Administradores y usuarios con `puede_modificar_informes` pueden consultar los eventos de todos; los demás usuarios solo reciben los suyos. Cada elemento incluye usuario, rol, acción, fecha, hora y detalle.
+
+En `informe.php`, «Desplegar Ventas», «Desplegar Resumen» y «Ver historial de edición» usan el estilo de botones secundario del sitio y abren sus contenidos en modales centrados. Se puede cerrar el modal con su botón de cierre, haciendo clic en el fondo o con Escape; solo puede haber uno abierto a la vez. Al abrirlos, el informe de ventas, el resumen de inventario o el historial se actualizan/cargan mediante los scripts correspondientes (`general.js` y `historialEdiciones.js`). En pantallas pequeñas, el contenido de los modales puede desplazarse y el resumen usa su vista compacta de inventario.
+
 ## `POST`: deshabilitar venta diaria
 
 `POST api/ventas.php`

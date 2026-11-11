@@ -64,6 +64,10 @@ Acepta un cuerpo JSON opcional:
 
 Invoca `logActivity()`, que inserta el registro en `actividad_usuario`. Devuelve `ok` y un mensaje de confirmación.
 
+## Historial de ediciones de ventas
+
+Las acciones de venta registradas como `venta_modificada`, `venta_eliminada` o `venta_deshabilitada` también se pueden consultar en `GET api/ventas/ediciones_historial.php`. Ese endpoint devuelve hasta 200 eventos y aplica visibilidad por usuario: Administradores y usuarios con `puede_modificar_informes` ven el historial general; los demás solo sus propios eventos. La ventana «Ver historial de edición» de `informe.php` consume esta consulta. Para el contrato de respuesta y el flujo de ventas, consultar [ventas.md](./ventas.md).
+
 ## Códigos y notas
 
 - `403`: usuario sin rol administrativo al consultar por `GET`.
