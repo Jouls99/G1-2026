@@ -39,27 +39,6 @@ function isSuperAdminRole(string $role): bool
         || in_array($rc, ['superadmin', 'super admin', 'super administrador', 'super administrator'], true);
 }
 
-function generateTemporaryPassword(): string
-{
-    $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%+-*/=<>!@#&()[]{}:;_.,~^|\\';
-    $length = random_int(4, 10);
-    $password = '';
-
-    for ($index = 0; $index < $length; $index++) {
-        $password .= $characters[random_int(0, strlen($characters) - 1)];
-    }
-
-    return $password;
-}
-
-// Limita las contraseñas nuevas y regeneradas a 4-10 caracteres ASCII imprimibles.
-function passwordMeetsPolicy(string $password): bool
-{
-    return strlen($password) >= 4
-        && strlen($password) <= 10
-        && preg_match('/\A[\x21-\x7E]+\z/', $password) === 1;
-}
-
 function canManageUserTarget(array $target, ?array $currentUser): bool
 {
     if (isSuperAdminApi()) {
@@ -300,6 +279,9 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     // Crea una cuenta autorizada y devuelve la contraseña temporal una sola vez al panel.
     $body = getJsonBody();
+    if (array_key_exists('password', $body ?? [])) {
+        sendJson(['ok' => false, 'error' => 'generated_password_only', 'message' => 'La contraseña siempre la genera el sistema.'], 400);
+    }
     $usuario = trim((string) ($body['usuario'] ?? ''));
     $role = trim((string) ($body['role'] ?? 'vendedor'));
 
@@ -330,12 +312,12 @@ if ($method === 'POST') {
             sendJson(['ok' => false, 'error' => 'role_limit_reached', 'message' => "Ya existe una cuenta con el rol {$roleLabel}. No se puede asignar a otro usuario."], 409);
         }
 
-        $temporaryPassword = generateTemporaryPassword();
+        $temporaryPassword = generateSystemPassword();
         $db->beginTransaction();
         $insertStmt = $db->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
         $insertStmt->execute([
             ':nombre' => $usuario,
-            ':pass'   => password_hash($temporaryPassword, PASSWORD_DEFAULT),
+            ':pass'   => hashUserPassword($temporaryPassword),
             ':rol'    => $role
         ]);
         $newUserId = (int)$db->lastInsertId();
@@ -388,23 +370,15 @@ if ($method === 'POST') {
 if ($method === 'PUT') {
     // Actualiza identidad, rol o contraseña comprobando permisos sobre la cuenta destino.
     $body = getJsonBody();
+    if (array_key_exists('password', $body ?? [])) {
+        sendJson(['ok' => false, 'error' => 'generated_password_only', 'message' => 'La contraseña solo puede regenerarse desde la acción correspondiente.'], 400);
+    }
     $id = isset($body['id']) ? (int)$body['id'] : null;
     $usuario = trim((string)($body['usuario'] ?? ''));
     $newRole = isset($body['role']) ? trim((string)$body['role']) : null;
-    $newPassword = isset($body['password']) && trim((string)$body['password']) !== '' ? (string)$body['password'] : null;
     $action = trim((string)($body['action'] ?? ($_GET['action'] ?? '')));
     $isRegenerate = $action === 'regenerar_password' || $action === 'regenerate_password' || !empty($body['regenerar_password']);
-    if ($isRegenerate) {
-        $newPassword = generateTemporaryPassword();
-    }
-
-    if ($newPassword !== null && !passwordMeetsPolicy($newPassword)) {
-        sendJson([
-            'ok' => false,
-            'error' => 'weak_password',
-            'message' => 'La contraseña debe tener entre 4 y 10 caracteres ASCII imprimibles.'
-        ], 400);
-    }
+    $newPassword = $isRegenerate ? generateSystemPassword() : null;
 
     if (!$id && $usuario === '') {
         sendJson(['ok' => false, 'error' => 'missing_params', 'message' => 'Se requiere el ID o nombre del usuario.'], 400);
@@ -493,7 +467,7 @@ if ($method === 'PUT') {
 
         if ($newPassword !== null) {
             $updates[] = "`password` = :pass";
-            $params[':pass'] = password_hash($newPassword, PASSWORD_DEFAULT);
+            $params[':pass'] = hashUserPassword($newPassword);
         }
 
         if (empty($updates)) {

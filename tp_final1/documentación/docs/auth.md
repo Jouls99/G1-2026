@@ -26,10 +26,11 @@ Con sesión activa, `loggedIn` es `true` y `user` contiene el identificador, el 
 
 Campos requeridos: `usuario` y `password`.
 
-1. Busca el usuario en MySQL y verifica la contraseña con `password_verify()`.
-2. Al autenticar, crea `$_SESSION['user']` y actualiza el último acceso en MySQL.
-3. Registra `login_exitoso` o `login_fallido` mediante `logActivity()`. El evento contiene IP y agente de usuario; el fallo incluye también el motivo.
-4. Después de cuatro contraseñas incorrectas consecutivas para el mismo usuario, bloquea nuevos intentos durante 10 segundos. Un inicio correcto reinicia el contador. La restricción también se aplica a nombres de usuario que no existen.
+1. Busca el usuario en MySQL y verifica el hash de la contraseña con `password_verify()`. Las contraseñas se guardan usando Argon2id con sal automática y parámetros de coste del servidor.
+2. Si el hash almacenado es antiguo (por ejemplo, bcrypt), una autenticación correcta lo actualiza automáticamente a Argon2id; la contraseña no cambia y no se requiere migración masiva.
+3. Al autenticar, crea `$_SESSION['user']` y actualiza el último acceso en MySQL.
+4. Registra `login_exitoso` o `login_fallido` mediante `logActivity()`. El evento contiene IP y agente de usuario; el fallo incluye también el motivo.
+5. Después de cuatro contraseñas incorrectas consecutivas para el mismo usuario, bloquea nuevos intentos durante 10 segundos. Un inicio correcto reinicia el contador. La restricción también se aplica a nombres de usuario que no existen.
 Si ya hay una sesión activa, no es posible iniciar sesión con otra cuenta sin antes cerrar la sesión actual (`400 already_logged_in`).
 
 Respuestas relevantes:
@@ -39,7 +40,7 @@ Respuestas relevantes:
 - `429 login_temporarily_locked`: se alcanzaron cuatro intentos fallidos y el acceso está bloqueado temporalmente; `retry_after` indica los segundos restantes.
 - `200`: autenticación exitosa y objeto `user`.
 
-El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria de 32 caracteres que incluye minúsculas, mayúsculas, números, `$`, `%`, un operador y otro símbolo, guarda únicamente su hash y devuelve `temporary_password` solo después de confirmar la creación. Las contraseñas restablecidas deben tener entre 26 y 64 caracteres ASCII imprimibles y cumplir las mismas categorías. La contraseña no se vuelve a consultar desde la API.
+El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria de 32 caracteres que incluye minúsculas, mayúsculas, números, `$`, `%`, un operador y otro símbolo, guarda únicamente su hash Argon2id y devuelve `temporary_password` solo después de confirmar la creación. Las contraseñas se regeneran en el servidor y no se pueden proporcionar manualmente. El hash se actualiza al autenticarse cuando los parámetros vigentes cambian. La contraseña no se vuelve a consultar desde la API.
 
 ### `logout`
 

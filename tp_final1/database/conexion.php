@@ -66,8 +66,7 @@ function getDBConnection(): ?PDO
     ensureSaleStatusColumns($pdo);
     importLegacyActivityFiles($pdo);
     importLegacyThreatFile($pdo);
-    syncDefaultUsers($pdo);
-
+    migratePasswordColumn($pdo);
     return $pdo;
 }
 
@@ -785,33 +784,167 @@ function ensurePriceAdjustmentHistoryTable(PDO $pdo): void
     ");
 }
 
-/**
- * Asegura que las cuentas iniciales existan y conserven sus roles correctos.
- */
-// Normaliza las cuentas base de administración en instalaciones existentes sin duplicar roles únicos.
-function syncDefaultUsers(PDO $pdo): void
+/** Genera una contraseña aleatoria con un carácter de cada grupo y 32 caracteres en total. */
+function generateSystemPassword(): string
 {
-    try {
-        migratePasswordColumn($pdo);
+    $groups = [
+        'abcdefghijklmnopqrstuvwxyz',
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        '0123456789',
+        '$%+-*/=<>!@#&()[]{}:;_.,~^|\\'
+    ];
+    $characters = implode('', $groups);
+    $password = [];
 
-        $seedUsers = [
-            ['nombre' => 'gomez11', 'password' => 'santu99', 'rol' => 'superadmin'],
-            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador']
-        ];
-        $seedStmt = $pdo->prepare("
-            INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
-            VALUES (:nombre, :password, :rol, NOW())
-            ON DUPLICATE KEY UPDATE `rol` = VALUES(`rol`)
-        ");
-        foreach ($seedUsers as $seedUser) {
-            $seedStmt->execute([
-                ':nombre' => $seedUser['nombre'],
-                ':password' => password_hash($seedUser['password'], PASSWORD_DEFAULT),
-                ':rol' => $seedUser['rol']
-            ]);
+    foreach ($groups as $group) {
+        $password[] = $group[random_int(0, strlen($group) - 1)];
+    }
+    while (count($password) < 32) {
+        $password[] = $characters[random_int(0, strlen($characters) - 1)];
+    }
+
+    for ($index = count($password) - 1; $index > 0; $index--) {
+        $swapIndex = random_int(0, $index);
+        [$password[$index], $password[$swapIndex]] = [$password[$swapIndex], $password[$index]];
+    }
+
+    return implode('', $password);
+}
+
+/** Configuración común para hashes de contraseña Argon2id. */
+function userPasswordHashAlgorithm(): string|int
+{
+    if (!defined('PASSWORD_ARGON2ID') || !in_array('argon2id', password_algos(), true)) {
+        throw new RuntimeException('Este PHP no tiene soporte para Argon2id; actualice PHP o habilite el algoritmo.');
+    }
+
+    return constant('PASSWORD_ARGON2ID');
+}
+
+function userPasswordHashOptions(): array
+{
+    return [
+        'memory_cost' => 19456,
+        'time_cost' => 2,
+        'threads' => 1
+    ];
+}
+
+/** Genera el hash Argon2id que se almacena para las contraseñas de usuario. */
+function hashUserPassword(string $password): string
+{
+    $algorithm = userPasswordHashAlgorithm();
+    $hash = password_hash($password, $algorithm, userPasswordHashOptions());
+    if ($hash === false) {
+        throw new RuntimeException('No se pudo generar el hash Argon2id de la contraseña.');
+    }
+
+    return $hash;
+}
+
+/** Detecta hashes antiguos o con parámetros obsoletos para actualizarlos al autenticar. */
+function userPasswordNeedsRehash(string $hash): bool
+{
+    $algorithm = userPasswordHashAlgorithm();
+    return password_needs_rehash($hash, $algorithm, userPasswordHashOptions());
+}
+
+/** Provisiona el Super Administrador inicial desde una herramienta local de consola. */
+function createInitialSuperAdmin(PDO $pdo, string $username): string
+{
+    $username = trim($username);
+    if ($username === '' || strlen($username) > 100) {
+        throw new InvalidArgumentException('El nombre de usuario debe tener entre 1 y 100 caracteres.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $existingAdmin = $pdo->query("
+            SELECT `id_usuario`
+            FROM `usuario`
+            WHERE `estado` = 'habilitado'
+              AND LOWER(TRIM(`rol`)) IN (
+                  'superadmin', 'super admin', 'super administrador', 'super_admin',
+                  'super-admin', 'super_administrador', 'super-administrador',
+                  'superadministrator', 'super administrator'
+              )
+            LIMIT 1
+            FOR UPDATE
+        ")->fetchColumn();
+        if ($existingAdmin) {
+            throw new RuntimeException('Ya existe un Super Administrador habilitado.');
         }
-    } catch (Exception $e) {
-        error_log('No se pudieron sincronizar las cuentas iniciales en MySQL: ' . $e->getMessage());
+
+        $password = generateSystemPassword();
+        $stmt = $pdo->prepare("
+            INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
+            VALUES (:nombre, :password, 'superadmin', NOW())
+        ");
+        $stmt->execute([
+            ':nombre' => $username,
+            ':password' => hashUserPassword($password)
+        ]);
+        $pdo->commit();
+        return $password;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+/** Restablece desde consola la contraseña perdida de un Super Administrador habilitado. */
+function regenerateSuperAdminPassword(PDO $pdo, string $username): string
+{
+    $username = trim($username);
+    if ($username === '' || strlen($username) > 100) {
+        throw new InvalidArgumentException('El nombre de usuario debe tener entre 1 y 100 caracteres.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $find = $pdo->prepare("
+            SELECT `id_usuario`, `nombre`
+            FROM `usuario`
+            WHERE LOWER(TRIM(`nombre`)) = LOWER(:nombre)
+              AND `estado` = 'habilitado'
+              AND LOWER(TRIM(`rol`)) IN (
+                  'superadmin', 'super admin', 'super administrador', 'super_admin',
+                  'super-admin', 'super_administrador', 'super-administrador',
+                  'superadministrator', 'super administrator'
+              )
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $find->execute([':nombre' => $username]);
+        $admin = $find->fetch();
+        if (!$admin) {
+            throw new RuntimeException('No se encontró un Super Administrador habilitado con ese nombre.');
+        }
+
+        $password = generateSystemPassword();
+        $update = $pdo->prepare("UPDATE `usuario` SET `password` = :password WHERE `id_usuario` = :id");
+        $update->execute([
+            ':password' => hashUserPassword($password),
+            ':id' => (int)$admin['id_usuario']
+        ]);
+        $activity = $pdo->prepare("
+            INSERT INTO `actividad_usuario` (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
+            VALUES (:id, 'Consola del servidor', 'password_restablecida', :descripcion, :detalles, NOW())
+        ");
+        $activity->execute([
+            ':id' => (int)$admin['id_usuario'],
+            ':descripcion' => "Contraseña de Super Administrador '{$admin['nombre']}' regenerada desde consola.",
+            ':detalles' => json_encode(['usuario' => (string)$admin['nombre'], 'origen' => 'consola'], JSON_UNESCAPED_UNICODE)
+        ]);
+        $pdo->commit();
+        return $password;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
     }
 }
 
@@ -833,7 +966,7 @@ function migratePasswordColumn(PDO $pdo): void
         $stored = (string)$user['password'];
         if (password_get_info($stored)['algoName'] === 'unknown') {
             $update->execute([
-                ':password' => password_hash($stored, PASSWORD_DEFAULT),
+                ':password' => hashUserPassword($stored),
                 ':id' => (int)$user['id_usuario']
             ]);
         }
@@ -1116,38 +1249,27 @@ function initDatabase(): void
             if (is_array($userJson) && !empty($userJson)) {
                 $userStmt = $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (:nombre, :pass, :rol, NOW())");
                 foreach ($userJson as $u) {
+                    if (
+                        !is_array($u)
+                        || !is_string($u['usuario'] ?? null)
+                        || trim($u['usuario']) === ''
+                        || strlen(trim($u['usuario'])) > 100
+                        || !is_string($u['password'] ?? null)
+                        || $u['password'] === ''
+                    ) {
+                        error_log('Se omitió un usuario legado sin nombre o contraseña explícitos.');
+                        continue;
+                    }
                     $userStmt->execute([
-                        ':nombre' => (string)($u['usuario'] ?? 'admin'),
-                        ':pass'   => password_hash((string)($u['password'] ?? '1234'), PASSWORD_DEFAULT),
-                        ':rol'    => (string)($u['role'] ?? 'vendedor')
+                        ':nombre' => trim($u['usuario']),
+                        ':pass'   => hashUserPassword($u['password']),
+                        ':rol'    => is_string($u['role'] ?? null) && trim($u['role']) !== ''
+                            ? trim($u['role'])
+                            : 'vendedor'
                     ]);
                 }
             }
-        } else {
-            $pdoServer->prepare("INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`) VALUES (?, ?, 'superadmin', NOW())")->execute(['gomez11', password_hash('santu99', PASSWORD_DEFAULT)]);
         }
-    }
-
-    // Mantener las cuentas base y sus roles sincronizados en instalaciones existentes.
-    try {
-        $seedUsers = [
-            ['nombre' => 'gomez11', 'password' => 'santu99', 'rol' => 'superadmin'],
-            ['nombre' => 'GOMEZ ADMIN', 'password' => '1234', 'rol' => 'administrador']
-        ];
-        $seedStmt = $pdoServer->prepare("
-            INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
-            VALUES (:nombre, :password, :rol, NOW())
-            ON DUPLICATE KEY UPDATE `id_usuario` = `id_usuario`
-        ");
-        foreach ($seedUsers as $seedUser) {
-            $seedStmt->execute([
-                ':nombre' => $seedUser['nombre'],
-                ':password' => password_hash($seedUser['password'], PASSWORD_DEFAULT),
-                ':rol' => $seedUser['rol']
-            ]);
-        }
-    } catch (Exception $e) {
-        // La aplicación conserva el respaldo JSON si la migración no puede ejecutarse.
     }
 
     // Sembrar log inicial si está vacío

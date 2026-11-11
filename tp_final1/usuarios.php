@@ -237,7 +237,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <input id="new-username" type="text" name="usuario" placeholder="Ej: vendedora01" required autocomplete="off">
             </div>
 
-            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria de entre 4 y 10 caracteres para la nueva cuenta y la mostrará una sola vez al terminar.</p>
+            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria de 32 caracteres y la mostrará una sola vez al terminar.</p>
 
             <div class="field-group">
                 <label>Asignar Rol</label>
@@ -301,26 +301,19 @@ require_once __DIR__ . '/includes/navbar.php';
             </div>
 
             <div class="field-group">
-                <label for="edit-password">Restablecer contraseña</label>
-                <input id="edit-password" type="password" name="password" placeholder="Dejar vacío para conservarla" minlength="4" maxlength="10" autocomplete="new-password">
-                <span style="font-size: 0.85rem; color: #4b5563; display: inline-block; margin-top: 4px;">En el caso de olvidar la contraseña, regenerala desde aquí:</span>
+                <span style="font-size: 0.85rem; color: #4b5563; display: inline-block; margin-top: 4px;">Si el usuario perdió su contraseña, generá una nueva. La contraseña actual se reemplazará de inmediato:</span>
                 <br>
-                <i 
-                    class="regenerar-contraseña" 
-                    style="
-                        cursor: pointer; 
-                        color: #007bff; font-size: 15px; font-weight: bold; font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-                        display: inline-block; margin-top: 4px; text-decoration: underline;" 
+                <button type="button" class="btn-secondary"
                     id="regenerar-contraseña"
-                    title="Hacé clic para generar una contraseña segura automáticamente">🔄 Regenerar nueva contraseña
-                </i>
+                    title="El sistema genera una nueva contraseña y la aplica de inmediato">🔄 Regenerar contraseña
+                </button>
                 <div id="regenerated-password-preview" style="display: none; margin-top: 10px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
                     <div style="font-weight: 600; color: #1e40af; margin-bottom: 4px;">🔑 Contraseña generada:</div>
                     <code id="regenerated-password-val" style="display: block; padding: 6px 8px; background: #ffffff; border: 1px solid #dbeafe; border-radius: 4px; font-family: monospace; font-size: 0.95rem; font-weight: 700; color: #1e3a8a; word-break: break-all;"></code>
                     <div style="display: flex; gap: 8px; margin-top: 6px;">
                         <button type="button" id="btn-copy-regenerated" class="btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">📋 Copiar contraseña</button>
                     </div>
-                    <small style="display: block; color: #4b5563; margin-top: 6px;">ℹ️ Para aplicarla a la cuenta, hacé clic abajo en <strong>Actualizar</strong>.</small>
+                    <small style="display: block; color: #4b5563; margin-top: 6px;">ℹ️ Ya está aplicada. Esta contraseña solo se muestra ahora.</small>
                 </div>
             </div>
 

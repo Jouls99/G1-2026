@@ -230,14 +230,6 @@ CREATE TABLE IF NOT EXISTS `productos_deshabilitados` (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
 
-INSERT INTO `usuario` (`nombre`, `password`, `rol`, `fecha_creacion`)
-VALUES
-  ('gomez11', '$2y$10$YRaYHgD0mlNkI0PXn.cKUeBflEdGDLx97LVrGtc2sufPLOeHa/x22', 'superadmin', NOW()),
-  ('GOMEZ ADMIN', '$2y$10$JyH3Uir2a6822VOa.gOdx.swjfuYetdL1.EB7wr5DiXBOgtQwKJZK', 'administrador', NOW())
-ON DUPLICATE KEY UPDATE
-  `rol` = VALUES(`rol`);
-
-
 /* tabla de marcas */
 /* En esta tabla se guardan las marcas de los productos, las cuales se podrán seleccionar al gestionar stock y se visualizarán en las distintas pantallas del sistema. */
 CREATE TABLE IF NOT EXISTS `marcas` (

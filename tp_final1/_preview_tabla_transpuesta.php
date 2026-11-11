@@ -171,7 +171,7 @@ $userRole = $currentUser['role'] ?? 'vendedor';
                 </div>
 
                 <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 16px;">
-                    El sistema generará una contraseña aleatoria de entre 4 y 10 caracteres y te la mostrará al confirmar.
+                    El sistema generará una contraseña aleatoria de 32 caracteres y te la mostrará al confirmar.
                 </p>
 
                 <div class="modal-mobile-actions">
@@ -220,16 +220,16 @@ $userRole = $currentUser['role'] ?? 'vendedor';
                 </div>
 
                 <div class="form-group">
-                    <label for="m-edit-password">Restablecer Contraseña (opcional)</label>
-                    <input id="m-edit-password" type="password" name="password" placeholder="Dejar vacío para mantener actual" minlength="4" maxlength="10" autocomplete="new-password">
+                    <span>Si el usuario perdió su contraseña, generá una nueva. Se aplicará inmediatamente y se mostrará una sola vez.</span>
                     <div style="margin-top: 6px;">
                         <button type="button" id="btn-m-regenerar-pass" style="background: none; border: none; color: #7c2d92; font-weight: 700; font-size: 0.82rem; padding: 0; cursor: pointer;">
-                            🔄 Regenerar contraseña aleatoria
+                            🔄 Regenerar contraseña
                         </button>
                     </div>
                     <div id="m-edit-pass-preview" style="display: none; margin-top: 8px; padding: 8px 10px; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px;">
                         <small style="color: #9d174d; font-weight: 700; display: block;">Contraseña generada:</small>
                         <code id="m-edit-pass-val" style="display: block; font-size: 0.84rem; color: #831843; font-weight: 700; word-break: break-all;"></code>
+                        <button type="button" id="btn-m-copy-regenerated" class="btn-m-secondary" style="margin-top: 8px;">📋 Copiar contraseña</button>
                     </div>
                 </div>
 

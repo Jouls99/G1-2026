@@ -162,7 +162,7 @@ require_once __DIR__ . '/includes/navbar.php';
             <table border="1">
                 <thead>
                     <tr>
-                        <th colspan="10">Resumen de Inventario <input type="search" name="buscar" id="BuscadorCategorias" style="margin-left: 10px; "></th>
+                        <th colspan="10">Resumen de Inventario</th>
                     </tr>
                     <tr>
                         <th>Categoría</th>

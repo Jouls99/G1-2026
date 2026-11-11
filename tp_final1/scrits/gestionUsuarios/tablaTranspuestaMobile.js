@@ -397,21 +397,6 @@
     }
 
     /**
-     * Generador de contraseña segura aleatoria (Fisher-Yates)
-     */
-    function generarContraseñaSegura() {
-        const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%+-*/=<>!@#&()[]{}:;_.,~^|\\';
-        const length = Math.floor(Math.random() * 7) + 4;
-        let password = '';
-
-        for (let index = 0; index < length; index++) {
-            password += characters[Math.floor(Math.random() * characters.length)];
-        }
-
-        return password;
-    }
-
-    /**
      * Modales Móviles
      */
     function abrirModal(modal) {
@@ -422,6 +407,13 @@
     function cerrarModal(modal) {
         if (!modal) return;
         modal.classList.remove('active');
+        if (modal.id === 'modal-credenciales-mobile') {
+            document.getElementById('m-cred-pass').textContent = '';
+        }
+        if (modal.id === 'modal-editar-usuario-mobile') {
+            document.getElementById('m-edit-pass-val').textContent = '';
+            document.getElementById('m-edit-pass-preview').style.display = 'none';
+        }
     }
 
     function abrirModalNuevo() {
@@ -434,13 +426,13 @@
     function abrirModalEditar(id, nombre, rol) {
         const inputId = document.getElementById('m-edit-user-id');
         const inputName = document.getElementById('m-edit-username');
-        const inputPass = document.getElementById('m-edit-password');
         const previewBox = document.getElementById('m-edit-pass-preview');
 
         if (inputId) inputId.value = id;
         if (inputName) inputName.value = nombre;
-        if (inputPass) inputPass.value = '';
         if (previewBox) previewBox.style.display = 'none';
+        const previewCode = document.getElementById('m-edit-pass-val');
+        if (previewCode) previewCode.textContent = '';
 
         actualizarSeleccionRolesModal('form-editar-usuario-mobile', rol, id);
         abrirModal(modalEditar);
@@ -708,7 +700,6 @@
                 e.preventDefault();
                 const id = document.getElementById('m-edit-user-id').value;
                 const usuario = document.getElementById('m-edit-username').value.trim();
-                const password = document.getElementById('m-edit-password').value;
                 const role = formEditar.querySelector('input[name="m-edit-role"]:checked')?.value || 'vendedor';
 
                 if (rolOcupado(normalizarRol(role), id)) {
@@ -717,9 +708,6 @@
                 }
 
                 const payload = { id: parseInt(id), usuario, role };
-                if (password && password.trim() !== '') {
-                    payload.password = password;
-                }
 
                 try {
                     const res = await fetch('api/users.php', {
@@ -744,25 +732,52 @@
         // 10. Regenerar contraseña en edición móvil
         const btnRegenerar = document.getElementById('btn-m-regenerar-pass');
         if (btnRegenerar) {
-            btnRegenerar.addEventListener('click', () => {
-                const pass = generarContraseñaSegura();
-                const inputPass = document.getElementById('m-edit-password');
+            btnRegenerar.addEventListener('click', async () => {
+                const id = Number(document.getElementById('m-edit-user-id')?.value);
                 const previewBox = document.getElementById('m-edit-pass-preview');
                 const previewCode = document.getElementById('m-edit-pass-val');
+                if (!id || !previewBox || !previewCode) return;
+                if (!confirm('¿Confirmás regenerar la contraseña? La actual dejará de funcionar inmediatamente.')) return;
 
-                if (inputPass) {
-                    inputPass.type = 'text';
-                    inputPass.value = pass;
-                }
-                if (previewCode) previewCode.textContent = pass;
-                if (previewBox) previewBox.style.display = 'block';
+                btnRegenerar.disabled = true;
+                try {
+                    const res = await fetch('api/users.php', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, action: 'regenerar_password' }),
+                        cache: 'no-store'
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.ok || typeof data.temporary_password !== 'string') {
+                        throw new Error(data.message || 'No se pudo regenerar la contraseña.');
+                    }
 
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(pass).catch(() => {});
+                    previewCode.textContent = data.temporary_password;
+                    previewBox.style.display = 'block';
+                    try {
+                        await navigator.clipboard.writeText(data.temporary_password);
+                        showToast('🔑 Contraseña regenerada y copiada. Ya está aplicada.');
+                    } catch (error) {
+                        showToast('Contraseña regenerada y aplicada. Copiala desde el cuadro; no volverá a mostrarse.');
+                    }
+                } catch (error) {
+                    showToast('❌ ' + error.message, true);
+                } finally {
+                    btnRegenerar.disabled = false;
                 }
-                showToast('🔑 Nueva contraseña segura generada y copiada.');
             });
         }
+
+        document.getElementById('btn-m-copy-regenerated')?.addEventListener('click', async () => {
+            const password = document.getElementById('m-edit-pass-val')?.textContent || '';
+            if (!password) return;
+            try {
+                await navigator.clipboard.writeText(password);
+                showToast('📋 Contraseña copiada.');
+            } catch (error) {
+                showToast('No se pudo copiar automáticamente. Seleccionala y copiala manualmente.', true);
+            }
+        });
     }
 
     if (document.readyState === 'loading') {

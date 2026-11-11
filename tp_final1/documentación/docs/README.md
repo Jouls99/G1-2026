@@ -30,8 +30,10 @@ La aplicación utiliza PHP para sus páginas y API, JavaScript para las interacc
 | `usuarios.php`, `gestión_usuarios.php`, `permisos_vendedores.php` | Administración de usuarios y permisos. |
 | `api/` | Endpoints PHP para autenticación, inventario, ventas, usuarios, permisos y actividad. |
 | `includes/auth.php`, `api/helpers.php` | Sesión, autorización, respuestas JSON y registro de actividad. |
-| `database/sos_cosmeticos.sql` | Definición inicial de la base de datos y datos de roles de demostración. |
-| `database/conexion.php` | Conexión PDO y preparación/actualización de partes del esquema. |
+| `database/sos_cosmeticos.sql` | Definición inicial de la base de datos. |
+| `database/conexion.php` | Conexión PDO, preparación del esquema y generación segura de contraseñas. |
+| `database/crear_superadmin_inicial.php` | Provisiona por consola el primer Super Administrador con una contraseña generada que se muestra una sola vez. |
+| `database/regenerar_superadmin.php` | Regenera por consola la contraseña de un Super Administrador que perdió el acceso. |
 | `data/` | Datos JSON legados disponibles para importación inicial. |
 | `scrits/` | Scripts JavaScript de interfaz. El nombre del directorio está escrito así en el proyecto. |
 | `css/` | Hojas de estilo de las pantallas. |
@@ -146,9 +148,10 @@ Las acciones concretas y los datos aceptados se definen en cada endpoint; este r
 2. Colocar el proyecto bajo el directorio público del servidor web.
 3. Iniciar Apache y MySQL.
 4. Crear/importar el esquema con `database/sos_cosmeticos.sql` si aún no existe y verificar la configuración de conexión en `database/conexion.php`. Las tablas vacías importan los datos JSON heredados una vez.
-5. Abrir la aplicación desde el servidor local, por ejemplo `http://localhost/tp_final1/`.
+5. Si no existe un Super Administrador habilitado, ejecutar desde la raíz del proyecto `php database/crear_superadmin_inicial.php <nombre_de_usuario>`. El comando crea la cuenta y muestra una contraseña aleatoria de 32 caracteres una sola vez; guardarla de forma segura. No acepta una contraseña como argumento.
+6. Abrir la aplicación desde el servidor local, por ejemplo `http://localhost/tp_final1/`.
 
-La estructura y migraciones de `database/conexion.php` deben mantenerse alineadas con el SQL inicial. Antes de actualizar una instalación con datos reales, generar y verificar un respaldo de la base de datos.
+La estructura y migraciones de `database/conexion.php` deben mantenerse alineadas con el SQL inicial. En instalaciones existentes, cambiar o deshabilitar manualmente cualquier cuenta predeterminada conocida; la actualización deja intactos los usuarios existentes. Ante la pérdida de una contraseña, un Administrador puede regenerarla desde Gestión de Usuarios; el sistema la reemplaza y la muestra una sola vez. Si el Super Administrador perdió el acceso y no hay otro administrador que pueda ayudar, ejecutar `php database/regenerar_superadmin.php <nombre_de_usuario>` desde la raíz del proyecto; requiere acceso local al servidor y registra la acción en auditoría. Antes de actualizar una instalación con datos reales, generar y verificar un respaldo de la base de datos.
 
 ## 9. Mantenimiento de esta documentación
 

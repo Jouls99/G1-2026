@@ -573,18 +573,14 @@ function abrirModalNuevoUsuario() {
 
 // Rellena y abre el editor de una cuenta existente.
 function abrirModalEditar(id, usuario) {
-    const formEditar = document.getElementById('form-editar-usuario');
     document.getElementById('edit-user-id').value = id;
     document.getElementById('edit-username').value = usuario;
-    const editPassInput = document.getElementById('edit-password');
-    if (editPassInput) {
-        editPassInput.type = 'password';
-        editPassInput.value = '';
-    }
     const previewContainer = document.getElementById('regenerated-password-preview');
     if (previewContainer) {
         previewContainer.style.display = 'none';
     }
+    const previewValue = document.getElementById('regenerated-password-val');
+    if (previewValue) previewValue.textContent = '';
     abrirModal(modalEditarUsuario);
 }
 
@@ -626,6 +622,13 @@ function abrirModal(modal) {
 function cerrarModal(modal) {
     if (!modal) return;
     modal.classList.remove('active');
+    if (modal.id === 'modal-credenciales-generadas') {
+        document.getElementById('generated-credential-password').textContent = '';
+    }
+    if (modal.id === 'modal-editar-usuario') {
+        document.getElementById('regenerated-password-val').textContent = '';
+        document.getElementById('regenerated-password-preview').style.display = 'none';
+    }
 }
 
 function actualizarEstiloRadioRoles(formId) {
@@ -657,52 +660,44 @@ function escapeHtml(text) {
 }
 
 /**
- * Genera una contraseña aleatoria de entre 4 y 10 caracteres.
+ * Solicita al servidor una contraseña nueva y la muestra una sola vez.
  */
-function generarContraseñaSegura() {
-    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$%+-*/=<>!@#&()[]{}:;_.,~^|\\';
-    const length = Math.floor(Math.random() * 7) + 4;
-    let password = '';
-
-    for (let index = 0; index < length; index++) {
-        password += characters[Math.floor(Math.random() * characters.length)];
-    }
-
-    return password;
-}
-
-/**
- * Regenera una nueva contraseña para el usuario en edición, la coloca en el campo,
- * la muestra legible, la copia al portapapeles y notifica al usuario.
- */
-function regenerarContraseña() {
-    const nuevaPassword = generarContraseñaSegura();
-    const inputPass = document.getElementById('edit-password');
+async function regenerarContraseña() {
+    const id = Number(document.getElementById('edit-user-id')?.value);
+    const button = document.getElementById('regenerar-contraseña');
     const previewContainer = document.getElementById('regenerated-password-preview');
     const previewVal = document.getElementById('regenerated-password-val');
+    if (!id || !button || !previewContainer || !previewVal) return;
+    if (!confirm('¿Confirmás regenerar la contraseña? La actual dejará de funcionar inmediatamente.')) return;
 
-    if (inputPass) {
-        inputPass.type = 'text';
-        inputPass.value = nuevaPassword;
-        inputPass.focus();
-    }
+    button.disabled = true;
+    try {
+        const response = await fetch('api/users.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, action: 'regenerar_password' }),
+            cache: 'no-store'
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok || typeof data.temporary_password !== 'string') {
+            throw new Error(data.message || 'No se pudo regenerar la contraseña.');
+        }
 
-    if (previewVal) {
-        previewVal.textContent = nuevaPassword;
-    }
-
-    if (previewContainer) {
+        previewVal.textContent = data.temporary_password;
         previewContainer.style.display = 'block';
+        try {
+            await navigator.clipboard.writeText(data.temporary_password);
+            showToast('🔑 Contraseña regenerada y copiada. Ya está aplicada.');
+        } catch (error) {
+            showToast('Contraseña regenerada y aplicada. Copiala desde el cuadro; no volverá a mostrarse.');
+        }
+    } catch (error) {
+        showToast('❌ ' + error.message, true);
+    } finally {
+        button.disabled = false;
     }
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(nuevaPassword).catch(() => {});
-    }
-
-    showToast('🔑 Nueva contraseña generada y copiada al portapapeles. Recordá hacer clic en "Actualizar" para guardarla.');
 }
 
-window.generarContraseñaSegura = generarContraseñaSegura;
 window.regenerarContraseña = regenerarContraseña;
 
 // ==========================================================================
@@ -880,19 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const id = document.getElementById('edit-user-id').value;
             const usuario = document.getElementById('edit-username').value.trim();
-            const password = document.getElementById('edit-password').value;
-            if (password) {
-                const validPassword = /^[\x21-\x7E]{4,10}$/.test(password);
-                if (!validPassword) {
-                    showToast('❌ La contraseña debe tener entre 4 y 10 caracteres.', true);
-                    return;
-                }
-            }
-
             const payload = { id: parseInt(id), usuario };
-            if (password && password.trim() !== '') {
-                payload.password = password;
-            }
 
             try {
                 const res = await fetch('api/users.php', {
@@ -919,11 +902,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 11. Eventos para Regenerar Contraseña en edición
     document.getElementById('regenerar-contraseña')?.addEventListener('click', (e) => {
         e.preventDefault();
-        regenerarContraseña();
+        void regenerarContraseña();
     });
 
     document.getElementById('btn-copy-regenerated')?.addEventListener('click', async () => {
-        const passText = document.getElementById('regenerated-password-val')?.textContent || document.getElementById('edit-password')?.value || '';
+        const passText = document.getElementById('regenerated-password-val')?.textContent || '';
         if (!passText) return;
         try {
             await navigator.clipboard.writeText(passText);

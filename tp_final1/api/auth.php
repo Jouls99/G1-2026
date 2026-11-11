@@ -172,6 +172,15 @@ if ($action === 'login' && $method === 'POST') {
         sendJson(['ok' => false, 'error' => 'invalid_credentials', 'message' => 'Usuario o contraseña incorrectos.'], 401);
     }
 
+    $storedPasswordHash = (string)$found['password'];
+    if (userPasswordNeedsRehash($storedPasswordHash)) {
+        $rehashStmt = $db->prepare("UPDATE `usuario` SET `password` = :password WHERE `id_usuario` = :id");
+        $rehashStmt->execute([
+            ':password' => hashUserPassword($password),
+            ':id' => (int)$found['id_usuario']
+        ]);
+    }
+
     $clearAttempts = $db->prepare("DELETE FROM `login_intentos` WHERE `usuario_clave` = :usuario");
     $clearAttempts->execute([':usuario' => trim($usuario)]);
 

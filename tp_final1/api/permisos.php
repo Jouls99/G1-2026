@@ -65,6 +65,15 @@ if ($method === 'PUT') {
             );
             sendJson(['ok' => false, 'error' => 'invalid_password', 'message' => 'La contraseña ingresada es incorrecta.'], 401);
         }
+
+        $storedPasswordHash = (string)$adminRow['password'];
+        if (userPasswordNeedsRehash($storedPasswordHash)) {
+            $rehashStmt = $db->prepare("UPDATE `usuario` SET `password` = :password WHERE `id_usuario` = :id");
+            $rehashStmt->execute([
+                ':password' => hashUserPassword($adminPassword),
+                ':id' => (int)$adminRow['id_usuario']
+            ]);
+        }
     } catch (Exception $e) {
         error_log('Error al validar contraseña del administrador: ' . $e->getMessage());
         sendJson(['ok' => false, 'message' => 'Error al validar credenciales.'], 500);
