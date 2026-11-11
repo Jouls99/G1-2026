@@ -237,7 +237,7 @@ require_once __DIR__ . '/includes/navbar.php';
                 <input id="new-username" type="text" name="usuario" placeholder="Ej: vendedora01" required autocomplete="off">
             </div>
 
-            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria de 32 caracteres y la mostrará una sola vez al terminar.</p>
+            <p style="color:#6b7280; margin:0 0 16px;">El sistema generará una contraseña aleatoria de 10 a 34 caracteres únicos y la mostrará una sola vez al terminar.</p>
 
             <div class="field-group">
                 <label>Asignar Rol</label>

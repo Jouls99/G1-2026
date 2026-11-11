@@ -3,8 +3,29 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/includes/auth.php';
 
+if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+	http_response_code(405);
+	header('Allow: POST');
+	exit('El cierre de sesión requiere POST.');
+}
+if (!isSameOriginMutationRequest()) {
+	http_response_code(403);
+	exit('Solicitud de cierre de sesión rechazada.');
+}
+
 // Si existe una sesión, registra su cierre y finaliza la jornada cuando corresponde.
 if (isLoggedIn()) {
+	try {
+		if (!validateCurrentUserSession()) {
+			header('Location: registroinicio.php');
+			exit;
+		}
+	} catch (Throwable $e) {
+		error_log('No se pudo validar la sesión antes del cierre: ' . $e->getMessage());
+		http_response_code(503);
+		exit('No se pudo validar la sesión. Intentá nuevamente.');
+	}
+
 	$user = getCurrentUser();
 	$errorCierreJornada = false;
 	require_once __DIR__ . '/api/helpers.php';

@@ -27,7 +27,7 @@ La ruta PHP principal para las páginas es `venta.php`; `index.php` envía allí
 | `usuarios.php` | Consola de administración para Administradores y Super Administradores. Ambos gestionan usuarios y consultan actividades; solo el Super Administrador ve métricas y monitoreo de logins. |
 | `permisos_vendedores.php` | Requiere Administrador o Super Administrador. Presenta los permisos delegables de vendedores y carga `scrits/permisos.js`. |
 | `gestión_usuarios.php` | Requiere rol Administrador o Super Administrador y redirige a `usuarios.php`; funciona como ruta de compatibilidad hacia la consola. |
-| `logout.php` | Registra el cierre de sesión y, si ya son las 22:30 en Argentina y era la última sesión activa, archiva las ventas en lotes transaccionales de hasta 200, poda las semanas vencidas y luego redirige al login. |
+| `logout.php` | Acepta únicamente `POST` del mismo origen, registra el cierre de sesión y, si ya son las 22:30 en Argentina y era la última sesión activa, archiva las ventas en lotes transaccionales de hasta 200, poda las semanas vencidas y luego redirige al login. |
 
 ### Flujo de una venta
 
@@ -43,14 +43,14 @@ Todos los endpoints PHP cargan helpers comunes y responden JSON. Según el endpo
 
 | Archivo | Métodos y comportamiento |
 | --- | --- |
-| `api/helpers.php` | Biblioteca compartida, no una pantalla de API independiente. Inicia/usa la sesión, normaliza respuestas JSON y solicitudes HTTP, lee cuerpos JSON o formularios, implementa comprobaciones de sesión/roles/permisos y centraliza el registro de actividad y la detección de señales de acceso en MySQL. La autenticación también actualiza el registro de sesiones activas. |
+| `api/helpers.php` | Biblioteca compartida, no una pantalla de API independiente. Inicia/usa la sesión segura, rechaza modificaciones sin origen permitido, normaliza respuestas JSON y solicitudes HTTP, lee cuerpos JSON o formularios, implementa comprobaciones de sesión/roles/permisos y centraliza el registro de actividad y la detección de señales de acceso en MySQL. La autenticación también actualiza el registro de sesiones activas. |
 | `includes/security_monitor.php` | Revisa solicitudes PHP y API para reconocer patrones probables de inyección SQL, XSS, ejecución de comandos, traversal y ejecución de PHP. Registra alertas resumidas en `amenaza` sin guardar el contenido recibido ni bloquear la solicitud. |
-| `api/auth.php` | La acción `check` devuelve si hay usuario en sesión. `POST?action=login` valida credenciales en MySQL, limita a cuatro los fallos consecutivos por usuario con bloqueo de 10 segundos, crea y registra la sesión activa, actualiza el último acceso y registra éxitos o fallos. No hay registro público. `action=logout` registra y cierra una sesión autenticada y ejecuta el cierre de jornada únicamente si es la última sesión activa después de las 22:30 de Argentina. |
+| `api/auth.php` | La acción `check` valida la cuenta y sesión persistente. `POST?action=login` valida credenciales en MySQL, limita a cuatro los fallos consecutivos por usuario con bloqueo de 10 segundos, rota el identificador de sesión y registra la sesión activa. `POST?action=logout` registra y cierra la sesión; las modificaciones exigen mismo origen. No hay registro público. |
 | `login_intentos` | Mantiene el contador de fallos consecutivos por nombre de usuario y la fecha/hora de expiración del bloqueo temporal. |
 | `api/session.php` | Actualiza periódicamente la última actividad de la sesión autenticada para distinguir sesiones activas al cierre de jornada. |
 | `api/inventario.php` | `GET` entrega los productos desde MySQL. La acción `GET?action=audit` devuelve cambios de estado para Super Administradores. `POST` crea productos o permite rehabilitarlos según rol. `PUT` actualiza el inventario para administradores. `DELETE?codigo=...` deshabilita un producto conservando el historial en vez de borrar la fila. Las operaciones relevantes generan actividad en MySQL. |
 | `api/ventas.php` | Requiere sesión. `GET` lista ventas desde MySQL. `POST` valida y registra una nueva venta y actualiza inventario en una transacción. `PUT` permite modificaciones autorizadas por ID; `DELETE?id=...` elimina una venta y restaura stock en MySQL. |
-| `api/actividades.php` | `GET` requiere Administrador o Super Administrador. Acepta filtros opcionales de usuario y tipo y un límite entre 1 y 500; entrega eventos, métricas y alertas desde MySQL. `POST` registra un evento mediante `logActivity`. |
+| `api/actividades.php` | Solo `GET`, protegido para Administrador o Super Administrador. Acepta filtros opcionales de usuario y tipo y entrega eventos, métricas y alertas desde MySQL; no permite insertar eventos mediante solicitudes externas. |
 | `api/users.php` | La gestión de cuentas requiere Administrador o Super Administrador. `GET` lista cuentas; `action=detail` y sus datos de logins requieren Super Administrador. `POST` crea cuentas y devuelve una contraseña aleatoria temporal una sola vez; `PUT` actualiza roles/datos; `DELETE` elimina usuarios. Las operaciones validan duplicados y restricciones de roles. |
 | `api/permisos.php` | Requiere Administrador o Super Administrador. `GET` lista vendedores con sus permisos delegables. `PUT` recibe un identificador, la contraseña del administrador y los permisos a cambiar, valida las credenciales del admin, actualiza MySQL y registra quién hizo el cambio. |
 
@@ -80,7 +80,8 @@ Los métodos, parámetros y códigos de respuesta exactos deben confirmarse en c
 
 | Archivo | Funcionamiento |
 | --- | --- |
-| `includes/auth.php` | Inicia la sesión si aún no existe y agrupa funciones de autenticación/autorización para páginas: leer el usuario, saber si inició sesión, redirigir, reconocer roles, verificar permisos delegables y proteger vistas. `logoutUser()` limpia la sesión, invalida la cookie y destruye la sesión PHP. Los permisos delegables se consultan en MySQL. |
+| `includes/auth.php` | Valida cuenta, rol y sesión persistente contra MySQL y agrupa funciones de autenticación/autorización para páginas: leer el usuario, redirigir, reconocer roles, verificar permisos delegables y proteger vistas. `logoutUser()` limpia la sesión, invalida la cookie y destruye la sesión PHP. |
+| `includes/session_security.php` | Configura cookies `HttpOnly` y `SameSite=Lax`, modo estricto de PHP y comprobaciones de origen en solicitudes mutables. En despliegues detrás de proxy TLS permite fijar `SESSION_COOKIE_SECURE=1` y `APP_ORIGIN`. |
 | `includes/db.php` | Adaptador mínimo para cargar la conexión compartida desde la configuración de la carpeta `database/`. |
 | `includes/header.php` | Abre el documento HTML en español, inicia la sesión si hace falta, define título por defecto, incluye la hoja base y opcionalmente la hoja indicada por `$customCss`. |
 | `includes/navbar.php` | Presenta navegación común, resalta `$activePage`, muestra usuario y rol escapados, y enseña opciones según los roles de sesión. |

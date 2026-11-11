@@ -22,7 +22,7 @@ Cuerpo JSON:
 { "usuario": "nombre", "role": "vendedor" }
 ```
 
-Requiere nombre y rol. Los roles válidos son `vendedor`, `administrador` y `superadmin`; un rol no reconocido responde `400 invalid_role`. Solo el Super Administrador puede asignar el rol `superadmin`. Se comprueba nombre duplicado y solo puede existir una cuenta de cada rol administrativo protegido. El servidor genera una contraseña aleatoria de 32 caracteres con `random_int()`, incluyendo minúsculas, mayúsculas, números y símbolos. Guarda únicamente su hash Argon2id, con sal automática, y responde con `temporary_password` después de confirmar la cuenta y registrar `usuario_creado`. Si se incluye una contraseña escrita en la petición, responde `400 generated_password_only`. La contraseña no se almacena ni se puede recuperar posteriormente.
+Requiere nombre y rol. Los roles válidos son `vendedor`, `administrador` y `superadmin`; un rol no reconocido responde `400 invalid_role`. Solo el Super Administrador puede asignar el rol `superadmin`. Se comprueba nombre duplicado y solo puede existir una cuenta de cada rol administrativo protegido. El servidor genera una contraseña aleatoria de 10 a 34 caracteres con `random_int()`. Todos los caracteres son únicos; incluye minúsculas, mayúsculas, números y símbolos, por lo que tampoco se repiten bloques de caracteres. No es posible garantizar que ninguna subcadena forme una palabra en todos los idiomas. Guarda únicamente su hash Argon2id, con sal automática, y responde con `temporary_password` después de confirmar la cuenta y registrar `usuario_creado`. Si se incluye una contraseña escrita en la petición, responde `400 generated_password_only`. La contraseña no se almacena ni se puede recuperar posteriormente.
 
 ## `PUT`: modificar cuenta
 
@@ -30,13 +30,13 @@ Requiere nombre y rol. Los roles válidos son `vendedor`, `administrador` y `sup
 
 Identifica al usuario mediante `id` o `usuario`. Puede incluir `usuario` nuevo o `role` nuevo. Los nombres de roles admiten alias y se normalizan a `superadmin`, `administrador` o `vendedor`. No permite asignar un rol administrativo único a otro usuario si ya está ocupado. Tampoco permite que el único Super Administrador se quite ese rol a sí mismo. El endpoint requiere sesión de Administrador o Super Administrador. No acepta contraseñas proporcionadas por el cliente.
 
-`{ "id": 123, "action": "regenerar_password" }` genera una nueva contraseña aleatoria en el servidor, actualiza el hash Argon2id inmediatamente y la devuelve en `temporary_password` una sola vez. Los cambios se guardan en MySQL y registran `rol_cambiado`, `password_restablecida` o `usuario_modificado`, según el caso. Las cuentas con hashes bcrypt u otros hashes reconocidos se migran automáticamente a Argon2id después de una verificación correcta.
+`{ "id": 123, "action": "regenerar_password" }` genera una nueva contraseña aleatoria de 10 a 34 caracteres únicos en el servidor, actualiza el hash Argon2id inmediatamente y la devuelve en `temporary_password` una sola vez. Los cambios se guardan en MySQL y registran `rol_cambiado`, `password_restablecida` o `usuario_modificado`, según el caso. Las cuentas con hashes bcrypt u otros hashes reconocidos se migran automáticamente a Argon2id después de una verificación correcta.
 
 ## `DELETE`: deshabilitar cuenta
 
 `DELETE api/users.php?id=ID`
 
-También acepta `id` en el cuerpo JSON. Impide que el Administrador o Super Administrador deshabilite su propia cuenta activa. Si existe el usuario, actualiza su estado a `deshabilitado`, guarda el responsable y la fecha, conserva la cuenta y toda su actividad, y registra `usuario_deshabilitado`. La cuenta deja de aparecer en el listado activo y no puede iniciar sesión.
+También acepta `id` en el cuerpo JSON. Impide que el Administrador o Super Administrador deshabilite su propia cuenta activa. Si existe el usuario, actualiza su estado a `deshabilitado`, revoca sus sesiones activas, guarda el responsable y la fecha, conserva la cuenta y toda su actividad, y registra `usuario_deshabilitado`. La cuenta deja de aparecer en el listado activo y no puede iniciar sesión. Los cambios de nombre, rol o contraseña también revocan las sesiones de la cuenta afectada.
 
 ## Errores comunes
 

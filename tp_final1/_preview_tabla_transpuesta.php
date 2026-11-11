@@ -171,7 +171,7 @@ $userRole = $currentUser['role'] ?? 'vendedor';
                 </div>
 
                 <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 16px;">
-                    El sistema generará una contraseña aleatoria de 32 caracteres y te la mostrará al confirmar.
+                    El sistema generará una contraseña aleatoria de 10 a 34 caracteres únicos y te la mostrará al confirmar.
                 </p>
 
                 <div class="modal-mobile-actions">

@@ -228,20 +228,5 @@ if ($method === 'GET') {
     }
 }
 
-if ($method === 'POST') {
-    // Permite registrar una acción de la sesión actual con datos estructurados opcionales.
-    $body = getJsonBody();
-    $usuario = trim((string)($body['usuario'] ?? ($currentUser['usuario'] ?? 'Sistema')));
-    $tipo = trim((string)($body['tipo'] ?? 'accion_general'));
-    $descripcion = trim((string)($body['descripcion'] ?? 'Actividad registrada'));
-    $detalles = isset($body['detalles']) && is_array($body['detalles']) ? $body['detalles'] : null;
-
-    $logged = logActivity($usuario, $tipo, $descripcion, $detalles, $currentUser['id'] ?? null);
-
-    sendJson([
-        'ok'      => $logged,
-        'message' => 'Actividad registrada con éxito.'
-    ]);
-}
-
-sendJson(['error' => 'method_not_allowed'], 405);
+header('Allow: GET, OPTIONS');
+sendJson(['ok' => false, 'error' => 'method_not_allowed', 'message' => 'Este endpoint solo permite consultas de auditoría.'], 405);

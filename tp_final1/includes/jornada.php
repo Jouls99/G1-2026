@@ -41,6 +41,61 @@ function registrarActividadSesion(PDO $db, array $user): void
     }
 }
 
+/** Actualiza el latido solo de sesiones que sigan activas, sin reactivar sesiones revocadas. */
+function actualizarActividadSesion(PDO $db, array $user): bool
+{
+    if (session_status() !== PHP_SESSION_ACTIVE || session_id() === '') {
+        throw new RuntimeException('No hay una sesión PHP activa para registrar.');
+    }
+
+    $stmt = $db->prepare("
+        UPDATE `sesion_activa`
+        SET `ultima_actividad` = :last_activity
+        WHERE `token_sesion` = :token
+          AND `id_usuario` = :user_id
+          AND `activa` = 1
+    ");
+    $stmt->execute([
+        ':last_activity' => date('Y-m-d H:i:s'),
+        ':token' => hash('sha256', session_id()),
+        ':user_id' => (int)($user['id'] ?? 0)
+    ]);
+
+    if ($stmt->rowCount() === 1) {
+        return true;
+    }
+
+    $check = $db->prepare("
+        SELECT 1
+        FROM `sesion_activa`
+        WHERE `token_sesion` = :token
+          AND `id_usuario` = :user_id
+          AND `activa` = 1
+        LIMIT 1
+    ");
+    $check->execute([
+        ':token' => hash('sha256', session_id()),
+        ':user_id' => (int)($user['id'] ?? 0)
+    ]);
+    return (bool)$check->fetchColumn();
+}
+
+/** Revoca todas las sesiones persistentes de una cuenta modificada o deshabilitada. */
+function revocarSesionesUsuario(PDO $db, int $userId): void
+{
+    $stmt = $db->prepare("
+        UPDATE `sesion_activa`
+        SET `activa` = 0,
+            `cerrada_en` = :closed_at
+        WHERE `id_usuario` = :user_id
+          AND `activa` = 1
+    ");
+    $stmt->execute([
+        ':closed_at' => date('Y-m-d H:i:s'),
+        ':user_id' => $userId
+    ]);
+}
+
 /**
  * Marks this session closed and archives the retained sales window only after
  * the last tracked session ends at or after 22:30 in Argentina.

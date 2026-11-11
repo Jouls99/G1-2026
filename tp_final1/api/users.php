@@ -476,7 +476,18 @@ if ($method === 'PUT') {
 
         $sql = "UPDATE `usuario` SET " . implode(', ', $updates) . " WHERE `id_usuario` = :id";
         $updStmt = $db->prepare($sql);
-        $updStmt->execute($params);
+        $db->beginTransaction();
+        try {
+            $updStmt->execute($params);
+            require_once dirname(__DIR__) . '/includes/jornada.php';
+            revocarSesionesUsuario($db, $targetId);
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
 
         if ($newRole !== null && strcasecmp($newRole, $currentRole) !== 0) {
             logActivity(
@@ -564,11 +575,22 @@ if ($method === 'DELETE') {
                 `deshabilitado_por` = :por
             WHERE `id_usuario` = :id
         ");
-        $updateStmt->execute([
-            ':por_id' => (int)($currentUser['id'] ?? 0) ?: null,
-            ':por' => $superAdminName,
-            ':id' => $idInt
-        ]);
+        $db->beginTransaction();
+        try {
+            $updateStmt->execute([
+                ':por_id' => (int)($currentUser['id'] ?? 0) ?: null,
+                ':por' => $superAdminName,
+                ':id' => $idInt
+            ]);
+            require_once dirname(__DIR__) . '/includes/jornada.php';
+            revocarSesionesUsuario($db, $idInt);
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
         logActivity(
             $superAdminName,
             'usuario_deshabilitado',

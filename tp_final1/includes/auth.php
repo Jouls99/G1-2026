@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/session_security.php';
+startSecureSession();
 
 require_once __DIR__ . '/security_monitor.php';
 
@@ -24,6 +23,54 @@ function getCurrentUser(): ?array
     return $_SESSION['user'] ?? null;
 }
 
+/** Valida que la cuenta y su sesión persistente sigan habilitadas en MySQL. */
+function validateCurrentUserSession(): bool
+{
+    $user = getCurrentUser();
+    if (!is_array($user) || (int)($user['id'] ?? 0) <= 0 || session_id() === '') {
+        return false;
+    }
+
+    require_once dirname(__DIR__) . '/database/conexion.php';
+    $db = getDBConnection();
+    if (!$db instanceof PDO) {
+        throw new RuntimeException('No se pudo conectar a la base de datos para validar la sesión.');
+    }
+
+    $token = hash('sha256', session_id());
+    $stmt = $db->prepare("
+        SELECT u.`nombre`, u.`rol`, u.`estado`, s.`activa`, s.`id_usuario` AS `sesion_usuario_id`
+        FROM `usuario` u
+        LEFT JOIN `sesion_activa` s ON s.`token_sesion` = :token
+        WHERE u.`id_usuario` = :user_id
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':token' => $token,
+        ':user_id' => (int)$user['id']
+    ]);
+    $record = $stmt->fetch();
+    $valid = is_array($record)
+        && strtolower(trim((string)$record['estado'])) === 'habilitado'
+        && (int)($record['activa'] ?? 0) === 1
+        && (int)($record['sesion_usuario_id'] ?? 0) === (int)$user['id']
+        && strcasecmp((string)$record['nombre'], (string)($user['usuario'] ?? '')) === 0
+        && strcasecmp((string)$record['rol'], (string)($user['role'] ?? $user['rol'] ?? '')) === 0;
+
+    if ($valid) {
+        return true;
+    }
+
+    $close = $db->prepare("
+        UPDATE `sesion_activa`
+        SET `activa` = 0, `cerrada_en` = :closed_at
+        WHERE `token_sesion` = :token AND `activa` = 1
+    ");
+    $close->execute([':closed_at' => date('Y-m-d H:i:s'), ':token' => $token]);
+    logoutUser();
+    return false;
+}
+
 /**
  * Protege una página requiriendo que el usuario esté autenticado.
  * Si no lo está, redirige a la pantalla de login.
@@ -34,6 +81,19 @@ function requireAuth(string $redirectUrl = 'registroinicio.php'): void
         header('Location: ' . $redirectUrl);
         exit;
     }
+
+    try {
+        if (validateCurrentUserSession()) {
+            return;
+        }
+    } catch (Throwable $e) {
+        error_log('No se pudo validar la sesión de la página: ' . $e->getMessage());
+        http_response_code(503);
+        exit('No se pudo validar la sesión. Intentá nuevamente.');
+    }
+
+    header('Location: ' . $redirectUrl . '?error=session_expired');
+    exit;
 }
 
 /**
@@ -133,10 +193,7 @@ function hasRole(string $role): bool
  */
 function requireAdmin(string $redirectUrl = 'venta.php'): void
 {
-    if (!isLoggedIn()) {
-        header('Location: registroinicio.php');
-        exit;
-    }
+    requireAuth();
 
     if (!isAdmin()) {
         header('Location: ' . $redirectUrl . '?error=unauthorized');
@@ -150,10 +207,7 @@ function requireAdmin(string $redirectUrl = 'venta.php'): void
  */
 function requireSuperAdmin(string $redirectUrl = 'venta.php'): void
 {
-    if (!isLoggedIn()) {
-        header('Location: registroinicio.php');
-        exit;
-    }
+    requireAuth();
 
     if (!isSuperAdmin()) {
         header('Location: ' . $redirectUrl . '?error=unauthorized');
@@ -166,23 +220,7 @@ function requireSuperAdmin(string $redirectUrl = 'venta.php'): void
  */
 function logoutUser(): void
 {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            '',
-            time() - 42000,
-            $params['path'],
-            $params['domain'],
-            $params['secure'],
-            $params['httponly']
-        );
-    }
-    session_destroy();
+    destroySecureSession();
 }
 
 monitorRequestForMaliciousInput();

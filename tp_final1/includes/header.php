@@ -1,10 +1,8 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    // La plantilla puede usarse de forma independiente, por eso inicia la sesión si hace falta.
-    session_start();
-}
+require_once __DIR__ . '/session_security.php';
+startSecureSession();
 
 /**
  * Plantilla de cabecera HTML común para el sistema.

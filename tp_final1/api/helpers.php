@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once dirname(__DIR__) . '/includes/session_security.php';
+startSecureSession();
 
 require_once dirname(__DIR__) . '/database/conexion.php';
+require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/security_monitor.php';
 
 // Convierte los resultados de los endpoints en respuestas HTTP JSON uniformes.
@@ -17,9 +17,6 @@ function sendJson(mixed $data, int $status = 200): void
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, private');
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     exit;
 }
@@ -31,6 +28,14 @@ function handleOptions(): void
 {
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
         sendJson(['ok' => true]);
+    }
+
+    if (!isSameOriginMutationRequest()) {
+        sendJson([
+            'ok' => false,
+            'error' => 'csrf_rejected',
+            'message' => 'La solicitud de modificación no proviene del origen permitido.'
+        ], 403);
     }
 }
 
@@ -86,6 +91,11 @@ function getApiUser(): ?array
  */
 function requireApiAuth(): void
 {
+    static $validated = false;
+    if ($validated) {
+        return;
+    }
+
     $user = getApiUser();
     if (!is_array($user)) {
         sendJson([
@@ -95,10 +105,26 @@ function requireApiAuth(): void
         ], 401);
     }
 
-    require_once dirname(__DIR__) . '/includes/jornada.php';
     $db = requireApiDatabase();
     try {
-        registrarActividadSesion($db, $user);
+        if (!validateCurrentUserSession()) {
+            sendJson([
+                'ok' => false,
+                'error' => 'session_revoked',
+                'message' => 'La cuenta o la sesión ya no está habilitada. Iniciá sesión nuevamente.'
+            ], 401);
+        }
+
+        require_once dirname(__DIR__) . '/includes/jornada.php';
+        if (!actualizarActividadSesion($db, $user)) {
+            logoutUser();
+            sendJson([
+                'ok' => false,
+                'error' => 'session_revoked',
+                'message' => 'La sesión fue revocada. Iniciá sesión nuevamente.'
+            ], 401);
+        }
+        $validated = true;
     } catch (Exception $e) {
         error_log('Error al actualizar la actividad de la sesión: ' . $e->getMessage());
         sendJson([
@@ -186,6 +212,7 @@ function canModifyReportsApi(): bool
  */
 function requireAdminApi(): void
 {
+    requireApiAuth();
     if (!isAdminApi()) {
         sendJson([
             'ok' => false,
@@ -200,6 +227,7 @@ function requireAdminApi(): void
  */
 function requireSuperAdminApi(): void
 {
+    requireApiAuth();
     if (!isSuperAdminApi()) {
         sendJson([
             'ok' => false,

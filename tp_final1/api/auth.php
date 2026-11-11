@@ -85,6 +85,16 @@ function recordFailedLogin(PDO $db, string $username): int
 // Devuelve al cliente el usuario reconocido por la sesión PHP actual.
 if ($action === 'check') {
     $user = getApiUser();
+    if (is_array($user)) {
+        try {
+            if (!validateCurrentUserSession()) {
+                $user = null;
+            }
+        } catch (Throwable $e) {
+            error_log('No se pudo validar la sesión actual: ' . $e->getMessage());
+            sendJson(['ok' => false, 'error' => 'session_validation_failed', 'message' => 'No se pudo validar la sesión. Intentá nuevamente.'], 503);
+        }
+    }
     sendJson([
         'ok' => true,
         'loggedIn' => $user !== null,
@@ -96,11 +106,18 @@ if ($action === 'check') {
 // Verifica acceso, limita intentos fallidos, crea la sesión y registra la auditoría.
 if ($action === 'login' && $method === 'POST') {
     if (is_array(getApiUser())) {
-        sendJson([
-            'ok' => false,
-            'error' => 'already_logged_in',
-            'message' => 'Ya hay una sesión activa. Cerrá sesión para ingresar con otra cuenta.'
-        ], 400);
+        try {
+            if (validateCurrentUserSession()) {
+                sendJson([
+                    'ok' => false,
+                    'error' => 'already_logged_in',
+                    'message' => 'Ya hay una sesión activa. Cerrá sesión para ingresar con otra cuenta.'
+                ], 400);
+            }
+        } catch (Throwable $e) {
+            error_log('No se pudo validar la sesión previa al inicio de sesión: ' . $e->getMessage());
+            sendJson(['ok' => false, 'error' => 'session_validation_failed', 'message' => 'No se pudo validar la sesión. Intentá nuevamente.'], 503);
+        }
     }
 
     $body = getJsonBody();
@@ -184,6 +201,9 @@ if ($action === 'login' && $method === 'POST') {
     $clearAttempts = $db->prepare("DELETE FROM `login_intentos` WHERE `usuario_clave` = :usuario");
     $clearAttempts->execute([':usuario' => trim($usuario)]);
 
+    // Rota el identificador de sesión para evitar reutilizar uno previo a la autenticación.
+    session_regenerate_id(true);
+
     // Iniciar sesión en PHP
     $_SESSION['user'] = [
         'id'      => (int)$found['id_usuario'],
@@ -231,9 +251,22 @@ if ($action === 'login' && $method === 'POST') {
 // 3. Cerrar sesión
 // Registra salida, intenta el cierre de jornada y elimina cookie/datos de sesión.
 if ($action === 'logout') {
+    if ($method !== 'POST') {
+        header('Allow: POST, OPTIONS');
+        sendJson(['ok' => false, 'error' => 'method_not_allowed', 'message' => 'El cierre de sesión requiere POST.'], 405);
+    }
+
     $currentUser = getApiUser();
     if (!is_array($currentUser)) {
         sendJson(['ok' => false, 'error' => 'unauthorized', 'message' => 'No hay una sesión activa para cerrar.'], 401);
+    }
+    try {
+        if (!validateCurrentUserSession()) {
+            sendJson(['ok' => true, 'message' => 'La sesión revocada se cerró correctamente.']);
+        }
+    } catch (Throwable $e) {
+        error_log('No se pudo validar la sesión antes del cierre: ' . $e->getMessage());
+        sendJson(['ok' => false, 'error' => 'session_validation_failed', 'message' => 'No se pudo validar la sesión. Intentá nuevamente.'], 503);
     }
     $uName = $currentUser['usuario'] ?? 'Usuario';
     $uId = $currentUser['id'] ?? null;
@@ -260,20 +293,7 @@ if ($action === 'logout') {
         error_log('Error al cerrar la jornada y eliminar ventas: ' . $e->getMessage());
     }
 
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            '',
-            time() - 42000,
-            $params['path'],
-            $params['domain'],
-            $params['secure'],
-            $params['httponly']
-        );
-    }
-    session_destroy();
+    destroySecureSession();
 
     if ($errorCierreJornada) {
         sendJson([

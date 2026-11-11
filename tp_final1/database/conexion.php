@@ -784,7 +784,7 @@ function ensurePriceAdjustmentHistoryTable(PDO $pdo): void
     ");
 }
 
-/** Genera una contraseña aleatoria con un carácter de cada grupo y 32 caracteres en total. */
+/** Genera una contraseña aleatoria de 10 a 34 caracteres, todos únicos. */
 function generateSystemPassword(): string
 {
     $groups = [
@@ -794,14 +794,23 @@ function generateSystemPassword(): string
         '$%+-*/=<>!@#&()[]{}:;_.,~^|\\'
     ];
     $characters = implode('', $groups);
+    $length = random_int(10, 34);
+    $available = str_split($characters);
     $password = [];
 
     foreach ($groups as $group) {
-        $password[] = $group[random_int(0, strlen($group) - 1)];
+        $groupCharacters = str_split($group);
+        $selectedIndex = random_int(0, count($groupCharacters) - 1);
+        $selected = $groupCharacters[$selectedIndex];
+        $password[] = $selected;
+        $available = array_values(array_diff($available, [$selected]));
     }
-    while (count($password) < 32) {
-        $password[] = $characters[random_int(0, strlen($characters) - 1)];
+
+    for ($index = count($available) - 1; $index > 0; $index--) {
+        $swapIndex = random_int(0, $index);
+        [$available[$index], $available[$swapIndex]] = [$available[$swapIndex], $available[$index]];
     }
+    $password = array_merge($password, array_slice($available, 0, $length - count($password)));
 
     for ($index = count($password) - 1; $index > 0; $index--) {
         $swapIndex = random_int(0, $index);
@@ -929,6 +938,8 @@ function regenerateSuperAdminPassword(PDO $pdo, string $username): string
             ':password' => hashUserPassword($password),
             ':id' => (int)$admin['id_usuario']
         ]);
+        require_once dirname(__DIR__) . '/includes/jornada.php';
+        revocarSesionesUsuario($pdo, (int)$admin['id_usuario']);
         $activity = $pdo->prepare("
             INSERT INTO `actividad_usuario` (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
             VALUES (:id, 'Consola del servidor', 'password_restablecida', :descripcion, :detalles, NOW())
