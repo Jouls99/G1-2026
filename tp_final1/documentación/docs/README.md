@@ -23,7 +23,7 @@ La aplicación utiliza PHP para sus páginas y API, JavaScript para las interacc
 | Ruta | Responsabilidad |
 | --- | --- |
 | `index.php`, `registroinicio.php`, `logout.php` | Entrada, autenticación y cierre de sesión. |
-| `ControlStock.php` | Vista de inventario y operaciones de stock, con búsqueda de categorías en la barra lateral. |
+| `ControlStock.php` | Vista de inventario y operaciones de stock, con búsqueda de categorías en la barra lateral y creación de categorías desde el formulario de carga para usuarios autorizados. |
 | `venta.php` | Módulo de ventas. |
 | `informe.php` | Dashboard de ventas e inventario. |
 | `Auditoria.php` | Vista de sesiones, actividad y alertas para Super Administradores. |
@@ -87,12 +87,16 @@ El dashboard de `informe.php`, gestionado por los módulos en `scrits/dashboard-
 - cantidad de productos vendidos y métricas monetarias;
 - valorización del inventario;
 - gráficos y resumen de productos por categoría;
+- búsqueda por nombre de categoría en el resumen de inventario, aplicada a la tabla de escritorio y a la vista móvil;
 - historial de ventas con los nombres reales de los productos y sus datos asociados sin etiquetas genéricas;
+- historial consultable de ediciones de ventas;
 - exportación a PDF del historial de ventas por categoría, para el día, semana o mes seleccionado.
 
 Los períodos del dashboard son el día actual, la semana actual (lunes a domingo) y el mes actual. Las métricas suman las ventas disponibles para el período y la categoría seleccionados. Las ventas activas se registran en `ventas`; al cierre se copian a `ventas_historial` y se eliminan de `ventas`, en lotes de hasta 200, dentro de transacciones. El historial guarda la fecha exacta y el lunes de su semana. Se retienen cuatro semanas calendario contando la actual. Los administradores pueden consultar una semana completa o una fecha exacta dentro de ese rango. Los datos se obtienen de las APIs; si alguna carga falla, el dashboard muestra el error y no sustituye datos reales por datos de demostración. La edición/eliminación de ventas activas ajusta también el stock; el historial archivado es de solo lectura.
 
 La exportación PDF utiliza la función de impresión del navegador. Al seleccionar “Guardar como PDF” en el diálogo de impresión, el archivo incluye el historial de todas las categorías para hoy, la semana actual (lunes a domingo) o el mes actual, según el período elegido; no incluye el dashboard y la vista de pantalla no cambia.
+
+En el resumen de inventario, el campo «Filtrar por categoría» busca texto parcial sin distinguir mayúsculas y actualiza los resultados a medida que se escribe. También filtra las categorías desplegables de la vista móvil.
 
 Al cerrar la última sesión activa desde las 22:30 de Argentina, el sistema espera a que no haya otras sesiones activas. Entonces archiva las ventas de la jornada, elimina las filas archivadas de `ventas` en lotes de hasta 200 y poda `ventas_historial` para conservar solo cuatro semanas calendario. El resultado se registra en `cierre_jornada`. La actividad de cada sesión se actualiza mientras la aplicación está abierta; una sesión sin actividad se considera vencida según `session.gc_maxlifetime` de PHP. Archivar no repone el stock.
 
@@ -134,7 +138,7 @@ Los endpoints de `api/` responden principalmente en JSON:
 | --- | --- |
 | `api/auth.php` | Comprobación de sesión e inicio/cierre de sesión. El registro público está deshabilitado; los administradores crean las cuentas desde Gestión de Usuarios. |
 | `api/inventario.php` | Lectura y operaciones de inventario, incluidos cambios de estado y auditoría de stock. |
-| `api/ventas.php` | Consulta, registro, edición y eliminación de ventas según autorización. |
+| `api/ventas.php`, `api/ventas/ediciones_historial.php` | Consulta, registro, actualización de estado e historial de ediciones de ventas según autorización. |
 | `api/actividades.php` | Consulta de actividad, métricas de sesión y alertas para auditoría. |
 | `api/users.php` | Gestión y consulta de usuarios; requiere Super Administrador. |
 | `api/permisos.php` | Administración de permisos; requiere Administrador o superior. |

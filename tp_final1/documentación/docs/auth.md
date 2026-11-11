@@ -40,7 +40,7 @@ Respuestas relevantes:
 - `429 login_temporarily_locked`: se alcanzaron cuatro intentos fallidos y el acceso está bloqueado temporalmente; `retry_after` indica los segundos restantes.
 - `200`: autenticación exitosa y objeto `user`.
 
-El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria de 32 caracteres que incluye minúsculas, mayúsculas, números, `$`, `%`, un operador y otro símbolo, guarda únicamente su hash Argon2id y devuelve `temporary_password` solo después de confirmar la creación. Las contraseñas se regeneran en el servidor y no se pueden proporcionar manualmente. El hash se actualiza al autenticarse cuando los parámetros vigentes cambian. La contraseña no se vuelve a consultar desde la API.
+El alta de cuentas se realiza mediante `POST api/users.php`, restringido a Administradores y Super Administradores. El endpoint recibe `usuario` y `role`, genera una contraseña aleatoria de entre 4 y 10 caracteres ASCII imprimibles, guarda únicamente su hash Argon2id y devuelve `temporary_password` solo después de confirmar la creación. Las contraseñas se regeneran en el servidor y no se pueden proporcionar manualmente. El hash se actualiza al autenticarse cuando los parámetros vigentes cambian. La contraseña no se vuelve a consultar desde la API.
 
 ### `logout`
 

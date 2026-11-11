@@ -389,29 +389,58 @@
   function initGeneralDashboard() {
     const salesToggle = document.getElementById('btn-despliegueventas');
     const summaryToggle = document.getElementById('btn-despliegueresumen');
+    const historyToggle = document.getElementById('btnViewEditHistory');
     const salesSection = document.getElementById('seccion-ventas');
     const summarySection = document.getElementById('seccion-resumen');
+    const historyModal = document.getElementById('edit-history-modal');
+    const modalEntries = [
+      { button: salesToggle, modal: salesSection, onOpen: () => window.renderSalesHistory?.() },
+      {
+        button: summaryToggle,
+        modal: summarySection,
+        onOpen: () => {
+          window.renderInventoryTable?.();
+          window.renderMobileInventory?.();
+        }
+      },
+      { button: historyToggle, modal: historyModal, onOpen: () => window.cargarHistorialEdiciones?.() }
+    ].filter(({ button, modal }) => button && modal);
 
-    salesToggle?.addEventListener('click', () => {
-      if (!salesSection || !summarySection || !summaryToggle) return;
-      salesSection.hidden = !salesSection.hidden;
-      summarySection.hidden = true;
-      salesToggle.setAttribute('aria-expanded', String(!salesSection.hidden));
-      summaryToggle.setAttribute('aria-expanded', 'false');
-      if (!salesSection.hidden && typeof window.renderSalesHistory === 'function') {
-        window.renderSalesHistory();
-      }
+    const closeModal = (modal) => {
+      if (modal.hidden) return;
+      modal.hidden = true;
+      modal._opener?.setAttribute('aria-expanded', 'false');
+      modal._opener?.focus();
+      modal._opener = null;
+    };
+
+    modalEntries.forEach(({ button, modal, onOpen }) => {
+      button.addEventListener('click', () => {
+        if (!modal.hidden) {
+          closeModal(modal);
+          return;
+        }
+        modalEntries.forEach(entry => closeModal(entry.modal));
+        modal.hidden = false;
+        modal._opener = button;
+        button.setAttribute('aria-expanded', 'true');
+        onOpen();
+        modal.querySelector('.report-modal-close')?.focus();
+      });
+
+      modal.addEventListener('click', event => {
+        if (event.target === modal) closeModal(modal);
+      });
+
+      modal.querySelectorAll('.report-modal-close, [data-close-report-modal]').forEach(closeButton => {
+        closeButton.addEventListener('click', () => closeModal(modal));
+      });
     });
 
-    summaryToggle?.addEventListener('click', () => {
-      if (!salesSection || !summarySection || !salesToggle) return;
-      summarySection.hidden = !summarySection.hidden;
-      salesSection.hidden = true;
-      summaryToggle.setAttribute('aria-expanded', String(!summarySection.hidden));
-      salesToggle.setAttribute('aria-expanded', 'false');
-      if (!summarySection.hidden && typeof window.renderInventoryTable === 'function') {
-        window.renderInventoryTable();
-      }
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      const openModal = modalEntries.find(entry => !entry.modal.hidden)?.modal;
+      if (openModal) closeModal(openModal);
     });
 
     loadInventory();

@@ -85,20 +85,3 @@ function verDetalleEdicion(idEdicion) {
         })
         .catch(() => alert('No se pudo cargar el detalle de la edición.'));
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const historyModal = document.getElementById('edit-history-modal');
-    const openBtn = document.getElementById('btnViewEditHistory');
-    const closeBtn = document.getElementById('closeEditHistoryModalBtn');
-
-    openBtn?.addEventListener('click', () => {
-        cargarHistorialEdiciones();
-        if (historyModal) historyModal.style.display = 'block';
-    });
-    closeBtn?.addEventListener('click', () => {
-        if (historyModal) historyModal.style.display = 'none';
-    });
-    window.addEventListener('click', (e) => {
-        if (e.target === historyModal) historyModal.style.display = 'none';
-    });
-});
