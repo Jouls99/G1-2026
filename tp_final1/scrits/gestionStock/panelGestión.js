@@ -10,12 +10,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const btnVerStock = document.getElementById('btn-ver-stock');
     const stockWorkspace = document.getElementById('stock-workspace');
-    const stockEmptyState = document.getElementById('stock-empty-state');
     const auditoria = document.getElementById('auditoria-stock');
     const mostrarWorkspaceStock = () => {
         if (auditoria) auditoria.hidden = true;
         stockWorkspace.hidden = false;
-        stockEmptyState.hidden = true;
         if (btnVerStock) btnVerStock.hidden = true;
         renderCategories();
         if (categoriaSeleccionada) renderTable(categoriaSeleccionada);
@@ -74,7 +72,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             stockWorkspaceVisibleBeforeAudit = !stockWorkspace.hidden;
             stockButtonVisibleBeforeAudit = Boolean(btnVerStock && !btnVerStock.hidden);
             stockWorkspace.hidden = true;
-            stockEmptyState.hidden = true;
             if (btnVerStock) btnVerStock.hidden = true;
             auditoria.hidden = false;
             await cargarAuditoriaStock();
@@ -84,7 +81,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnCerrarAuditoria.addEventListener('click', () => {
             auditoria.hidden = true;
             stockWorkspace.hidden = !stockWorkspaceVisibleBeforeAudit;
-            stockEmptyState.hidden = stockWorkspaceVisibleBeforeAudit;
             if (btnVerStock) btnVerStock.hidden = !stockButtonVisibleBeforeAudit;
         });
     }

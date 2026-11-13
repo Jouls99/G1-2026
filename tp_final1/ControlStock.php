@@ -92,10 +92,6 @@ require_once __DIR__ . '/includes/navbar.php';
         <button type="button" class="stock-nav-btn stock-nav-btn-admin" id="btn-auditoria-stock">🛡️ Auditoría de estados</button>
         <?php endif; ?>
     </div>
-    <section id="stock-empty-state" class="stock-empty-state">
-        <h2>Stock separado por categorías</h2>
-        <p>Seleccioná “Ver stock por categoría” para consultar los productos.</p>
-    </section>
     <!-- Espacio de trabajo que el JavaScript muestra al abrir el stock; reúne búsqueda,
          filtros, categorías, listado y detalle sin cargar esa interfaz hasta que se solicite. -->
     <div id="stock-workspace" hidden>

@@ -11,6 +11,7 @@ Este directorio reúne la documentación Markdown de la aplicación ubicada en `
 - [API de permisos](./permisos.md): lectura y actualización de permisos delegables de vendedores.
 - [API de usuarios](./users.md): administración de usuarios, detalle, roles y métricas.
 - [API de ventas](./ventas.md): consulta, registro, actualización y eliminación de ventas.
+- [Respaldos automáticos](./respaldos.md): programación, ubicación, retención y restauración de copias de la base de datos.
 
 ## 1. Descripción general
 

@@ -714,25 +714,6 @@ th {
     cursor: pointer;
 }
 
-.stock-empty-state {
-    min-height: 260px;
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: 8px;
-    padding: 32px;
-    background: #ffffff;
-    border: 1px dashed #c4b5fd;
-    border-radius: 12px;
-    text-align: center;
-    color: #4b5563;
-}
-
-.stock-empty-state h2,
-.stock-empty-state p {
-    margin: 0;
-}
-
 .audit-panel {
     max-width: 1200px;
     margin: 20px auto;
