@@ -409,6 +409,10 @@ function mostrarFormularioEdicion() {
                 <small id="editProdStockHelp">Usá − para descontar y + para contar una unidad.</small>
             </div>
             <div>
+                <label for="editProdStockMin">Stock Mínimo (Alerta)</label>
+                <input id="editProdStockMin" type="number" min="0" required placeholder="5">
+            </div>
+            <div>
                 <label for="editProdSub">Subcategoría</label>
                 <input id="editProdSub" placeholder="Ej: Labios">
             </div>
@@ -426,6 +430,7 @@ function mostrarFormularioEdicion() {
     document.getElementById('editProdCode').value = productoSeleccionado.codigo;
     document.getElementById('editProdPrice').value = productoSeleccionado.precio;
     document.getElementById('editProdStock').value = productoSeleccionado.stock;
+    document.getElementById('editProdStockMin').value = productoSeleccionado.stock_minimo !== undefined ? productoSeleccionado.stock_minimo : 5;
     document.getElementById('editProdSub').value = productoSeleccionado.subcategoria || '';
     stockEdicionRequest = Promise.resolve();
     form.addEventListener('submit', guardarEdicionProducto);
@@ -491,6 +496,7 @@ async function guardarEdicionProducto(event) {
     const precioRaw = document.getElementById('editProdPrice').value.trim();
     const precio = parseFloat(precioRaw);
     const stock = parseInt(document.getElementById('editProdStock').value, 10);
+    const stockMinimo = parseInt(document.getElementById('editProdStockMin').value, 10);
     const subcategoria = document.getElementById('editProdSub').value.trim();
 
     if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(nombre)) {
@@ -501,8 +507,8 @@ async function guardarEdicionProducto(event) {
         alert('El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.');
         return;
     }
-    if (Number.isNaN(precio) || Number.isNaN(stock) || precio < 0 || stock < 0) {
-        alert('Completá correctamente el nombre, el precio y el stock.');
+    if (Number.isNaN(precio) || Number.isNaN(stock) || Number.isNaN(stockMinimo) || precio < 0 || stock < 0 || stockMinimo < 0) {
+        alert('Completá correctamente el nombre, el precio, el stock y el stock mínimo.');
         return;
     }
 
@@ -520,6 +526,7 @@ async function guardarEdicionProducto(event) {
                 sub_nombre: subNombre,
                 precio,
                 cantidad: stock,
+                stock_minimo: stockMinimo,
                 subcategoria: subcategoria || null,
                 fase: productoSeleccionado.fase || 'habilitado'
             })
@@ -538,6 +545,7 @@ async function guardarEdicionProducto(event) {
     productoSeleccionado.sub_nombre = subNombre || undefined;
     productoSeleccionado.precio = precio;
     productoSeleccionado.stock = stock;
+    productoSeleccionado.stock_minimo = stockMinimo;
     productoSeleccionado.subcategoria = subcategoria || undefined;
 
     inventario.forEach(cat => {
@@ -563,6 +571,7 @@ async function addProduct() {
     const priceRaw = document.getElementById('prodPrice').value.trim();
     const price = parseFloat(priceRaw);
     const stock = parseInt(document.getElementById('prodStock').value, 10);
+    const stockMin = parseInt(document.getElementById('prodStockMin')?.value, 10) || 5;
     const subcategory = document.getElementById('prodSub').value.trim();
     const catId = document.getElementById('prodCat').value;
 
@@ -578,7 +587,7 @@ async function addProduct() {
         alert('El precio debe contener números y, opcionalmente, un punto decimal con hasta dos decimales.');
         return;
     }
-    if (isNaN(price) || isNaN(stock) || price < 0 || stock < 0) {
+    if (isNaN(price) || isNaN(stock) || isNaN(stockMin) || price < 0 || stock < 0 || stockMin < 0) {
         alert('Por favor complete todos los campos requeridos correctamente.');
         return;
     }
@@ -617,6 +626,7 @@ async function addProduct() {
                 codigo: code,
                 precio: price,
                 cantidad: stock,
+                stock_minimo: stockMin,
                 categoria: catTarget.nombre,
                 subcategoria: subcategory || null,
                 fase: 'habilitado'
@@ -649,6 +659,7 @@ async function addProduct() {
                 codigo: code,
                 precio: price,
                 stock: stock,
+                stock_minimo: stockMin,
                 fase: 'habilitado',
                 subcategoria: subcategory || undefined
             };

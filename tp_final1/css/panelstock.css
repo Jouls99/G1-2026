@@ -910,3 +910,16 @@ th {
     transform: translateY(-1px);
     box-shadow: 0 6px 14px rgba(220, 38, 38, 0.4);
 }
+
+.badge-stock-bajo {
+    display: inline-block;
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 4px;
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+    margin-left: 6px;
+    vertical-align: middle;
+}

@@ -74,6 +74,22 @@ function findProductCategoryId(PDO $db, string $code, int $productId): ?int
 
 // GET: Obtener inventario desde la base de datos MySQL (tabla `producto` y `categoria`)
 if ($method === 'GET') {
+    // Health check de conexión con base de datos (integrado desde prueba-db)
+    if (($_GET['action'] ?? '') === 'prueba-db' || ($_GET['action'] ?? '') === 'ping') {
+        try {
+            $stmt = $db->query("SELECT 1 AS conectado");
+            $resultado = $stmt->fetch();
+            sendJson([
+                'ok' => true,
+                'mensaje' => 'Conexión con MySQL exitosa',
+                'database' => defined('DB_NAME') ? DB_NAME : 'sos_cosmeticos',
+                'resultado' => $resultado
+            ]);
+        } catch (Throwable $e) {
+            sendJson(['ok' => false, 'mensaje' => 'Error al conectar con MySQL: ' . $e->getMessage()], 500);
+        }
+    }
+
     // Las consultas auxiliares para categorías, precios y auditoría preceden al listado estándar.
     if (($_GET['action'] ?? '') === 'categories') {
         try {
@@ -201,6 +217,7 @@ if ($method === 'GET') {
                 p.nombre,
                 COALESCE(p.codigo, CONCAT('PROD-', p.ID_stock)) AS codigo,
                 COALESCE(p.cantTotal, 0) AS cantidad,
+                COALESCE(p.stock_minimo, 5) AS stock_minimo,
                 COALESCE(p.cantVendida, 0) AS cantVendida,
                 CAST(COALESCE(p.precio, 0) AS DECIMAL(10,2)) AS precio,
                 ROUND(COALESCE(p.cantTotal, 0) * COALESCE(p.precio, 0), 2) AS total,
@@ -227,6 +244,7 @@ if ($method === 'GET') {
                 'nombre'       => (string)$p['nombre'],
                 'codigo'       => (string)$p['codigo'],
                 'cantidad'     => (int)$p['cantidad'],
+                'stock_minimo' => isset($p['stock_minimo']) ? (int)$p['stock_minimo'] : 5,
                 'cantVendida'  => (int)$p['cantVendida'],
                 'precio'       => (float)$p['precio'],
                 'total'        => (float)$p['total'],
@@ -485,6 +503,7 @@ if ($method === 'POST') {
     }
     $precio = (float)$precioRaw;
     $cantidad = (int)($body['cantidad'] ?? ($body['stock'] ?? 0));
+    $stockMinimo = isset($body['stock_minimo']) ? max(0, (int)$body['stock_minimo']) : 5;
     $categoriaName = trim((string)($body['categoria'] ?? ''));
     $fase = 'habilitado';
     if ($categoriaName === '') {
@@ -532,9 +551,9 @@ if ($method === 'POST') {
         // Insertar en tabla producto con fase habilitado
         $insertProd = $db->prepare("
             INSERT INTO `producto`
-                (`nombre`, `marca`, `sub_nombre`, `codigo`, `cantTotal`, `cantVendida`, `ID_categoria`, `subcategoria`, `ID_sub_categoria`, `precio`, `fase`)
+                (`nombre`, `marca`, `sub_nombre`, `codigo`, `cantTotal`, `stock_minimo`, `cantVendida`, `ID_categoria`, `subcategoria`, `ID_sub_categoria`, `precio`, `fase`)
             VALUES
-                (:nombre, :marca, :sub_nombre, :codigo, :cantTotal, 0, :ID_categoria, :subcategoria, :subcategory_id, :precio, 'habilitado')
+                (:nombre, :marca, :sub_nombre, :codigo, :cantTotal, :stock_minimo, 0, :ID_categoria, :subcategoria, :subcategory_id, :precio, 'habilitado')
         ");
         $insertProd->execute([
             ':nombre'       => $nombre,
@@ -542,6 +561,7 @@ if ($method === 'POST') {
             ':sub_nombre' => $secondaryName,
             ':codigo'       => $codigo,
             ':cantTotal'    => $cantidad,
+            ':stock_minimo' => $stockMinimo,
             ':ID_categoria' => $catId,
             ':subcategoria' => $subcategoryName,
             ':subcategory_id' => $subcategoryId,
@@ -561,6 +581,7 @@ if ($method === 'POST') {
             'codigo'       => $codigo,
             'precio'       => $precio,
             'cantidad'     => $cantidad,
+            'stock_minimo' => $stockMinimo,
             'cantVendida'  => 0,
             'total'        => $precio * $cantidad,
             'fase'         => 'habilitado',
@@ -603,6 +624,7 @@ if ($method === 'PUT') {
                 SET `cantTotal` = :cant, `precio` = :precio, `nombre` = :nombre,
                     `marca` = COALESCE(:marca, `marca`),
                     `sub_nombre` = COALESCE(:sub_nombre, `sub_nombre`),
+                    `stock_minimo` = COALESCE(:stock_minimo, `stock_minimo`, 5),
                     `subcategoria` = :subcategoria,
                     `ID_sub_categoria` = :subcategory_id,
                     `fase` = COALESCE(:fase, `fase`, 'habilitado')
@@ -624,6 +646,7 @@ if ($method === 'PUT') {
                 }
                 $precio = (float)$precioRaw;
                 $cantidad = (int)($item['cantidad'] ?? ($item['stock'] ?? 0));
+                $stockMinimo = isset($item['stock_minimo']) ? max(0, (int)$item['stock_minimo']) : null;
                 $subcategoria = !empty($item['subcategoria']) ? trim((string)$item['subcategoria']) : null;
                 $id = (int)($item['ID_stock'] ?? ($item['id'] ?? 0));
                 $faseItem = isset($item['fase']) ? strtolower(trim((string)$item['fase'])) : null;
@@ -636,6 +659,7 @@ if ($method === 'PUT') {
                     ':nombre' => $nombre,
                     ':marca' => isset($item['marca']) ? (trim((string)$item['marca']) ?: null) : null,
                     ':sub_nombre' => isset($item['sub_nombre']) ? (trim((string)$item['sub_nombre']) ?: null) : null,
+                    ':stock_minimo' => $stockMinimo,
                     ':subcategoria' => $subcategoria,
                     ':subcategory_id' => $subcategoryId,
                     ':codigo' => $codigo,
@@ -652,6 +676,9 @@ if ($method === 'PUT') {
         $id = (int)($payload['ID_stock'] ?? ($payload['id'] ?? 0));
         $precioRaw = $payload['precio'] ?? null;
         $cantidad = (int)($payload['cantidad'] ?? ($payload['stock'] ?? 0));
+        $stockMinimo = array_key_exists('stock_minimo', $payload)
+            ? max(0, (int)$payload['stock_minimo'])
+            : null;
         $nombre = trim((string)($payload['nombre'] ?? ''));
         $subcategoria = array_key_exists('subcategoria', $payload)
             ? (trim((string)$payload['subcategoria']) !== '' ? trim((string)$payload['subcategoria']) : null)
@@ -698,6 +725,10 @@ if ($method === 'PUT') {
             $updates[] = "`cantTotal` = :cant";
             $params[':cant'] = $cantidad;
         }
+        if ($stockMinimo !== null) {
+            $updates[] = "`stock_minimo` = :stock_minimo";
+            $params[':stock_minimo'] = $stockMinimo;
+        }
         if ($fase !== null && in_array($fase, ['habilitado', 'deshabilitado'], true)) {
             $updates[] = "`fase` = :fase";
             $params[':fase'] = $fase;
@@ -715,7 +746,7 @@ if ($method === 'PUT') {
             $uName,
             'stock_modificar',
             "Stock modificado para producto '{$nombre}' (Cód: {$codigo})" . ($fase ? " [Fase: {$fase}]" : ""),
-            ['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio, 'fase' => $fase],
+            ['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio, 'stock_minimo' => $stockMinimo, 'fase' => $fase],
             $currentUser['id'] ?? null
         );
 

@@ -696,6 +696,7 @@ function ensureProductCatalogFields(PDO $pdo): void
     $columns = [
         'marca' => "ALTER TABLE `producto` ADD COLUMN `marca` varchar(100) DEFAULT NULL AFTER `nombre`",
         'sub_nombre' => "ALTER TABLE `producto` ADD COLUMN `sub_nombre` varchar(100) DEFAULT NULL AFTER `marca`",
+        'stock_minimo' => "ALTER TABLE `producto` ADD COLUMN `stock_minimo` int(11) NOT NULL DEFAULT 5 AFTER `cantTotal`",
         'ID_sub_categoria' => "ALTER TABLE `producto` ADD COLUMN `ID_sub_categoria` int(11) DEFAULT NULL AFTER `subcategoria`"
     ];
     foreach ($columns as $column => $sql) {
@@ -1034,6 +1035,7 @@ function initDatabase(): void
             `sub_nombre` varchar(100) DEFAULT NULL,
             `codigo` varchar(100) DEFAULT NULL,
             `cantTotal` int(11) DEFAULT 0,
+            `stock_minimo` int(11) NOT NULL DEFAULT 5,
             `cantVendida` int(11) DEFAULT 0,
             `ID_categoria` int(11) DEFAULT NULL,
             `subcategoria` varchar(100) DEFAULT NULL,

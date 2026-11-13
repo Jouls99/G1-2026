@@ -64,6 +64,7 @@ async function cargarInventario() {
                 sub_nombre: item.sub_nombre || undefined,
                 precio: item.precio,
                 stock: item.cantidad,
+                stock_minimo: item.stock_minimo !== undefined ? Number(item.stock_minimo) : 5,
                 fase: item.fase || 'habilitado',
                 subcategoria: item.subcategoria || undefined
             });
@@ -180,6 +181,8 @@ function renderTable(categoria) {
     let rowsHTML = productosVisibles.map(p => {
         const totalProducto = p.precio * p.stock;
         const productId = Number(p.ID_stock || p.id);
+        const stockMin = p.stock_minimo !== undefined ? Number(p.stock_minimo) : 5;
+        const bajoStock = p.stock <= stockMin;
 
         return `
             <tr class="product-row"
@@ -193,7 +196,10 @@ function renderTable(categoria) {
                 </td>
                 <td data-label="Código"><code>${escapeHtml(p.codigo)}</code></td>
                 <td data-label="Precio">$${p.precio.toLocaleString()}</td>
-                <td data-label="Stock">${p.stock}</td>
+                <td data-label="Stock">
+                    ${p.stock}
+                    ${bajoStock ? `<span class="badge-stock-bajo" title="Stock por debajo o igual al mínimo (${stockMin})">⚠️ Bajo</span>` : ''}
+                </td>
                 <td data-label="Total Inventario">$${totalProducto.toLocaleString()}</td>
                 ${usuarioEsSuperAdmin ? `<td data-label="Estado"><span class="badge-fase badge-fase-${p.fase === 'deshabilitado' ? 'deshabilitado' : 'habilitado'}">${p.fase === 'deshabilitado' ? 'Deshabilitado' : 'Habilitado'}</span></td>` : ''}
             </tr>
@@ -266,7 +272,8 @@ function renderDetailPanel() {
         ${productoSeleccionado.marca ? `<p><strong>Marca:</strong> ${escapeHtml(productoSeleccionado.marca)}</p>` : ''}
         ${productoSeleccionado.sub_nombre ? `<p><strong>Nombre secundario:</strong> ${escapeHtml(productoSeleccionado.sub_nombre)}</p>` : ''}
         <p><strong>Precio:</strong> $${productoSeleccionado.precio.toLocaleString()}</p>
-        <p><strong>Stock:</strong> ${productoSeleccionado.stock}</p>
+        <p><strong>Stock:</strong> ${productoSeleccionado.stock} ${(productoSeleccionado.stock <= (productoSeleccionado.stock_minimo ?? 5)) ? '<span class="badge-stock-bajo">⚠️ Stock bajo</span>' : ''}</p>
+        <p><strong>Stock mínimo configurado:</strong> ${productoSeleccionado.stock_minimo ?? 5}</p>
         <p><strong>Subcategoría:</strong> ${escapeHtml(productoSeleccionado.subcategoria || 'Sin subcategoría')}</p>
         <h4>Subcategoría del producto</h4>
         <ul class="detail-list">

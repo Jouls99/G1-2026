@@ -60,6 +60,10 @@ require_once __DIR__ . '/includes/navbar.php';
                     <input id="prodStock" type="number" min="0" required placeholder="0">
                 </div>
                 <div>
+                    <label for="prodStockMin">Stock Mínimo (Alerta)</label>
+                    <input id="prodStockMin" type="number" min="0" value="5" required placeholder="5">
+                </div>
+                <div>
                     <label for="prodSub">Subcategoría</label>
                     <input id="prodSub" placeholder="Ej: Labios">
                 </div>
