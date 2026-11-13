@@ -5,6 +5,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // Carga los datos persistentes antes de pintar categorías, productos y opciones de precio.
     await cargarInventario();
+
+    // Si el usuario es vendedor sin permiso de carga, inicializar únicamente la vista de consulta por categoría
+    if (!usuarioPuedeRegistrarStock) {
+        initVendedorStock();
+        window.addEventListener('inventario-updated', async () => {
+            await cargarInventario();
+            renderVendedorCategoryOptions();
+            if (categoriaSeleccionada) {
+                renderVendedorCategoryView(categoriaSeleccionada);
+            }
+        });
+        return;
+    }
+
     renderCategorySelector();
     renderPriceCategoryFilter();
 

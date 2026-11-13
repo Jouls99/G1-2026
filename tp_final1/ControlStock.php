@@ -22,7 +22,9 @@ require_once __DIR__ . '/includes/navbar.php';
         </div>
         <div class="stock-page-actions">
             <a href="venta.php" class="stock-nav-btn">🛒 Ir a Ventas</a>
+            <?php if (isAdmin() || canModifyReports()): ?>
             <a href="informe.php" class="stock-nav-btn">📊 Ver informe</a>
+            <?php endif; ?>
             <?php if (isSuperAdmin()): ?>
             <a href="usuarios.php" class="stock-nav-btn stock-nav-btn-admin">👑 Gestión de Usuarios</a>
             <?php endif; ?>
@@ -87,7 +89,6 @@ require_once __DIR__ . '/includes/navbar.php';
             <button class="btn btn-success" type="submit">+ Cargar producto</button>
         </form>
     </section>
-    <?php endif; ?>
     <!-- Accesos al listado y a la auditoría; la auditoría contiene datos administrativos
          y por eso solo se ofrece a la cuenta Super Administradora. -->
     <div class="stock-entry-actions">
@@ -192,6 +193,41 @@ require_once __DIR__ . '/includes/navbar.php';
         </aside>
     </div>
     </div>
+    <?php else: ?>
+    <!-- Vista limpia para vendedores sin permiso de carga: únicamente buscador por categoría y productos abajo -->
+    <section class="vendedor-stock-panel">
+        <div class="vendedor-search-card">
+            <h2 class="vendedor-search-heading">🔍 Consulta de Stock por Categoría</h2>
+            <p class="vendedor-search-subtitle">Buscá una categoría para consultar las existencias de sus productos:</p>
+            <div class="vendedor-search-controls">
+                <div class="vendedor-input-group">
+                    <span class="vendedor-input-icon">📁</span>
+                    <input 
+                        type="search" 
+                        id="vendedorCategoryInput" 
+                        class="vendedor-search-input" 
+                        placeholder="Escribí una categoría (ej: Fragancias, Labiales, Cremas...)" 
+                        autocomplete="off"
+                        list="vendedorCategorySuggestions"
+                    >
+                    <datalist id="vendedorCategorySuggestions"></datalist>
+                </div>
+                <div class="vendedor-select-group">
+                    <select id="vendedorCategorySelect" class="vendedor-category-select">
+                        <option value="">-- Seleccionar categoría --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="vendedorStockResults" class="vendedor-stock-results">
+            <div class="vendedor-empty-state">
+                <span style="font-size: 2.2rem;">📦</span>
+                <h3>Cargando inventario...</h3>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
 </div>
 <?php if (isSuperAdmin()): ?>
 <section id="auditoria-stock" class="audit-panel" hidden>

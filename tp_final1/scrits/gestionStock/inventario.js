@@ -304,3 +304,310 @@ function escapeHtml(text) {
     };
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
+
+/**
+ * ========================================================
+ * Módulo exclusivo para Vendedores sin permiso de carga
+ * Buscador por categoría y visualización de productos abajo
+ * ========================================================
+ */
+
+function initVendedorStock() {
+    const input = document.getElementById('vendedorCategoryInput');
+    const select = document.getElementById('vendedorCategorySelect');
+    const resultsContainer = document.getElementById('vendedorStockResults');
+    if (!input || !resultsContainer) return;
+
+    renderVendedorCategoryOptions();
+
+    // Si ya hay categorías cargadas, seleccionar la primera por defecto
+    if (inventario.length > 0) {
+        categoriaSeleccionada = inventario[0];
+        if (select) select.value = categoriaSeleccionada.id;
+        input.value = categoriaSeleccionada.nombre;
+        renderVendedorCategoryView(categoriaSeleccionada);
+    } else {
+        resultsContainer.innerHTML = `
+            <div class="vendedor-empty-state">
+                <span style="font-size: 2.2rem;">📦</span>
+                <h3>Sin productos disponibles</h3>
+                <p>No se encontraron categorías ni productos en la base de datos.</p>
+            </div>
+        `;
+    }
+
+    // Evento de selección directa desde el dropdown
+    if (select) {
+        select.addEventListener('change', () => {
+            const catId = select.value;
+            if (!catId) {
+                input.value = '';
+                if (inventario.length > 0) {
+                    categoriaSeleccionada = inventario[0];
+                    renderVendedorCategoryView(categoriaSeleccionada);
+                }
+                return;
+            }
+            const found = inventario.find(c => String(c.id) === String(catId) || String(c.ID_categoria) === String(catId));
+            if (found) {
+                categoriaSeleccionada = found;
+                input.value = found.nombre;
+                renderVendedorCategoryView(found);
+            }
+        });
+    }
+
+    // Evento de búsqueda interactiva en tiempo real ("vaya apareciendo abajo")
+    input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        handleVendedorSearch(query);
+    });
+}
+
+function renderVendedorCategoryOptions() {
+    const select = document.getElementById('vendedorCategorySelect');
+    const datalist = document.getElementById('vendedorCategorySuggestions');
+    if (!select) return;
+
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Seleccionar categoría --</option>' +
+        inventario.map(cat => {
+            const count = (cat.productos || []).filter(p => (p.fase || 'habilitado') !== 'deshabilitado').length;
+            return `<option value="${escapeHtml(cat.id)}">${escapeHtml(cat.nombre)} (${count} productos)</option>`;
+        }).join('');
+
+    if (inventario.some(c => String(c.id) === String(currentVal))) {
+        select.value = currentVal;
+    }
+
+    if (datalist) {
+        datalist.innerHTML = inventario.map(cat => `<option value="${escapeHtml(cat.nombre)}"></option>`).join('');
+    }
+}
+
+function handleVendedorSearch(query) {
+    const select = document.getElementById('vendedorCategorySelect');
+    const resultsContainer = document.getElementById('vendedorStockResults');
+    if (!resultsContainer) return;
+
+    if (!query) {
+        if (select && select.value) {
+            const found = inventario.find(c => String(c.id) === String(select.value));
+            if (found) {
+                renderVendedorCategoryView(found);
+                return;
+            }
+        }
+        if (inventario.length > 0) {
+            categoriaSeleccionada = inventario[0];
+            if (select) select.value = categoriaSeleccionada.id;
+            renderVendedorCategoryView(categoriaSeleccionada);
+        } else {
+            resultsContainer.innerHTML = `
+                <div class="vendedor-empty-state">
+                    <p>No hay categorías registradas.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    // 1. Coincidencia con nombre de categoría
+    const matchingCategories = inventario.filter(c => c.nombre.toLowerCase().includes(query));
+
+    if (matchingCategories.length > 0) {
+        const exact = matchingCategories.find(c => c.nombre.toLowerCase() === query) || matchingCategories[0];
+        categoriaSeleccionada = exact;
+        if (select) select.value = exact.id;
+
+        if (matchingCategories.length === 1) {
+            renderVendedorCategoryView(exact);
+        } else {
+            renderVendedorMultipleCategoriesView(matchingCategories, query);
+        }
+        return;
+    }
+
+    // 2. Coincidencia con productos dentro de alguna categoría (código, nombre, marca o subcategoría)
+    const categoriesWithMatchingProducts = [];
+    inventario.forEach(cat => {
+        const matchingProds = (cat.productos || []).filter(p => {
+            const isActive = (p.fase || 'habilitado') !== 'deshabilitado';
+            if (!isActive) return false;
+            return p.nombre.toLowerCase().includes(query)
+                || String(p.codigo).toLowerCase().includes(query)
+                || (p.marca && p.marca.toLowerCase().includes(query))
+                || (p.subcategoria && p.subcategoria.toLowerCase().includes(query));
+        });
+        if (matchingProds.length > 0) {
+            categoriesWithMatchingProducts.push({
+                ...cat,
+                productos: matchingProds
+            });
+        }
+    });
+
+    if (categoriesWithMatchingProducts.length > 0) {
+        if (select) select.value = '';
+        renderVendedorMultipleCategoriesView(categoriesWithMatchingProducts, query);
+    } else {
+        if (select) select.value = '';
+        resultsContainer.innerHTML = `
+            <div class="vendedor-empty-state">
+                <span style="font-size: 2.2rem;">🔍</span>
+                <h3>No se encontraron resultados</h3>
+                <p>No se encontraron categorías ni productos que coincidan con <strong>"${escapeHtml(query)}"</strong>.</p>
+            </div>
+        `;
+    }
+}
+
+function renderVendedorCategoryView(categoria) {
+    const resultsContainer = document.getElementById('vendedorStockResults');
+    if (!resultsContainer || !categoria) return;
+
+    const productosActivos = (categoria.productos || []).filter(p => (p.fase || 'habilitado') !== 'deshabilitado');
+    let totalValorizado = 0;
+    let totalUnidades = 0;
+
+    let rowsHtml = productosActivos.map(p => {
+        const total = p.precio * p.stock;
+        totalValorizado += total;
+        totalUnidades += p.stock;
+        const stockMin = p.stock_minimo !== undefined ? Number(p.stock_minimo) : 5;
+        const bajoStock = p.stock <= stockMin;
+
+        return `
+            <tr>
+                <td data-label="Producto">
+                    <strong>${escapeHtml(p.nombre)}</strong>
+                    ${(p.marca || p.sub_nombre) ? `<small style="display:block;color:#6b7280;">${[p.marca, p.sub_nombre].filter(Boolean).map(escapeHtml).join(' · ')}</small>` : ''}
+                </td>
+                <td data-label="Código"><code>${escapeHtml(p.codigo)}</code></td>
+                <td data-label="Subcategoría">${escapeHtml(p.subcategoria || '—')}</td>
+                <td data-label="Precio">$${p.precio.toLocaleString()}</td>
+                <td data-label="Stock">
+                    <span class="vendedor-stock-num">${p.stock}</span>
+                    ${bajoStock ? `<span class="badge-stock-bajo" title="Stock por debajo o igual al mínimo (${stockMin})">⚠️ Bajo</span>` : ''}
+                </td>
+                <td data-label="Total">$${total.toLocaleString()}</td>
+            </tr>
+        `;
+    }).join('');
+
+    resultsContainer.innerHTML = `
+        <div class="vendedor-category-block">
+            <div class="vendedor-category-header">
+                <div>
+                    <h3 class="vendedor-category-title">📁 Categoría: <span>${escapeHtml(categoria.nombre)}</span></h3>
+                    <p class="vendedor-category-subtitle">${productosActivos.length} productos en esta categoría</p>
+                </div>
+            </div>
+            <div class="vendedor-table-card">
+                <table class="vendedor-table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Código</th>
+                            <th>Subcategoría</th>
+                            <th>Precio</th>
+                            <th>Stock</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml || '<tr><td colspan="6" style="text-align:center; padding: 24px; color:#6b7280;">No hay productos disponibles en esta categoría.</td></tr>'}
+                        ${productosActivos.length > 0 ? `
+                        <tr class="total-row">
+                            <td colspan="4">TOTAL VALORIZADO EN ${escapeHtml(categoria.nombre).toUpperCase()}</td>
+                            <td>${totalUnidades} u.</td>
+                            <td>$${totalValorizado.toLocaleString()}</td>
+                        </tr>
+                        ` : ''}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderVendedorMultipleCategoriesView(categories, query) {
+    const resultsContainer = document.getElementById('vendedorStockResults');
+    if (!resultsContainer) return;
+
+    let html = `
+        <div class="vendedor-results-header">
+            <h3>Resultados de búsqueda: "${escapeHtml(query)}"</h3>
+            <p>Se encontraron ${categories.length} categoría(s) con coincidencias:</p>
+        </div>
+    `;
+
+    categories.forEach(categoria => {
+        const productosActivos = (categoria.productos || []).filter(p => (p.fase || 'habilitado') !== 'deshabilitado');
+        let totalValorizado = 0;
+        let totalUnidades = 0;
+
+        let rowsHtml = productosActivos.map(p => {
+            const total = p.precio * p.stock;
+            totalValorizado += total;
+            totalUnidades += p.stock;
+            const stockMin = p.stock_minimo !== undefined ? Number(p.stock_minimo) : 5;
+            const bajoStock = p.stock <= stockMin;
+
+            return `
+                <tr>
+                    <td data-label="Producto">
+                        <strong>${escapeHtml(p.nombre)}</strong>
+                        ${(p.marca || p.sub_nombre) ? `<small style="display:block;color:#6b7280;">${[p.marca, p.sub_nombre].filter(Boolean).map(escapeHtml).join(' · ')}</small>` : ''}
+                    </td>
+                    <td data-label="Código"><code>${escapeHtml(p.codigo)}</code></td>
+                    <td data-label="Subcategoría">${escapeHtml(p.subcategoria || '—')}</td>
+                    <td data-label="Precio">$${p.precio.toLocaleString()}</td>
+                    <td data-label="Stock">
+                        <span class="vendedor-stock-num">${p.stock}</span>
+                        ${bajoStock ? `<span class="badge-stock-bajo" title="Stock por debajo o igual al mínimo (${stockMin})">⚠️ Bajo</span>` : ''}
+                    </td>
+                    <td data-label="Total">$${total.toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('');
+
+        html += `
+            <div class="vendedor-category-block" style="margin-bottom: 25px;">
+                <div class="vendedor-category-header">
+                    <div>
+                        <h3 class="vendedor-category-title">📁 Categoría: <span>${escapeHtml(categoria.nombre)}</span></h3>
+                        <p class="vendedor-category-subtitle">${productosActivos.length} productos coincidentes</p>
+                    </div>
+                </div>
+                <div class="vendedor-table-card">
+                    <table class="vendedor-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Código</th>
+                                <th>Subcategoría</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml || '<tr><td colspan="6" style="text-align:center; padding:20px; color:#6b7280;">No hay productos coincidentes.</td></tr>'}
+                            ${productosActivos.length > 0 ? `
+                            <tr class="total-row">
+                                <td colspan="4">TOTAL VALORIZADO EN ${escapeHtml(categoria.nombre).toUpperCase()}</td>
+                                <td>${totalUnidades} u.</td>
+                                <td>$${totalValorizado.toLocaleString()}</td>
+                            </tr>
+                            ` : ''}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    });
+
+    resultsContainer.innerHTML = html;
+}
+
