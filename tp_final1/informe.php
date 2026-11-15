@@ -82,9 +82,14 @@ require_once __DIR__ . '/includes/navbar.php';
                 </div>
             </section>
 
-            <aside class="panel">
-                <h3>Productos de la categoría</h3>
-                <ul id="productList" class="product-list"></ul>
+            <aside class="panel product-category-panel">
+                <details class="product-list-disclosure">
+                    <summary class="product-list-summary">
+                        <span class="product-list-title">Productos de la categoría</span>
+                        <span id="productListCount" class="product-list-count" aria-live="polite"></span>
+                    </summary>
+                    <ul id="productList" class="product-list"></ul>
+                </details>
             </aside>
         </div>
         <div class="report-actions" role="group" aria-label="Consultas de informes">

@@ -216,6 +216,68 @@ p {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
 }
 
+.product-category-panel,
+.product-list-disclosure {
+    min-width: 0;
+}
+
+.product-category-panel {
+    align-self: start;
+}
+
+.product-list-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    list-style: none;
+    color: var(--primary-dark);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.product-list-summary::-webkit-details-marker {
+    display: none;
+}
+
+.product-list-summary::after {
+    content: "";
+    flex: 0 0 0.6rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    margin: -0.3rem 0.2rem 0 0;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+}
+
+.product-list-disclosure[open] > .product-list-summary::after {
+    margin-top: 0.3rem;
+    transform: rotate(225deg);
+}
+
+.product-list-summary:focus-visible {
+    outline: 2px solid var(--primary-light);
+    outline-offset: 3px;
+    border-radius: 8px;
+}
+
+.product-list-title {
+    min-width: 0;
+}
+
+.product-list-count {
+    flex: none;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #f3e8ff;
+    color: var(--primary-dark);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
 .line-chart {
     width: 100%;
     height: auto;
@@ -246,15 +308,30 @@ p {
     display: grid;
     gap: 10px;
     margin-top: 10px;
+    max-height: min(65vh, 480px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
 }
 
 .product-list li {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+    gap: 8px;
     padding: 10px 12px;
     border-radius: 10px;
     background: #fff5fb;
     color: var(--color-secondary);
+}
+
+.product-list li > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.product-list li > strong {
+    white-space: nowrap;
 }
 
 .product-list .empty {
@@ -471,6 +548,32 @@ th {
 }
 
 @media (max-width: 600px) {
+    .product-category-panel {
+        padding: 14px;
+    }
+
+    .product-list-summary {
+        gap: 8px;
+    }
+
+    .product-list-count {
+        font-size: 0.8rem;
+    }
+
+    .product-list {
+        max-height: 50vh;
+    }
+
+    .product-list li:not(.empty) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+    }
+
+    .product-list li:not(.empty) > small {
+        grid-column: 1 / -1;
+    }
+
     h1 {
         font-size: 28px;
     }

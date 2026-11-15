@@ -87,6 +87,10 @@
     if (!list) return;
     const soldSummary = buildSoldSummary(state.period);
     const items = state.inventory.filter((item) => item.categoria === state.category);
+    const count = document.getElementById('productListCount');
+    if (count) {
+      count.textContent = `${items.length} ${items.length === 1 ? 'producto' : 'productos'}`;
+    }
 
     if (!items.length) {
       list.innerHTML = '<li class="empty">No hay productos cargados para esta categoría.</li>';

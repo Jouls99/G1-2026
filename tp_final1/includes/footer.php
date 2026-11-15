@@ -9,7 +9,7 @@ declare(strict_types=1);
            <div class="DESARROLLADORES">
             <ol style="list-style-type: none;" >
                 <li>< Gomez Santiago/></li>
-                <li>< Fernandez María de la esperanza/> </li>
+                <li>< Fernández Aguilar María de la Esperanza/> </li>
                 <li>< Fabricio Barrios/></li>
             </ol>
            </div>
