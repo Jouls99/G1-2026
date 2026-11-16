@@ -401,6 +401,60 @@ if ($method === 'PUT') {
             sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'Usuario no encontrado.'], 404);
         }
 
+        if ($action === 'habilitar') {
+            $targetId = (int)$target['id_usuario'];
+            $targetName = (string)$target['nombre'];
+            $targetRole = (string)$target['rol'];
+            if (strtolower(trim((string)$target['estado'])) === 'habilitado') {
+                sendJson(['ok' => false, 'error' => 'already_enabled', 'message' => 'La cuenta ya está habilitada.'], 409);
+            }
+
+            if (strtolower(trim($targetRole)) !== 'vendedor' && roleHasOccupant($db, $targetRole, $targetId)) {
+                sendJson(['ok' => false, 'error' => 'role_limit_reached', 'message' => 'Ya existe una cuenta habilitada con ese rol. Cambiá su rol antes de reactivar esta cuenta.'], 409);
+            }
+
+            $actorName = (string)($currentUser['usuario'] ?? 'Administrador');
+            $db->beginTransaction();
+            try {
+                $enableStmt = $db->prepare("
+                    UPDATE `usuario`
+                    SET `estado` = 'habilitado'
+                    WHERE `id_usuario` = :id AND `estado` <> 'habilitado'
+                ");
+                $enableStmt->execute([':id' => $targetId]);
+                if ($enableStmt->rowCount() !== 1) {
+                    $db->rollBack();
+                    sendJson(['ok' => false, 'error' => 'already_enabled', 'message' => 'La cuenta ya está habilitada.'], 409);
+                }
+
+                $activityStmt = $db->prepare("
+                    INSERT INTO `actividad_usuario` (`id_usuario`, `usuario`, `tipo_accion`, `descripcion`, `detalles`, `fecha`)
+                    VALUES (:id_usuario, :usuario, 'usuario_reactivado', :descripcion, :detalles, NOW())
+                ");
+                $activityStmt->execute([
+                    ':id_usuario' => $targetId,
+                    ':usuario' => $actorName,
+                    ':descripcion' => "Usuario '{$targetName}' reactivado por {$actorName}",
+                    ':detalles' => json_encode([
+                        'id_usuario' => $targetId,
+                        'usuario' => $targetName,
+                        'reactivado_por' => $actorName
+                    ], JSON_UNESCAPED_UNICODE)
+                ]);
+                $db->commit();
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                throw $e;
+            }
+
+            sendJson([
+                'ok' => true,
+                'message' => "Usuario '{$targetName}' reactivado correctamente. Su historial se conservó."
+            ]);
+        }
+
         $targetId = (int)$target['id_usuario'];
         $targetName = (string)$target['nombre'];
         $currentRole = (string)$target['rol'];

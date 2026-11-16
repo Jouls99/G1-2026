@@ -22,8 +22,14 @@
     maximumFractionDigits: 0
   });
   const productDisplayLimits = new Map();
-  const initialProductLimit = 10;
+  const initialProductLimit = 30;
   const additionalProductLimit = 30;
+  const desktopProductListMedia = window.matchMedia('(min-width: 769px)');
+
+  function syncProductListDisclosure() {
+    const disclosure = document.querySelector('.product-list-disclosure');
+    if (disclosure) disclosure.open = desktopProductListMedia.matches;
+  }
 
   function getFilteredInventory() {
     const searchTerm = document.getElementById('inventoryCategorySearch')?.value.trim().toLocaleLowerCase('es') || '';
@@ -87,10 +93,9 @@
     if (!list) return;
     const soldSummary = buildSoldSummary(state.period);
     const items = state.inventory.filter((item) => item.categoria === state.category);
-    const count = document.getElementById('productListCount');
-    if (count) {
+    document.querySelectorAll('.product-list-count').forEach((count) => {
       count.textContent = `${items.length} ${items.length === 1 ? 'producto' : 'productos'}`;
-    }
+    });
 
     if (!items.length) {
       list.innerHTML = '<li class="empty">No hay productos cargados para esta categoría.</li>';
@@ -457,6 +462,12 @@
       renderInventoryTable();
       renderMobileInventory();
     });
+    syncProductListDisclosure();
+    if (typeof desktopProductListMedia.addEventListener === 'function') {
+      desktopProductListMedia.addEventListener('change', syncProductListDisclosure);
+    } else {
+      desktopProductListMedia.addListener(syncProductListDisclosure);
+    }
   }
 
   if (document.readyState === 'loading') {

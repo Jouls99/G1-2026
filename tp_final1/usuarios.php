@@ -215,6 +215,12 @@ require_once __DIR__ . '/includes/navbar.php';
                 <p style="color:#6b7280;">Las cuentas deshabilitadas se conservan junto con toda su actividad y el responsable de la acción.</p>
             </div>
             <div class="activity-card">
+                <label for="ResetUsuario">Seleccionar usuario deshabilitado</label>
+                <select name="resetusuario" id="ResetUsuario" disabled>
+                    <option value="">Cargando usuarios deshabilitados...</option>
+                </select>
+                <button type="button" id="reactivarUsuarioBtn" class="btn btn-primary" disabled>Reactivar usuario seleccionado</button>
+                <p>Se conservarán la cuenta y todo su historial. El usuario deberá iniciar sesión nuevamente.</p>
                 <div id="disabled-users-audit">
                     <div style="text-align:center; padding: 36px; color: #6b7280;">Cargando auditoría de usuarios...</div>
 

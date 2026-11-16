@@ -83,6 +83,10 @@ require_once __DIR__ . '/includes/navbar.php';
             </section>
 
             <aside class="panel product-category-panel">
+                <h3 class="product-list-desktop-heading">
+                    <span>Productos de la categoría</span>
+                    <span class="product-list-count" aria-live="polite"></span>
+                </h3>
                 <details class="product-list-disclosure">
                     <summary class="product-list-summary">
                         <span class="product-list-title">Productos de la categoría</span>

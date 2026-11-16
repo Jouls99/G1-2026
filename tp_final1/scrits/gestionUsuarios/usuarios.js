@@ -167,12 +167,22 @@ async function cargarUsuarios() {
 async function cargarAuditoriaUsuarios() {
     const container = document.getElementById('disabled-users-audit');
     if (!container) return;
+    const userSelect = document.getElementById('ResetUsuario');
+    const reactivateButton = document.getElementById('reactivarUsuarioBtn');
     try {
         const response = await fetch('api/users.php?action=disabled_audit', { cache: 'no-store' });
         const data = await response.json();
         if (!response.ok || data.ok !== true) {
             throw new Error(data.message || 'No se pudo cargar la auditoría de usuarios.');
         }
+        if (userSelect) {
+            userSelect.innerHTML = '<option value="">Seleccioná un usuario...</option>' + data.usuarios.map(user =>
+                `<option value="${Number(user.id)}">${escapeHtml(user.usuario)} (${escapeHtml(user.role)})</option>`
+            ).join('');
+            userSelect.disabled = data.usuarios.length === 0;
+        }
+        if (reactivateButton) reactivateButton.disabled = data.usuarios.length === 0 || !userSelect?.value;
+
         if (!data.usuarios.length) {
             container.innerHTML = '<p style="padding:24px; color:#6b7280;">No hay usuarios deshabilitados.</p>';
             return;
@@ -193,7 +203,48 @@ async function cargarAuditoriaUsuarios() {
             </article>
         `).join('');
     } catch (error) {
+        if (userSelect) {
+            userSelect.innerHTML = '<option value="">No se pudo cargar la lista.</option>';
+            userSelect.disabled = true;
+        }
+        if (reactivateButton) reactivateButton.disabled = true;
         container.innerHTML = `<p role="alert" style="padding:24px; color:#b91c1c;">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+async function reactivarUsuarioSeleccionado() {
+    const userSelect = document.getElementById('ResetUsuario');
+    const reactivateButton = document.getElementById('reactivarUsuarioBtn');
+    const userId = Number(userSelect?.value);
+    if (!Number.isInteger(userId) || userId <= 0) {
+        showToast('Seleccioná un usuario deshabilitado.', true);
+        return;
+    }
+
+    const selectedUser = userSelect.selectedOptions[0]?.textContent || 'el usuario seleccionado';
+    if (!confirm(`¿Reactivar la cuenta de "${selectedUser}"? Se conservará todo el historial y deberá iniciar sesión nuevamente.`)) {
+        return;
+    }
+
+    if (reactivateButton) reactivateButton.disabled = true;
+    try {
+        const response = await fetch('api/users.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: userId, action: 'habilitar' })
+        });
+        const data = await response.json();
+        if (!response.ok || data.ok !== true) {
+            throw new Error(data.message || 'No se pudo reactivar el usuario.');
+        }
+
+        showToast(`✅ ${data.message}`);
+        await cargarUsuarios();
+        await cargarAuditoriaUsuarios();
+        cargarLoginsYActividades();
+    } catch (error) {
+        showToast('❌ ' + error.message, true);
+        if (reactivateButton) reactivateButton.disabled = false;
     }
 }
 
@@ -236,7 +287,6 @@ function renderTablaUsuarios() {
         }
         return coincideNombre && coincideRol;
     });
-
     if (filtrados.length === 0) {
         tbodyUsuarios.innerHTML = `
             <tr>
@@ -700,9 +750,7 @@ async function regenerarContraseña() {
 
 window.regenerarContraseña = regenerarContraseña;
 
-// ==========================================================================
 // Event Listeners e Inicialización
-// ==========================================================================
 // Conecta carga inicial, filtros, pestañas y formularios con las funciones de la consola.
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Cargar datos iniciales
@@ -719,6 +767,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inputSearchActivity) {
         inputSearchActivity.addEventListener('input', renderActividades);
     }
+    document.getElementById('ResetUsuario')?.addEventListener('change', (event) => {
+        const reactivateButton = document.getElementById('reactivarUsuarioBtn');
+        if (reactivateButton) reactivateButton.disabled = !event.currentTarget.value;
+    });
+    document.getElementById('reactivarUsuarioBtn')?.addEventListener('click', () => {
+        void reactivarUsuarioSeleccionado();
+    });
 
     // 3. Filtros por rol en usuarios
     document.querySelectorAll('.chip-filter[data-filter-role]').forEach(btn => {
