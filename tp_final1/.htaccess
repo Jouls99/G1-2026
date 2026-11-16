@@ -1,5 +1,8 @@
 RewriteEngine On
 
+# Evitar el acceso web a los scripts de administración, respaldos y esquema.
+RewriteRule ^database(?:/|$) - [F,L,NC]
+
 # 1. Proteger archivos de datos JSON confidenciales del acceso web directo
 <FilesMatch "\.(json)$">
     <IfModule mod_authz_core.c>
@@ -10,6 +13,23 @@ RewriteEngine On
         Deny from all
     </IfModule>
 </FilesMatch>
+
+# Evitar servir archivos de configuración o respaldos si se guardan bajo el sitio.
+<FilesMatch "(^\.env(?:\..*)?$|\.(?:sql|ini|log|bak|old)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
 
 # 2. Redireccionar accesos heredados .html hacia las nuevas vistas .php
 RewriteRule ^registroinicio\.html$ registroinicio.php [R=301,L]
