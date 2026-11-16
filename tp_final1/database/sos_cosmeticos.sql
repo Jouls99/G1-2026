@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `producto` (
   `subcategoria` varchar(100) DEFAULT NULL,
   `ID_sub_categoria` int(11) DEFAULT NULL,
   `precio` decimal(10,2) DEFAULT 0.00,
-  `fase` varchar(50) NOT NULL DEFAULT 'habilitado',
+  `fase` BOOLEAN NOT NULL DEFAULT TRUE,
   PRIMARY KEY (`ID_stock`),
   KEY `fk_producto_categoria` (`ID_categoria`),
   KEY `fk_producto_sub_categoria` (`ID_sub_categoria`),
@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS `producto` (
     FOREIGN KEY (`ID_sub_categoria`) REFERENCES `sub_categoria` (`ID_sub_categoria`)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish2_ci;
+
+UPDATE `producto`
+SET `fase` = CASE LOWER(TRIM(`fase`))
+  WHEN 'habilitado' THEN TRUE
+  WHEN 'deshabilitado' THEN FALSE
+  ELSE `fase`
+END;
+
+ALTER TABLE `producto`
+  MODIFY `fase` BOOLEAN NOT NULL DEFAULT TRUE;
 
 INSERT IGNORE INTO `sub_categoria` (`ID_categoria`, `nombre`)
 SELECT DISTINCT `ID_categoria`, TRIM(`subcategoria`)
