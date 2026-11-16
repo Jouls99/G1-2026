@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/database/conexion.php';
 
-// Registra o actualiza en MySQL el latido asociado al identificador de sesión PHP.
+// Registra una sola vez el hash del identificador de sesión PHP, sin persistir el token original.
 function registrarActividadSesion(PDO $db, array $user): void
 {
     if (session_status() !== PHP_SESSION_ACTIVE || session_id() === '') {
@@ -22,12 +22,6 @@ function registrarActividadSesion(PDO $db, array $user): void
             INSERT INTO `sesion_activa`
                 (`token_sesion`, `id_usuario`, `usuario`, `iniciada_en`, `ultima_actividad`, `activa`, `cerrada_en`)
             VALUES (:token, :user_id, :username, :started_at, :last_activity, 1, NULL)
-            ON DUPLICATE KEY UPDATE
-                `id_usuario` = VALUES(`id_usuario`),
-                `usuario` = VALUES(`usuario`),
-                `ultima_actividad` = VALUES(`ultima_actividad`),
-                `activa` = 1,
-                `cerrada_en` = NULL
         ");
         $stmt->execute([
             ':token' => $token,
@@ -110,13 +104,19 @@ function cerrarSesionYJornadaSiCorresponde(PDO $db, array $user): array
 
     $token = hash('sha256', session_id());
     $now = date('Y-m-d H:i:s');
-    registrarActividadSesion($db, $user);
     $closeSession = $db->prepare("
         UPDATE `sesion_activa`
         SET `activa` = 0, `cerrada_en` = :closed_at, `ultima_actividad` = :last_activity
         WHERE `token_sesion` = :token
+          AND `id_usuario` = :user_id
+          AND `activa` = 1
     ");
-    $closeSession->execute([':closed_at' => $now, ':last_activity' => $now, ':token' => $token]);
+    $closeSession->execute([
+        ':closed_at' => $now,
+        ':last_activity' => $now,
+        ':token' => $token,
+        ':user_id' => (int)($user['id'] ?? 0)
+    ]);
 
     $businessTimezone = new DateTimeZone('America/Argentina/Buenos_Aires');
     $businessNow = new DateTimeImmutable('now', $businessTimezone);
