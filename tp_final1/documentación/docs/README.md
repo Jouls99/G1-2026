@@ -152,23 +152,12 @@ Las acciones concretas y los datos aceptados se definen en cada endpoint; este r
 1. Usar una instalación local de PHP con PDO para MySQL y un servidor MySQL, por ejemplo XAMPP.
 2. Colocar el proyecto bajo el directorio público del servidor web.
 3. Iniciar Apache y MySQL.
-4. Crear la base `sos_cosmeticos` e importar `database/sos_cosmeticos.sql` usando una cuenta administrativa local de MySQL. Las tablas vacías importan los datos JSON heredados una vez.
-5. Crear un usuario MySQL exclusivo para la aplicación y definir `SOS_DB_USER` y `SOS_DB_PASS` como variables de entorno de Windows. La conexión no inicia si faltan esas variables; no guardes las credenciales en el código.
-6. Cerrar y volver a abrir el Panel de Control de XAMPP, y reiniciar Apache para que herede las variables. Abrí una terminal nueva antes de ejecutar comandos PHP que necesiten conectarse a MySQL.
-7. Si no existe un Super Administrador habilitado, ejecutar desde la raíz del proyecto `php database/crear_superadmin_inicial.php <nombre_de_usuario>`. El comando crea la cuenta y muestra una contraseña aleatoria de 10 a 34 caracteres únicos una sola vez; guardarla de forma segura. No acepta una contraseña como argumento.
-8. Abrir la aplicación desde el servidor local, por ejemplo `http://localhost/tp_final1/`.
+4. Crear la base `sos_cosmeticos` e importar `database/sos_cosmeticos.sql` usando phpMyAdmin. Las tablas vacías importan los datos JSON heredados una vez.
+5. La conexión local vuelve a usar la configuración original de XAMPP en `database/conexion.php` (`root` sin contraseña). Este valor sirve solo para desarrollo local y no se debe exponer el servidor a otras redes.
+6. Si no existe un Super Administrador habilitado, ejecutar desde la raíz del proyecto `php database/crear_superadmin_inicial.php <nombre_de_usuario>`. El comando crea la cuenta y muestra una contraseña aleatoria de 10 a 34 caracteres únicos una sola vez; guardarla de forma segura. No acepta una contraseña como argumento.
+7. Abrir la aplicación desde el servidor local, por ejemplo `http://localhost/tp_final1/`.
 
 ### Configuración de seguridad local y multiusuario
-
-En phpMyAdmin, después de importar el esquema, crear una cuenta limitada a esta base de datos. Reemplazar el marcador por una contraseña larga y única:
-
-```sql
-CREATE USER 'sos_app'@'localhost' IDENTIFIED BY 'REEMPLAZAR_POR_UNA_CLAVE_LARGA';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
-ON sos_cosmeticos.* TO 'sos_app'@'localhost';
-```
-
-La aplicación necesita permisos de esquema acotados porque aplica migraciones compatibles al conectarse; la cuenta no recibe permisos sobre otras bases ni permiso para crear bases. Importá el esquema antes de iniciar la aplicación. En Windows, buscá **Editar las variables de entorno de esta cuenta** y agregá las variables de usuario `SOS_DB_USER` (`sos_app`) y `SOS_DB_PASS` (la misma clave larga). Así la contraseña no queda escrita en el historial de PowerShell.
 
 Cada persona debe tener su propia cuenta de aplicación y rol; no compartan usuarios ni dejen sesiones abiertas. En una PC compartida, usar también cuentas de Windows separadas o cerrar sesión y bloquear Windows al alejarse. La aplicación no debe exponerse a Internet ni tener puertos abiertos en el router. Para acceso desde otras PCs de la red, configurar HTTPS y reglas de firewall antes de habilitarlo. Con `http://localhost`, no activar `SESSION_COOKIE_SECURE`; esa opción solo corresponde cuando la aplicación se sirve por HTTPS.
 

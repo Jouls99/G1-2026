@@ -9,9 +9,8 @@ declare(strict_types=1);
 const DB_HOST = '127.0.0.1';
 const DB_PORT = 3306;
 const DB_NAME = 'sos_cosmeticos';
-define('DB_USER', getenv('SOS_DB_USER') ?: '');
-$databasePassword = getenv('SOS_DB_PASS');
-define('DB_PASS', $databasePassword === false ? '' : $databasePassword);
+const DB_USER = 'root';
+const DB_PASS = '';
 
 /**
  * Obtiene o crea la conexión PDO con MySQL.
@@ -28,12 +27,6 @@ function getDBConnection(): ?PDO
     }
 
     if ($failed) {
-        return null;
-    }
-
-    if (DB_USER === '' || DB_PASS === '') {
-        $failed = true;
-        error_log('Configuración MySQL incompleta: definí SOS_DB_USER y SOS_DB_PASS.');
         return null;
     }
 
