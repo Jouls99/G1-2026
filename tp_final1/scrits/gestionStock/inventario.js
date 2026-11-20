@@ -9,6 +9,7 @@
 
 let inventario = [];
 let categoriaSeleccionada = inventario[0];
+let errorCargaInventario = null;
 let productoSeleccionado = null;
 let productoPendienteEliminar = null;
 let categoryContextMenu = null;
@@ -71,14 +72,20 @@ async function cargarInventario() {
         });
         inventario = Array.from(map.values());
         categoriaSeleccionada = inventario[0] || null;
+        errorCargaInventario = null;
+        return true;
     } catch (error) {
         console.error('Error al cargar inventario desde MySQL:', error);
         inventario = [];
         categoriaSeleccionada = null;
+        errorCargaInventario = error instanceof Error
+            ? error.message
+            : 'No se pudo cargar el inventario desde la base de datos.';
         const content = document.getElementById('mainContent');
         if (content) {
             content.innerHTML = '<p role="alert">No se pudo cargar el inventario. Verificá la conexión con la base de datos e intentá nuevamente.</p>';
         }
+        return false;
     }
 }
 
@@ -318,23 +325,18 @@ function initVendedorStock() {
     const resultsContainer = document.getElementById('vendedorStockResults');
     if (!input || !resultsContainer) return;
 
-    renderVendedorCategoryOptions();
+    renderVendedorInitialState();
 
-    // Si ya hay categorías cargadas, seleccionar la primera por defecto
-    if (inventario.length > 0) {
-        categoriaSeleccionada = inventario[0];
-        if (select) select.value = categoriaSeleccionada.id;
-        input.value = categoriaSeleccionada.nombre;
-        renderVendedorCategoryView(categoriaSeleccionada);
-    } else {
-        resultsContainer.innerHTML = `
-            <div class="vendedor-empty-state">
-                <span style="font-size: 2.2rem;">📦</span>
-                <h3>Sin productos disponibles</h3>
-                <p>No se encontraron categorías ni productos en la base de datos.</p>
-            </div>
-        `;
-    }
+    resultsContainer.addEventListener('click', async event => {
+        const retryButton = event.target instanceof Element
+            ? event.target.closest('#vendedorRetryInventory')
+            : null;
+        if (!retryButton) return;
+        retryButton.disabled = true;
+        retryButton.textContent = 'Reintentando...';
+        await cargarInventario();
+        renderVendedorInitialState();
+    });
 
     // Evento de selección directa desde el dropdown
     if (select) {
@@ -362,6 +364,43 @@ function initVendedorStock() {
         const query = input.value.trim().toLowerCase();
         handleVendedorSearch(query);
     });
+}
+
+function renderVendedorInitialState() {
+    const input = document.getElementById('vendedorCategoryInput');
+    const select = document.getElementById('vendedorCategorySelect');
+    const resultsContainer = document.getElementById('vendedorStockResults');
+    if (!input || !select || !resultsContainer) return;
+
+    renderVendedorCategoryOptions();
+
+    if (errorCargaInventario) {
+        resultsContainer.innerHTML = `
+            <div class="vendedor-empty-state" role="alert">
+                <span style="font-size: 2.2rem;">⚠️</span>
+                <h3>No se pudo cargar el inventario</h3>
+                <p>${escapeHtml(errorCargaInventario)}</p>
+                <button type="button" class="stock-nav-btn" id="vendedorRetryInventory">Reintentar</button>
+            </div>
+        `;
+        return;
+    }
+
+    if (inventario.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="vendedor-empty-state">
+                <span style="font-size: 2.2rem;">📦</span>
+                <h3>No hay categorías disponibles</h3>
+                <p>No se encontraron categorías para consultar.</p>
+            </div>
+        `;
+        return;
+    }
+
+    categoriaSeleccionada = inventario[0];
+    select.value = categoriaSeleccionada.id;
+    input.value = categoriaSeleccionada.nombre;
+    renderVendedorCategoryView(categoriaSeleccionada);
 }
 
 function renderVendedorCategoryOptions() {

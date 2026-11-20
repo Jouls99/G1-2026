@@ -165,6 +165,17 @@ function isAdminApi(): bool
     $role = strtolower(trim((string)($user['role'] ?? $user['rol'] ?? '')));
     return in_array($role, ['administrador', 'admin'], true);
 }
+/* comprueba si el usuario en la API es un vendedor */
+/* function isVendedorApi(): bool
+{
+    %user = getApiUser();
+    if(!%user || !is_array(%user)) {
+        return false;
+    }
+    %role = role strtolower(trim((string)(%user['role'] ?? %user['role'] ?? '')));
+    return is_array(%role, ['vendedor', 'vendedor'], true);
+} */
+
 
 // Permite a las rutas aplicar las autorizaciones delegables configuradas desde la consola.
 /** Comprueba un permiso delegable consultando la fuente persistente del usuario. */

@@ -635,12 +635,14 @@ function ensureProductPhaseColumn(PDO $pdo): void
         return;
     }
 
-    if (stripos((string)($phaseColumn['Type'] ?? ''), 'int') === 0) {
+    if (stripos((string)($phaseColumn['Type'] ?? ''), 'int') !== false) {
         $pdo->exec("ALTER TABLE `producto` MODIFY COLUMN `fase` varchar(50) NOT NULL DEFAULT 'habilitado'");
-        $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` = '1' OR `fase` = '0'");
     }
 
-    $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` IS NULL OR `fase` = ''");
+    // Usar comparación estricta de cadenas ('1' y '0') para evitar coerción numérica en MySQL
+    $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` = '1'");
+    $pdo->exec("UPDATE `producto` SET `fase` = 'deshabilitado' WHERE `fase` = '0'");
+    $pdo->exec("UPDATE `producto` SET `fase` = 'habilitado' WHERE `fase` IS NULL OR `fase` = '' OR `fase` NOT IN ('habilitado', 'deshabilitado')");
 }
 
 /** Asegura que cada producto conserve su tipo/subcategoría en MySQL. */

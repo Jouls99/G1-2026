@@ -46,7 +46,7 @@ try {
                 COALESCE(p.fase, 'habilitado') AS fase
             FROM `producto` p
             INNER JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
-            WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'
+            WHERE COALESCE(p.fase, 'habilitado') NOT IN ('deshabilitado', '0')
             ORDER BY p.nombre ASC
         ");
 

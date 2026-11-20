@@ -223,7 +223,7 @@ if ($method === 'GET') {
                 ROUND(COALESCE(p.cantTotal, 0) * COALESCE(p.precio, 0), 2) AS total,
                 c.nombre AS categoria,
                 p.ID_categoria,
-                " . ($superAdmin ? "COALESCE(p.fase, 'habilitado') AS fase," : "") . "
+                COALESCE(p.fase, 'habilitado') AS fase,
                 p.marca,
                 p.sub_nombre,
                 p.ID_sub_categoria,
@@ -231,7 +231,7 @@ if ($method === 'GET') {
             FROM `producto` p
             INNER JOIN `categoria` c ON p.ID_categoria = c.ID_categoria
             LEFT JOIN `sub_categoria` sc ON p.ID_sub_categoria = sc.ID_sub_categoria
-            " . ($superAdmin ? "" : "WHERE COALESCE(p.fase, 'habilitado') = 'habilitado'") . "
+            " . ($superAdmin ? "" : "WHERE COALESCE(p.fase, 'habilitado') NOT IN ('deshabilitado', '0')") . "
             ORDER BY p.ID_stock ASC
         ");
         $productos = $stmt->fetchAll();
@@ -256,10 +256,13 @@ if ($method === 'GET') {
                 'sub_nombre' => $p['sub_nombre'] !== null ? (string)$p['sub_nombre'] : null
             ];
 
-            if ($superAdmin) {
-                $fase = strtolower(trim((string)($p['fase'] ?? 'habilitado')));
-                $producto['fase'] = $fase !== '' ? $fase : 'habilitado';
+            $rawFase = strtolower(trim((string)($p['fase'] ?? 'habilitado')));
+            if ($rawFase === '1') {
+                $rawFase = 'habilitado';
+            } elseif ($rawFase === '0') {
+                $rawFase = 'deshabilitado';
             }
+            $producto['fase'] = in_array($rawFase, ['habilitado', 'deshabilitado'], true) ? $rawFase : 'habilitado';
 
             return $producto;
         }, $productos);
