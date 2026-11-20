@@ -250,39 +250,21 @@ async function ejecutarEliminacion() {
     alert(`✅ El producto "${nombre}" fue eliminado correctamente.`);
 }
 
-// Mueve primero productos y subcategorías a una categoría destino antes de borrar la seleccionada.
+// Elimina la categoría seleccionada directamente sin necesidad de reasignar sus productos a otra.
 async function deleteCategory(catId) {
     if (!usuarioEsAdmin) return;
-    const categoria = inventario.find(c => c.id === catId);
+    const categoria = inventario.find(c => c.id === catId || c.ID_categoria === catId);
     if (!categoria) {
         hideCategoryContextMenu();
         return;
     }
 
-    const destinationCategories = inventario.filter(category => category.ID_categoria !== categoria.ID_categoria);
-    if (!destinationCategories.length) {
-        alert('Debe existir otra categoría para reasignar los productos antes de eliminar esta.');
-        hideCategoryContextMenu();
-        return;
-    }
-    const destinationList = destinationCategories.map(category => category.nombre).join('\n');
-    const destinationName = prompt(
-        `Escribí el nombre de la categoría destino para mover los productos de "${categoria.nombre}":\n${destinationList}`
-    );
-    if (destinationName === null) {
-        hideCategoryContextMenu();
-        return;
-    }
-    const destination = destinationCategories.find(category =>
-        category.nombre.toLocaleLowerCase('es') === destinationName.trim().toLocaleLowerCase('es')
-    );
-    if (!destination) {
-        alert('Ingresá el nombre exacto de una categoría disponible.');
-        hideCategoryContextMenu();
-        return;
-    }
-    const confirmDelete = confirm(`¿Eliminar "${categoria.nombre}" y reasignar sus productos y subcategorías a "${destination.nombre}"?`);
-    if (!confirmDelete) {
+    const cantProductos = (categoria.productos || []).length;
+    const confirmMsg = cantProductos > 0
+        ? `¿Estás seguro de que deseás eliminar la categoría "${categoria.nombre}" y sus ${cantProductos} producto(s)?`
+        : `¿Estás seguro de que deseás eliminar la categoría "${categoria.nombre}"?`;
+
+    if (!confirm(confirmMsg)) {
         hideCategoryContextMenu();
         return;
     }
@@ -291,8 +273,7 @@ async function deleteCategory(catId) {
     try {
         const res = await fetch(`api/inventario.php?action=delete_category&id=${encodeURIComponent(categoria.ID_categoria)}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ destination_id: destination.ID_categoria })
+            headers: { 'Content-Type': 'application/json' }
         });
         const data = await res.json();
         if (!res.ok || data.ok === false) {
@@ -304,9 +285,14 @@ async function deleteCategory(catId) {
         return;
     }
 
-    if (selectedCategoryId === catId) productoSeleccionado = null;
+    if (selectedCategoryId === catId || selectedCategoryId === `cat-${categoria.ID_categoria}`) {
+        productoSeleccionado = null;
+        categoriaSeleccionada = null;
+    }
     await cargarInventario();
-    categoriaSeleccionada = inventario.find(cat => cat.id === selectedCategoryId) || inventario[0] || null;
+    if (!categoriaSeleccionada || categoriaSeleccionada.id === catId || categoriaSeleccionada.ID_categoria === categoria.ID_categoria) {
+        categoriaSeleccionada = inventario[0] || null;
+    }
     renderCategories();
     renderCategorySelector();
     renderPriceCategoryFilter();
@@ -314,11 +300,13 @@ async function deleteCategory(catId) {
     if (categoriaSeleccionada) {
         renderTable(categoriaSeleccionada);
     } else {
-        document.getElementById('mainContent').innerHTML = '<h3>No hay categorías disponibles.</h3>';
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) mainContent.innerHTML = '<h3>No hay categorías disponibles.</h3>';
     }
 
     renderDetailPanel();
     hideCategoryContextMenu();
+    alert(`✅ Categoría "${categoria.nombre}" eliminada correctamente.`);
 }
 
 // Crea la categoría en MySQL y recarga las opciones vinculadas al catálogo.

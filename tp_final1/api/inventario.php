@@ -201,8 +201,8 @@ if ($method === 'GET') {
             SELECT COUNT(*)
             FROM `producto` p
             LEFT JOIN `categoria` c ON c.`ID_categoria` = p.`ID_categoria`
-            WHERE c.`ID_categoria` IS NULL
-               OR LOWER(TRIM(c.`nombre`)) IN ('general', 'sin categoría', 'sin categoria')
+            WHERE COALESCE(p.fase, 'habilitado') NOT IN ('deshabilitado', '0')
+              AND (c.`ID_categoria` IS NULL OR LOWER(TRIM(c.`nombre`)) IN ('general', 'sin categoría', 'sin categoria'))
         ")->fetchColumn();
         if ($invalidCategoryCount > 0) {
             sendJson([
@@ -762,81 +762,121 @@ if ($method === 'PUT') {
 
 // DELETE: Deshabilitar producto (Baja lógica / Soft-delete a fase = 'deshabilitado')
 if ($method === 'DELETE') {
-    // Realiza baja lógica de productos; la eliminación de categoría reasigna primero sus productos.
+    // Realiza baja lógica de productos o eliminación directa/reasignación de categorías.
     requireAdminApi();
     if (($_GET['action'] ?? '') === 'delete_category') {
         $body = getJsonBody();
-        $categoryId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+        $categoryId = filter_var($_GET['id'] ?? ($body['id'] ?? null), FILTER_VALIDATE_INT);
         if ($categoryId === false || $categoryId < 1) {
             sendJson(['ok' => false, 'message' => 'Se requiere un identificador de categoría válido.'], 400);
         }
-        $destinationId = filter_var($body['destination_id'] ?? null, FILTER_VALIDATE_INT);
-        if ($destinationId === false || $destinationId < 1 || $destinationId === $categoryId) {
-            sendJson(['ok' => false, 'error' => 'invalid_destination', 'message' => 'Seleccioná una categoría destino válida y distinta.'], 400);
-        }
+
+        $rawDestination = $body['destination_id'] ?? null;
+        $destinationId = ($rawDestination !== null && $rawDestination !== '')
+            ? filter_var($rawDestination, FILTER_VALIDATE_INT)
+            : null;
 
         try {
             $db->beginTransaction();
-            $find = $db->prepare("SELECT `ID_categoria`, `nombre` FROM `categoria` WHERE `ID_categoria` IN (:source, :destination) FOR UPDATE");
-            $find->execute([':source' => $categoryId, ':destination' => $destinationId]);
-            $lockedCategories = $find->fetchAll(PDO::FETCH_KEY_PAIR);
-            $categoryName = $lockedCategories[$categoryId] ?? false;
+
+            $find = $db->prepare("SELECT `nombre` FROM `categoria` WHERE `ID_categoria` = :id FOR UPDATE");
+            $find->execute([':id' => $categoryId]);
+            $categoryName = $find->fetchColumn();
             if ($categoryName === false) {
                 $db->rollBack();
                 sendJson(['ok' => false, 'error' => 'not_found', 'message' => 'No se encontró la categoría.'], 404);
             }
-            $destinationName = $lockedCategories[$destinationId] ?? false;
-            if ($destinationName === false || isReservedCategoryName((string)$destinationName)) {
-                $db->rollBack();
-                sendJson(['ok' => false, 'error' => 'invalid_destination', 'message' => 'La categoría destino no está disponible.'], 400);
+
+            // Si se especificó una categoría de destino válida distinta a la que se va a borrar:
+            if ($destinationId !== null && $destinationId !== false && $destinationId > 0 && $destinationId !== $categoryId) {
+                $destCheck = $db->prepare("SELECT `nombre` FROM `categoria` WHERE `ID_categoria` = :dest FOR UPDATE");
+                $destCheck->execute([':dest' => $destinationId]);
+                $destinationName = $destCheck->fetchColumn();
+                if ($destinationName === false || isReservedCategoryName((string)$destinationName)) {
+                    $db->rollBack();
+                    sendJson(['ok' => false, 'error' => 'invalid_destination', 'message' => 'La categoría destino no está disponible.'], 400);
+                }
+
+                $copySubcategories = $db->prepare("
+                    INSERT INTO `sub_categoria` (`ID_categoria`, `nombre`)
+                    SELECT DISTINCT :destination, TRIM(COALESCE(sc.`nombre`, p.`subcategoria`))
+                    FROM `producto` p
+                    LEFT JOIN `sub_categoria` sc ON sc.`ID_sub_categoria` = p.`ID_sub_categoria`
+                    WHERE p.`ID_categoria` = :source
+                      AND COALESCE(sc.`nombre`, p.`subcategoria`) IS NOT NULL
+                      AND TRIM(COALESCE(sc.`nombre`, p.`subcategoria`)) <> ''
+                    ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`)
+                ");
+                $copySubcategories->execute([':destination' => $destinationId, ':source' => $categoryId]);
+
+                $moveProducts = $db->prepare("
+                    UPDATE `producto` p
+                    LEFT JOIN `sub_categoria` source_sub ON source_sub.`ID_sub_categoria` = p.`ID_sub_categoria`
+                    LEFT JOIN `sub_categoria` destination_sub
+                        ON destination_sub.`ID_categoria` = :destination_join
+                       AND LOWER(destination_sub.`nombre`) = LOWER(TRIM(COALESCE(source_sub.`nombre`, p.`subcategoria`)))
+                    SET p.`ID_categoria` = :destination_set,
+                        p.`ID_sub_categoria` = destination_sub.`ID_sub_categoria`
+                    WHERE p.`ID_categoria` = :source
+                ");
+                $moveProducts->execute([
+                    ':destination_join' => $destinationId,
+                    ':destination_set' => $destinationId,
+                    ':source' => $categoryId
+                ]);
+                $affectedProducts = $moveProducts->rowCount();
+
+                $delete = $db->prepare("DELETE FROM `categoria` WHERE `ID_categoria` = :id");
+                $delete->execute([':id' => $categoryId]);
+                $db->commit();
+
+                $user = getApiUser();
+                logActivity(
+                    (string)($user['usuario'] ?? 'Administrador'),
+                    'categoria_eliminada',
+                    "Categoría '{$categoryName}' eliminada; {$affectedProducts} productos fueron reasignados a '{$destinationName}'.",
+                    ['id_categoria' => $categoryId, 'id_categoria_destino' => $destinationId, 'productos_reasignados' => $affectedProducts],
+                    isset($user['id']) ? (int)$user['id'] : null
+                );
+                sendJson(['ok' => true, 'message' => "Categoría '{$categoryName}' eliminada y sus productos reasignados a '{$destinationName}'."]);
+            } else {
+                // Modo directo: No es necesario pasar los productos a otra categoría.
+                // 1. Eliminar los productos asociados a esta categoría
+                $delProds = $db->prepare("DELETE FROM `producto` WHERE `ID_categoria` = :id");
+                $delProds->execute([':id' => $categoryId]);
+                $affectedProducts = $delProds->rowCount();
+
+                // 2. Eliminar las subcategorías asociadas a esta categoría
+                $delSubs = $db->prepare("DELETE FROM `sub_categoria` WHERE `ID_categoria` = :id");
+                $delSubs->execute([':id' => $categoryId]);
+
+                // 3. Eliminar la categoría
+                $delete = $db->prepare("DELETE FROM `categoria` WHERE `ID_categoria` = :id");
+                $delete->execute([':id' => $categoryId]);
+
+                $db->commit();
+
+                $user = getApiUser();
+                logActivity(
+                    (string)($user['usuario'] ?? 'Administrador'),
+                    'categoria_eliminada',
+                    "Categoría '{$categoryName}' eliminada junto con sus {$affectedProducts} productos.",
+                    ['id_categoria' => $categoryId, 'productos_eliminados' => $affectedProducts],
+                    isset($user['id']) ? (int)$user['id'] : null
+                );
+
+                sendJson([
+                    'ok' => true,
+                    'message' => "Categoría '{$categoryName}' eliminada correctamente" . ($affectedProducts > 0 ? " junto con sus {$affectedProducts} producto(s)." : "."),
+                    'productos_eliminados' => $affectedProducts
+                ]);
             }
-
-            $copySubcategories = $db->prepare("
-                INSERT INTO `sub_categoria` (`ID_categoria`, `nombre`)
-                SELECT DISTINCT :destination, TRIM(COALESCE(sc.`nombre`, p.`subcategoria`))
-                FROM `producto` p
-                LEFT JOIN `sub_categoria` sc ON sc.`ID_sub_categoria` = p.`ID_sub_categoria`
-                WHERE p.`ID_categoria` = :source
-                  AND COALESCE(sc.`nombre`, p.`subcategoria`) IS NOT NULL
-                  AND TRIM(COALESCE(sc.`nombre`, p.`subcategoria`)) <> ''
-                ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`)
-            ");
-            $copySubcategories->execute([':destination' => $destinationId, ':source' => $categoryId]);
-            $moveProducts = $db->prepare("
-                UPDATE `producto` p
-                LEFT JOIN `sub_categoria` source_sub ON source_sub.`ID_sub_categoria` = p.`ID_sub_categoria`
-                LEFT JOIN `sub_categoria` destination_sub
-                    ON destination_sub.`ID_categoria` = :destination_join
-                   AND LOWER(destination_sub.`nombre`) = LOWER(TRIM(COALESCE(source_sub.`nombre`, p.`subcategoria`)))
-                SET p.`ID_categoria` = :destination_set,
-                    p.`ID_sub_categoria` = destination_sub.`ID_sub_categoria`
-                WHERE p.`ID_categoria` = :source
-            ");
-            $moveProducts->execute([
-                ':destination_join' => $destinationId,
-                ':destination_set' => $destinationId,
-                ':source' => $categoryId
-            ]);
-            $affectedProducts = $moveProducts->rowCount();
-            $delete = $db->prepare("DELETE FROM `categoria` WHERE `ID_categoria` = :id");
-            $delete->execute([':id' => $categoryId]);
-            $db->commit();
-
-            $user = getApiUser();
-            logActivity(
-                (string)($user['usuario'] ?? 'Administrador'),
-                'categoria_eliminada',
-                "Categoría '{$categoryName}' eliminada; {$affectedProducts} productos fueron reasignados a '{$destinationName}'.",
-                ['id_categoria' => $categoryId, 'id_categoria_destino' => $destinationId, 'productos_reasignados' => $affectedProducts],
-                isset($user['id']) ? (int)$user['id'] : null
-            );
-            sendJson(['ok' => true, 'message' => "Categoría '{$categoryName}' eliminada y sus productos reasignados a '{$destinationName}'."]);
         } catch (Exception $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
             error_log('Error al eliminar categoría: ' . $e->getMessage());
-            sendJson(['ok' => false, 'message' => 'No se pudo eliminar la categoría.'], 500);
+            sendJson(['ok' => false, 'message' => 'No se pudo eliminar la categoría: ' . $e->getMessage()], 500);
         }
     }
 
